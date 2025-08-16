@@ -1,0 +1,589 @@
+
+
+/* this is to make ur website so that u can scroll down */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow-x: hidden; /* prevent horizontal scroll */
+    overflow-y: auto;   /* allow vertical scroll */
+}
+
+
+
+
+/* this is the fullscreen layout using CSS Grid. The layout
+ consists of a header, sidebar, content area, extra 
+ section, and footer. this is the box where everything 
+ goes inside */
+
+
+
+@font-face {
+    font-family: "MyCustomFont1";
+    src: url("index_14_fonts/Rights.ttf") format("truetype");
+    /* src: url("index_14_fonts/Inter_18pt-Black.ttf") format("truetype"); */
+   /*  src: url("index_14_fonts/steel_armor/Steel\ Armor.ttf") format("truetype"); */
+
+}
+
+
+@font-face {
+    font-family: "MyCustomFont2";
+    src: url("index_14_fonts/Inter_18pt-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MyCustomFont3";
+    src: url("index_14_fonts/Inter_18pt-Regular.ttf") format("truetype");
+}
+@font-face {
+    font-family: "MyCustomFont4";
+    src: url("index_14_fonts/Spanish\ Adventure\ Mag.ttf") format("truetype");
+}
+
+body {
+    font-family: "MyCustomFont", sans-serif;
+}
+
+
+#fullscreen{
+    border: solid 1px #ffffff;
+    background-color: rgb(0, 0, 0);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+     min-height: 100vh;
+    height: 100vh; /* Add this */
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+
+    gap: 10px; /* space between grid items */
+    font-family:Georgia, 'Times New Roman', Times, serif
+}
+
+
+/* these are the main sections inside the grid */
+
+
+/* here you add the logo and name of the website */
+.section_header {
+   /*  border: solid 1px rgb(255, 255, 255); */
+    background-color: rgb(0, 0, 0);
+    color: rgb(255, 255, 255);
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
+    font-weight: bold;
+    font-size: 3.5rem;
+    display: flex;      
+    justify-content:left; /* Center horizontally */
+    align-content: center;
+    font-family: "MyCustomFont1", sans-serif;
+    
+   
+}
+
+
+
+/* hamburguer menu  */
+
+#bur_ul{
+    list-style: none;
+    padding: 0;        /* remove default left padding */
+    margin: 0;         /* remove default margin */
+    
+
+
+
+
+}
+
+#bur_ul_nav{
+    list-style: none;
+    
+    
+
+}
+
+
+#bur_ul_nav_div1{
+  
+    
+    
+
+}
+
+
+
+#bur_ul_nav_div2{
+    
+   
+    
+  
+    
+}
+
+
+
+
+.bur_nav_list {
+    padding: 0;
+  
+    
+    margin: 25px;  /* space between list items */
+    /* border: solid black; */
+    height: 2.5rem;
+    
+   
+    
+}
+
+
+
+.bur_nav_list a{
+   
+    text-decoration: none;  /* removes underline */
+    color: inherit;
+   
+ 
+       
+}
+
+.bur_nav_list:hover{
+
+
+    display: block;
+    background-color: rgb(255, 255, 255);
+    /* font-size: larger; */
+    color: #000000;
+
+   
+  
+
+    
+
+    
+       
+}
+
+/* hamburguer menu  */
+
+/* here u add the menu and buttons like homepage contact etc */
+
+
+
+
+
+
+/* sidebar */
+
+.section_sidebar {
+    /* border: solid 1px black; */
+    background-color: rgb(0, 0, 0);
+    grid-column: 1/3 ;
+    grid-row: 2 / 12;
+    color: #000000;
+    
+    
+    max-height: 100vh;
+
+    
+    overflow:auto;
+    
+}
+
+/* #sidebar_div_nav{
+    background-color: rgb(59, 255, 255);
+    color: black;
+    padding: 0;
+    margin: 0;
+    
+    
+    
+
+} 
+ */
+
+
+#sidebar_nav{
+    background-color: rgb(184, 219, 219);
+    color: rgb(199, 3, 3);
+    padding: 0;
+    margin: 0;
+    
+   
+  
+}
+
+#sidebar_nav_ul{
+    background-color: rgb(204, 204, 204);
+    color: rgb(0, 0, 0);
+    list-style: none;
+    border: solid 1px black;
+    padding: 0px;
+    margin: 0px;
+}
+
+
+.nav_list {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color:rgb(0, 0, 0);
+    /* background-color: tomato; */
+    color: #ffffff;
+    padding-left: 6px;
+    padding-top: 4px;
+    
+    
+}
+
+.nav_list a{
+    text-decoration: none;
+    display: block;
+   /*  border: solid 1px rgb(255, 255, 255); */
+    padding-bottom: 0.5rem;
+    padding-left: 0%;
+    margin: 0;
+    height: 3rem;
+    white-space: normal;      /* Allows text to wrap onto multiple lines */
+    word-break: break-word;   /* Breaks long words if needed */
+    overflow-wrap: break-word; /* Ensures very long words break */
+    color: #ffffff;
+    font-family: "MyCustomFont3", sans-serif;
+   
+    
+}
+
+.nav_list:hover {
+    
+   
+    background-color: rgb(249, 89, 255);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.6); /* soft dark shadow */
+    color:black ;
+    
+
+}
+
+.nav_list a:hover {
+    
+
+    color:black ;
+     font-size: 1.01rem;
+    /*  background-color: aqua; */
+    box-shadow: #ffffff;
+
+}
+
+
+/* Sidebar */
+
+
+
+
+
+
+
+
+
+
+
+/* here goes the content, text pictures video apps etc */
+.section_content {
+    
+
+    background: linear-gradient( rgb(0, 0, 0)  , rgb(0, 0, 0));  
+    grid-column: 3 / 10;
+    grid-row: 2 / 12;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+    padding-right: 1rem;
+     gap: 1rem; /* optional if using flex/column layout */
+
+
+       /* ✅ this makes it scroll */
+    grid-template-rows: auto 1fr auto; /* header, content, footer */
+    border-radius: 10px;
+    font-family: "MyCustomFont3", sans-serif;
+}
+
+
+/* #content_div_video{
+    width: 100%;
+    aspect-ratio: 16 / 9;           
+    overflow: hidden;
+    position: relative;
+
+    flex-shrink: 0; 
+}
+
+#content_div_video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;      
+    display: block;
+
+} */
+
+
+/* this is the youtube grid section  */
+
+/* #youtube_grid{
+
+    display: grid;
+    grid-template-columns:1fr ;
+    grid-template-rows:repeat(3,1fr) ;
+
+    width: 100%;
+    box-sizing: border-box;
+
+} */
+
+
+/* this is the shared class for all youtube videos*/
+
+/* 
+.video_section{
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; 
+  overflow: hidden;
+  border: solid 1px black; 
+  
+} */
+
+/* this is the class for youtube video 1,2,3*/
+
+/* .video_section iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+} */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#iframe_spotify{
+    height: 100vh;
+    width: 100%;
+}
+
+
+
+
+
+
+
+/* here goes adds for the moment or extra info 
+that changes when u press something on the sidebar */
+.section_extra {
+    /* border: solid 1px black; */
+    /* background-color: rgb(67, 43, 43); */
+    grid-column: 10/13 ;
+    grid-row: 2 / 12;
+    color: #000000;
+    font-size: 2rem;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(65, 65, 65, 0.6); /* soft dark shadow */
+    max-height: 100vh;
+    font-family: "MyCustomFont3", sans-serif;
+    
+}  
+
+#extra_text{
+    background-color:  rgb(67, 43, 43);
+    width: 100%;
+    height: 100%;
+    font-size: 1.25rem;
+
+    overflow-y: auto;   /* ✅ this makes it scroll */
+    height: auto;
+    min-height: 0;
+    overflow-y: auto;
+    grid-template-rows: auto 1fr auto; /* header, content, footer */
+    box-sizing: border-box;
+    background-image: url('index_14_imagenes/imagen_1.jpg'); /* your image path */
+    background-size: cover;                  /* scale image to fill the div */
+    background-position: center;             /* center the image */
+    background-repeat: no-repeat;            /* prevent tiling */
+  
+    padding: 20px;        /* space inside */
+    color: white;         /* makes text readable if image is dark */
+    font-size: 18px;      /* example styling */
+    border-radius: 10px;
+}
+
+
+/* here goes the contact info legal things and submit forms etc */
+.section_footer {
+    color: #ffffff;
+    /* border: solid 1px black; */
+    background-color: rgb(59, 59, 59);
+    grid-column: 1 / -1;
+    grid-row: 12 / 13;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    font-size: 1.75rem;
+    font-family: "MyCustomFont3", sans-serif;
+    padding: 0.5rem;
+    
+}
+
+h1{
+    color: white;
+    font-size:  1.618rem; /* gplden ratio for font sizes */
+    margin-bottom: 1.5rem; /* ✅ more balanced */
+    font-family: "MyCustomFont2", sans-serif;
+    font-size: xx-large;
+}
+
+
+
+
+
+
+
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c6c6c6;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff;
+}
+
+
+
+
+
+
+#burg_menu_button_div{
+   /*  border: #ffffff; */
+    display: flex;
+    justify-content: flex-end; /* pushes icon to far right */
+    flex: 1; /* makes div take up all remaining horizontal space */
+  
+}
+
+ 
+
+/* hamburguer menu button */
+
+#button{
+    background: black;
+    border: none;
+}
+
+#burguer_button{
+    color: rgb(249, 89, 255);
+    padding-top: 5px;
+    cursor: pointer;
+   
+    
+}
+
+
+#pop_sidebar{
+    background-color: rgb(249, 89, 255);
+    color: rgb(255, 255, 255);
+    width: 33%;
+    height: 100vh;
+    position: fixed;
+    right: 67%;
+    font-weight: bolder;
+    border: none;
+    font-family: "MyCustomFont3", sans-serif;
+    
+
+}
+
+/* hamburguer menu button */
+
+
+
+/* closing burger menu button */
+#burguer_button_2{
+    color: rgb(249, 89, 255);
+    padding-top: 5px;
+    cursor: pointer;
+
+   
+    
+}
+
+
+/* closing burger menu button */
+
+
+
+
+
+/* /////////////////////////////////////////////////////////////////////////////// */
+/*  media query this is for responsiveness of the 
+website in smaller screens 768 change this when finished now 
+its less jus so u can work with the full layout
+on divided screen to see both visual studio and web*/
+
+@media (max-width:768px) {
+    #fullscreen {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+/* these are the main sections inside the grid */
+
+.section_header {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+    }
+.section_sidebar {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+        display: none; /* initially hidden then make it appear with javascript*/
+    }
+.section_content {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+    }
+.section_extra {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+        max-height: 200px;
+        overflow-y: auto;
+        font-size: 1rem;
+       
+    }
+.section_footer {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+    }
+
+/* here you add the logo and name of the website */
+
+
+
+
+}
+
+
+
