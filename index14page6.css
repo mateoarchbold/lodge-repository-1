@@ -1,0 +1,690 @@
+
+
+/* this is to make ur website so that u can scroll down */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow-x: hidden; /* prevent horizontal scroll */
+    overflow-y: auto;   /* allow vertical scroll */
+}
+
+
+@font-face {
+    font-family: "MyCustomFont1";
+    src: url("index_14_fonts/Rights.ttf") format("truetype");
+    /* src: url("index_14_fonts/Inter_18pt-Black.ttf") format("truetype"); */
+   /*  src: url("index_14_fonts/steel_armor/Steel\ Armor.ttf") format("truetype"); */
+
+}
+
+
+@font-face {
+    font-family: "MyCustomFont2";
+    src: url("index_14_fonts/Inter_18pt-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MyCustomFont3";
+    src: url("index_14_fonts/Inter_18pt-Regular.ttf") format("truetype");
+}
+@font-face {
+    font-family: "MyCustomFont4";
+    src: url("index_14_fonts/Spanish\ Adventure\ Mag.ttf") format("truetype");
+}
+
+body {
+    font-family: "MyCustomFont", sans-serif;
+}
+
+
+/* this is the fullscreen layout using CSS Grid. The layout
+ consists of a header, sidebar, content area, extra 
+ section, and footer. this is the box where everything 
+ goes inside */
+
+
+ 
+
+#fullscreen{
+    border: solid 1px #ffffff;
+    background-color: rgb(0, 0, 0);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(12, 1fr);
+    height: 100vh;
+    gap: 10px; /* space between grid items */
+    border: 1px dashed red;
+ 
+    font-family:Georgia, 'Times New Roman', Times, serif
+}
+
+
+/* these are the main sections inside the grid */
+
+
+/* here you add the logo and name of the website */
+.section_header {
+   /*  border: solid 1px rgb(255, 255, 255); */
+    background-color: rgb(0, 0, 0);
+    color: rgb(255, 255, 255);
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
+    font-weight: bold;
+    font-size: 3.236rem;
+    display: flex;      
+    justify-content:left; /* Center horizontally */
+    align-content: center;
+    font-family: "MyCustomFont1", sans-serif;
+    
+   
+}
+
+
+
+
+
+
+/* hamburguer menu  */
+
+#bur_ul{
+    list-style: none;
+    padding: 0;        /* remove default left padding */
+    margin: 0;         /* remove default margin */
+    
+
+
+
+
+}
+
+#bur_ul_nav{
+    list-style: none;
+    
+    
+
+}
+
+
+#bur_ul_nav_div1{
+  
+    
+    
+
+}
+
+
+
+#bur_ul_nav_div2{
+    
+   
+    
+  
+    
+}
+
+
+
+
+.bur_nav_list {
+    padding: 0;
+  
+    
+    margin: 25px;  /* space between list items */
+    /* border: solid black; */
+    height: 2.5rem;
+    
+   
+    
+}
+
+
+
+.bur_nav_list a{
+   
+    text-decoration: none;  /* removes underline */
+    color: inherit;
+   
+ 
+       
+}
+
+.bur_nav_list:hover{
+
+
+    display: block;
+    background-color: rgb(255, 255, 255);
+    /* font-size: larger; */
+    color: #000000;
+
+   
+  
+
+    
+
+    
+       
+}
+
+/* hamburguer menu  */
+
+
+
+
+
+/* sidebar */
+
+.section_sidebar {
+    /* border: solid 1px black; */
+    background-color: rgb(0, 0, 0);
+    grid-column: 1/3 ;
+    grid-row: 2 / 12;
+    color: #000000;
+    
+    
+    max-height: 100vh;
+
+    
+    overflow:auto;
+    
+}
+
+/* #sidebar_div_nav{
+    background-color: rgb(59, 255, 255);
+    color: black;
+    padding: 0;
+    margin: 0;
+    
+    
+    
+
+} 
+ */
+
+
+#sidebar_nav{
+    background-color: rgb(184, 219, 219);
+    color: rgb(199, 3, 3);
+    padding: 0;
+    margin: 0;
+    
+   
+  
+}
+
+#sidebar_nav_ul{
+    background-color: rgb(204, 204, 204);
+    color: rgb(0, 0, 0);
+    list-style: none;
+    border: solid 1px black;
+    padding: 0px;
+    margin: 0px;
+}
+
+
+.nav_list {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color:rgb(0, 0, 0);
+    /* background-color: tomato; */
+    color: #ffffff;
+    padding-left: 6px;
+    padding-top: 4px;
+    
+    
+}
+
+.nav_list a{
+    text-decoration: none;
+    display: block;
+   /*  border: solid 1px rgb(255, 255, 255); */
+    padding-bottom: 0.5rem;
+    padding-left: 0%;
+    margin: 0;
+    height: 3rem;
+    white-space: normal;      /* Allows text to wrap onto multiple lines */
+    word-break: break-word;   /* Breaks long words if needed */
+    overflow-wrap: break-word; /* Ensures very long words break */
+    color: #ffffff;
+    font-family: "MyCustomFont3", sans-serif;
+   
+    
+}
+
+.nav_list:hover {
+    
+   
+    background-color: rgb(249, 89, 255);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.6); /* soft dark shadow */
+    color:black ;
+    
+
+}
+
+.nav_list a:hover {
+    
+
+    color:black ;
+     font-size: 1.01rem;
+    /*  background-color: aqua; */
+    box-shadow: #ffffff;
+
+}
+
+
+/* Sidebar */
+
+
+
+
+
+
+
+
+
+
+
+/* here goes the content, text pictures video apps etc */
+.section_content {
+   /*  background: linear-gradient( rgb(225, 178, 178)  , rgb(0, 0, 0));   */
+    background: linear-gradient(rgb(27, 26, 26), rgb(0, 0, 0));
+
+ /*  background: linear-gradient(to bottom, rgb(218, 181, 99)  */
+    grid-column: 3 / 13;
+    grid-row: 2 / 12;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+
+
+    overflow-y: auto;   /* ✅ this makes it scroll */
+    height: auto;
+    min-height: 0;
+    overflow-y: auto;
+    grid-template-rows: auto 1fr auto; /* header, content, footer */
+    border-radius: 10px;
+    font-family: "MyCustomFont3", sans-serif;
+}
+
+
+#content_div_video{
+    width: 100%;
+    aspect-ratio: 16 / 9;           /* or use aspect-ratio instead */
+    overflow: hidden;
+    position: relative;
+
+
+    flex-shrink: 0; /* ⛔ Don't let it shrink */
+}
+
+#content_div_video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;      /* or 'cover' depending on your preference */
+    display: block;
+
+}
+
+
+/* this is the youtube grid section  */
+
+#youtube_grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 3 columns */
+    gap: 40px;
+    padding: 20px;
+   
+}
+
+.video_cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    
+}
+
+.video_cell iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    border-radius: 8px;
+}
+
+.video_cell h2 {
+    text-align: center;
+    font-size: 1rem;
+    margin-top: 10px;
+    color: black;
+}
+
+
+.beat_container{
+    border-radius: 20px;
+}
+
+
+
+
+/* this is everything inside content  */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #fff;
+    }
+
+    section {
+      padding: 50px 20px;
+      max-width: 900px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 40px;
+    }
+
+    .services {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    .service {
+      background: #222;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+      transition: transform 0.3s;
+    }
+
+    .service:hover {
+      transform: translateY(-5px);
+    }
+
+    .service h2 {
+      font-size: 1.8rem;
+      margin-bottom: 15px;
+      color: #ffffff; /* orange accent */
+    }
+
+    .service p {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #ddd;
+    }
+
+/* this is everything inside content  */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* here goes the contact info legal things and submit forms etc */
+.section_footer {
+    color: #ffffff;
+    /* border: solid 1px black; */
+    background-color: rgb(59, 59, 59);
+    grid-column: 1 / -1;
+    grid-row: 12 / 13;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    font-size: 1.75rem;
+    font-family: "MyCustomFont3", sans-serif;
+    padding: 0.5rem;
+    
+}
+
+
+h1{
+    color: white;
+    font-size: 1.618rem;
+
+}
+
+p{
+    color: #ffffff;
+}
+
+
+h2{
+    color: white;
+    padding-top: 10px;
+    padding-bottom: 40px;
+    font-size: 1.618rem;
+}
+
+
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c6c6c6;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff;
+}
+
+
+
+
+
+/* hamburguer menu button */
+#burg_menu_button_div{
+   /*  border: #ffffff; */
+    display: flex;
+    justify-content: flex-end; /* pushes icon to far right */
+    flex: 1; /* makes div take up all remaining horizontal space */
+  
+}
+
+ 
+
+
+
+#button{
+    background: black;
+    border: none;
+}
+
+#burguer_button{
+    color: rgb(249, 89, 255);
+    padding-top: 5px;
+    cursor: pointer;
+   
+    
+}
+
+
+#pop_sidebar{
+    background-color:  rgb(249, 89, 255);
+    color: rgb(255, 255, 255);
+    width: 33%;
+    height: 100vh;
+    position: fixed;
+    right: 67%;
+    font-weight: bolder;
+    border: none;
+    font-family: "MyCustomFont3", sans-serif;
+    
+
+}
+
+/* hamburguer menu button */
+
+
+
+/* closing burger menu button */
+#burguer_button_2{
+    color: rgb(249, 89, 255);
+    padding-top: 5px;
+    cursor: pointer;
+
+   
+    
+}
+
+
+/* closing burger menu button */
+
+
+
+
+/* /////////////////////////////////////////////////////////////////////////////// */
+/*  media query this is for responsiveness of the 
+website in smaller screens 940 change this when finished now 
+this 940is aprox what youtube uses to get two videos 
+its less jus so u can work with the full layout
+on divided screen to see both visual studio and web*/
+
+@media (max-width:940px) {
+    #fullscreen {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+
+
+
+#youtube_grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 3 columns */
+ 
+}
+}
+
+
+.video_cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.video_cell iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    border-radius: 8px;
+}
+
+.video_cell h2 {
+    text-align: center;
+    font-size: 1rem;
+    margin-top: 10px;
+    color: black;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* /////////////////////////////////////////////////////////////////////////////// */
+/*  media query this is for responsiveness of the 
+website in smaller screens 768 change this when finished now 
+its less jus so u can work with the full layout
+on divided screen to see both visual studio and web*/
+
+@media (max-width:768px) {
+    #fullscreen {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+/* these are the main sections inside the grid */
+
+.section_header {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+    }
+.section_sidebar {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+        display: none; /* initially hidden then make it appear with javascript*/
+    }
+.section_content {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+    }
+
+#youtube_grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr); /* 3 columns */
+    gap: 20px;
+    padding: 20px;
+}
+
+.video_cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.video_cell iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    border-radius: 8px;
+}
+
+.video_cell h2 {
+    text-align: center;
+    font-size: 1rem;
+    margin-top: 10px;
+    color: black;
+}
+
+
+
+
+
+
+
+.section_footer {
+        grid-column: 1 / -1;
+        grid-row: auto; /* Let the height be decided by content */
+    }
+
+/* here you add the logo and name of the website */
+
+
+#pop_sidebar {
+  /* This ensures the sidebar doesn't shrink to an unreadable size on small screens */
+  width: 50vw;
+  min-width: 150px;
+}
+
+.bur_nav_list a {
+  white-space: normal;
+  word-break: break-word;
+}
+
+}
+
+
+
