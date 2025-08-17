@@ -65,7 +65,7 @@ body {
 /* here you add the logo and name of the website */
 .section_header {
    /*  border: solid 1px rgb(255, 255, 255); */
-    background-color: rgb(178, 0, 0);
+    background-color: rgb(0, 0, 0);
     color: rgb(255, 255, 255);
     grid-column: 1 / -1;
     grid-row: 1 / 2;
@@ -462,7 +462,7 @@ h2{
 
 
 #pop_sidebar{
-    background-color: rgb(211, 72, 169);
+    background-color:  rgb(249, 89, 255);
     color: rgb(255, 255, 255);
     width: 33%;
     height: 100vh;
@@ -621,7 +621,16 @@ on divided screen to see both visual studio and web*/
 /* here you add the logo and name of the website */
 
 
+#pop_sidebar {
+  /* This ensures the sidebar doesn't shrink to an unreadable size on small screens */
+  width: 50vw;
+  min-width: 150px;
+}
 
+.bur_nav_list a {
+  white-space: normal;
+  word-break: break-word;
+}
 
 }
 

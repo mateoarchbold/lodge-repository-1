@@ -693,6 +693,17 @@ on divided screen to see both visual studio and web*/
 
 
 
+#pop_sidebar {
+  /* This ensures the sidebar doesn't shrink to an unreadable size on small screens */
+  width: 50vw;
+  min-width: 150px;
+}
+
+.bur_nav_list a {
+  white-space: normal;
+  word-break: break-word;
+}
+
 
 }
 

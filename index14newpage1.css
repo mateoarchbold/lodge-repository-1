@@ -553,7 +553,7 @@ h2{
 
 
 #pop_sidebar{
-    background-color: rgb(211, 72, 169);
+    background-color:  rgb(249, 89, 255);
     color: rgb(255, 255, 255);
     width: 33%;
     height: 100vh;
@@ -640,6 +640,17 @@ on divided screen to see both visual studio and web*/
     }
 
 /* here you add the logo and name of the website */
+
+#pop_sidebar {
+  /* This ensures the sidebar doesn't shrink to an unreadable size on small screens */
+  width: 50vw;
+  min-width: 150px;
+}
+
+.bur_nav_list a {
+  white-space: normal;
+  word-break: break-word;
+}
 
 }
 
