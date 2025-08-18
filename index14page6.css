@@ -287,7 +287,7 @@ body {
 /* here goes the content, text pictures video apps etc */
 .section_content {
    /*  background: linear-gradient( rgb(225, 178, 178)  , rgb(0, 0, 0));   */
-    background: linear-gradient(rgb(27, 26, 26), rgb(0, 0, 0));
+    background: linear-gradient(rgb(252, 76, 255), rgb(0, 0, 0));
 
  /*  background: linear-gradient(to bottom, rgb(218, 181, 99)  */
     grid-column: 3 / 13;
@@ -452,7 +452,8 @@ body {
 
 h1{
     color: white;
-    font-size: 1.618rem;
+    font-size: 2.3rem;
+    font-family: Arial, sans-serif;
 
 }
 
@@ -466,6 +467,7 @@ h2{
     padding-top: 10px;
     padding-bottom: 40px;
     font-size: 1.618rem;
+    
 }
 
 

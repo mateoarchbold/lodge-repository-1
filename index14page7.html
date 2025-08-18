@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="index14page7.css">
+    <title>Document</title>
+</head>
+
+<body>
+<div id="fullscreen">
+    <header 
+        class="section section_header"><!-- header --> 
+        LODGE
+
+
+        <div id="burg_menu_button_div" >
+            <button popovertarget="pop_sidebar" id="button" >
+                <svg  id="burguer_button"
+                    class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6H6m12 4H6m12 4H6m12 4H6"/>
+                </svg>   
+            </button>
+
+            
+
+
+        </div>
+    </header>
+
+
+
+ 
+    <div 
+    
+    
+        popover="pop_sidebar"
+        id="pop_sidebar">
+
+
+        <button    popovertarget="pop_sidebar" id="button"  >
+                <svg  id="burguer_button_2"
+                    class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6H6m12 4H6m12 4H6m12 4H6"/>
+                </svg>   
+        </button>
+
+
+        <div class="bur_ul_nav_div2"><!-- sidebar -->
+        <div id="bur_ul_nav_div1">
+            <nav id="bur_ul_nav"> 
+                <ul id="bur_ul">
+                    <li class="bur_nav_list"> <a href="index.html">Home</a></li>
+                    <li class="bur_nav_list"> <a href="index14page2.html">Songwriter/Producer Spotify</a></li>
+                    <li class="bur_nav_list"> <a href="index14page3.html">Songwriter/Producer Youtube</a></li>
+                    <li class="bur_nav_list"><a href="index14page4.html">Netflix</a></li>
+                    <li class="bur_nav_list"> <a href="index14page5.html">Beats</a></li>
+                    <li class="bur_nav_list"> <a href="index14_page6.html">Servicios</a></li>
+                   <!--  <li class="bur_nav_list"> <a href="index14page7.html">Clothing</a></li> -->
+                    <li class="bur_nav_list"> <a href="index14page8.html">Artist Page</a></li>
+                </ul>
+            </nav>
+        </div>
+
+           
+
+
+
+        
+    </div>
+
+
+
+
+        
+        
+        
+        
+    </div>
+    <main class="section section_content"><!-- content -->
+        
+    <h1 >
+        Clothing
+<!--         <img  src="index_14_icons/music.png" alt="icon description" width="45" height="45" /> -->
+    </h1>
+
+
+
+<div>
+
+
+
+<p style="color: rgb(0, 0, 0);">Under Construction</p>
+<!-- content section -->
+ <img src="index_14_icons/under_construction1.svg"under construction width="400vh" style="font-weight: bolder;">
+
+
+
+
+<!-- content section -->
+
+</div>
+        
+
+    
+
+
+
+
+
+
+
+    </main>
+    <div class="section section_sidebar"><!-- sidebar -->
+        <div id="sidebar_div_nav">
+            <nav id="sidebar_nav"> 
+                <ul id="sidebar_nav_ul">
+                    <li class="nav_list"> <a href="index.html">Home</a></li>
+                    <li class="nav_list"> <a href="index14page2.html">Songwriter/Producer Spotify</a></li>
+                    <li class="nav_list"> <a href="index14page3.html">Songwriter/Producer Youtube</a></li>
+                    <li class="nav_list"> <a href="index14page4.html">Netflix</a></li>
+                    <li class="nav_list"> <a href="index14page5.html">Beats</a></li>
+                    <li class="nav_list"> <a href="index14_page6.html">Servicios</a></li>
+                   <!--  <li class="nav_list"> <a href="index14page7.html">Clothing</a></li> -->
+                    <li class="nav_list"> <a href="index14page8.html">Artist Page</a></li>
+                </ul>
+
+
+            </nav>
+
+
+
+        </div>
+    </div>
+
+    
+
+
+
+  
+    </div>
+    <footer class="section section_footer">© 2025 Lodge | All rights reserved</footer>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+    
+</body>
+</html>
+
+
+
+<!--   copy and paste this code into python so that 
+   you only input the songs youtube url and the name 
+   and it returns the image of the youtube song 
+   and is linked to the youtube video so taht when you click 
+   it on your website it redirects you to the youtube
+   video
+
+import urllib.parse as urlparse
+
+def generate_video_html(video_url, title):
+    # Parse the video ID from the URL
+    parsed = urlparse.urlparse(video_url)
+    query = urlparse.parse_qs(parsed.query)
+    video_id = query.get('v', [None])[0]
+
+    if not video_id:
+        return "Invalid YouTube URL."
+
+    # Use the reliable thumbnail
+    thumbnail_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+    direct_link = f"https://www.youtube.com/watch?v={video_id}"
+
+    # Generate HTML
+    html = f"""
+<div>
+  <a href="{direct_link}" target="_blank">
+    <img 
+      src="{thumbnail_url}" 
+      alt="Watch on YouTube" 
+      style="width:100%; max-width:600px; aspect-ratio:16/9; object-fit:cover; border-radius:8px; cursor:pointer;">
+  </a>
+  <h2 style="color:white;">{title}</h2>
+</div>
+    """.strip()
+
+    return html
+
+
+# Example usage:
+video_url = input("Paste the full YouTube video URL: ")
+title = input("Enter the song title and artist: ")
+
+html_output = generate_video_html(video_url, title)
+print("\nPaste this into your website HTML:\n")
+print(html_output)
+ -->
