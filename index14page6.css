@@ -286,10 +286,15 @@ body {
 
 /* here goes the content, text pictures video apps etc */
 .section_content {
-   /*  background: linear-gradient( rgb(225, 178, 178)  , rgb(0, 0, 0));   */
-    background: linear-gradient(rgb(252, 76, 255), rgb(0, 0, 0));
+   /*  background-image: url(index_14_imagenes/Ableton1.png )  ; */
+    
 
- /*  background: linear-gradient(to bottom, rgb(218, 181, 99)  */
+    
+ 
+
+    background: linear-gradient(rgb(252, 76, 255), rgb(0, 0, 0));
+    
+
     grid-column: 3 / 13;
     grid-row: 2 / 12;
     display: flex;
@@ -414,6 +419,13 @@ body {
       font-size: 1rem;
       line-height: 1.6;
       color: #ddd;
+    }
+
+
+    #wp_container{
+        display: flex;
+        justify-content: end;
+        align-items: end;
     }
 
 /* this is everything inside content  */
