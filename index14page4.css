@@ -317,7 +317,7 @@ body {
 /* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
 /* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
 #netflix_grid {
-     display: grid;
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
   gap: 20px; /* spacing between videos */
   width: 100%;
@@ -341,7 +341,7 @@ body {
 .div_2{
    /*  background-color: aqua; */
     width: 100%;
-    height: 100%;
+   /*  height: 100%; */ /* this is the one that was making too much space between each group of video and text */
   
     /* border: solid black; */ /* when u finish convert to comment this one  */
     display: flex;
