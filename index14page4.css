@@ -4,12 +4,16 @@
 html, body {
     height: 100%;
     margin: 0;
-    padding: 0 ;
     overflow-x: hidden; /* prevent horizontal scroll */
     overflow-y: auto;   /* allow vertical scroll */
- 
+   
 }
 
+
+* {
+    box-sizing: border-box;
+      
+}
 
 @font-face {
     font-family: "MyCustomFont1";
@@ -77,10 +81,13 @@ body {
     justify-content:left; /* Center horizontally */
     align-content: center;
     font-family: "MyCustomFont1", sans-serif;
-    font-size: 50px;
     
    
 }
+
+
+
+
 
 
 /* hamburguer menu  */
@@ -165,6 +172,8 @@ body {
 }
 
 /* hamburguer menu  */
+
+
 
 
 
@@ -281,174 +290,71 @@ body {
 
 
 
-
 /* here goes the content, text pictures video apps etc */
 .section_content {
-     background: linear-gradient( rgb(244, 52, 52)  , rgb(0, 0, 0));
-    
-  /*   background: linear-gradient( rgb(93, 46, 124)  , rgb(0, 0, 0));   */
-   /*  background: linear-gradient(to bottom, rgb(218, 181, 99) */ /*  rgb(93, 46, 124) */  
+ background: linear-gradient( rgb(93, 46, 124), rgb(0, 0, 0));  
+/* 
+    background: linear-gradient(rgb(27, 26, 26), rgb(0, 0, 0)); */
     grid-column: 3 / 13;
     grid-row: 2 / 12;
     display: flex;
     flex-direction: column;
     padding: 2rem;
-    border-radius: 10px;
-
-
     overflow-y: auto;   /* ✅ this makes it scroll */
     height: auto;
     min-height: 0;
     overflow-y: auto;
     grid-template-rows: auto 1fr auto; /* header, content, footer */
+    border-radius: 10px;
     font-family: "MyCustomFont3", sans-serif;
-
 }
 
 
-/* this is the main container , this is the one that will have inside all the videos and songs */
-#grid_container{
-    display: grid;
-   /*  background-color: aqua; */
+
+
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+#netflix_grid {
+     display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
+  gap: 20px; /* spacing between videos */
+  width: 100%;
+  grid-auto-rows: 1fr; /* make all rows equal height */
+  
+
+   
+}
+
+
+
+#div_1{
     width: 100%;
-    height: auto;
-    grid-template-rows: auto;
-
-
-
-}
-
-
-/* this is the grid inside the main container, if we only have 3 songs this will divide the main container into 3 parts */
-
-.grid_section{
-   /*  background-color: beige; */
+    height: 100%;
     display: flex;
     flex-direction: column;
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    /* border: 1px solid rgb(0, 0, 0); */
-    box-sizing: border-box;
-    height: 100vh;/* //////////////// */
     
 
-
-
 }
 
-/*  this is the sub container, this is the container inside each section
-this one will have the grid that will be divided into 3 parts, one for the movie, one for the song and one for the text, the movie one ocupies half and the other ones 25 percent each */
-.sub_grid_container{
-   /*  background-color: blueviolet; */
+.div_2{
+   /*  background-color: aqua; */
     width: 100%;
-    height: 100vh;
-    display: grid;
-    grid-template-columns:repeat(2,1fr) ;
-    grid-template-rows: repeat(2,1fr);
-}
-
-
-/* this will be the blocks into wich is divided each section (container is divided in sections and sections in blocks here) */
-.sub_grid_block{
-/*     border:solid #000000; */
-pad: 0px;
-margin: 0px;
-
-    
-}
-
-/* this will only select one of the blocks inside the sub grid */
-
-.sub1{
-    /* background-color: rgb(237, 139, 121); */
-    grid-row: 1/2;
-    grid-row: 1/2;
-    padding: 1rem;
-    
-}
-
-.sub2{
-   /*  background-color: rgb(42, 162, 44); */
-    grid-row: 2/3;
-    grid-row: 2/3;
-}
-
-.sub3{
-    /* background-color: rgb(43, 112, 215); */
-    grid-row: 2/3;
-    grid-row: 1/2;
-    padding: 1rem;
-
-}
-
-.sub4{
-   /*  background-color: rgb(42, 162, 44); */
-    grid-row: 2/3;
-    grid-row: 2/3;
-}
-
-.sub5{
-    /* background-color: rgb(43, 112, 215); */
-    grid-row: 2/3;
-    grid-row: 1/2;
-    padding: 1rem;
-
-}
-
-
-
-
-
-
-
-iframe{
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    max-width: 800px; /* optional: limits how wide it can be */
- 
-}
-
-
-
-.video-same-as-iframe {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    height: auto;
-    display: block;
-    border: none;
-}
-
-
-/* from here one goes the new and cleaner format for each movie and series video / description section and song video */
-
-
-.media-block {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+    height: 100%;
   
-  border-top: 2px solid #ccc;
-}
+    /* border: solid black; */ /* when u finish convert to comment this one  */
+    display: flex;
+    flex-direction: row;
+    box-sizing: content-box;
+    margin: 0px;
+    
+    padding: 0px;
+    gap: 20px;
+    align-items: flex-start;
 
-.media-item {
-  width: 100%;
-  max-width: 500px;
-  text-align: center;
-}
-
-.media-item iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.media-title {
-  font-size: 1.1rem;
- 
-  color: #ffffff;
+    
+    
 }
 
 
@@ -456,9 +362,101 @@ iframe{
 
 
 
+.div_3{
+    
+   /*  background-color: rgb(46, 46, 46); */
+    width: 100%;
+   /*  border: solid;  */ /* when u finish convert to comment this one  */
+    margin: 0px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    height: 100%; /* fill the grid cell */
 
 
-/* from here backwards goes the new and cleaner format for each movie and series video / description section and song video */
+}
+
+.div_3.b{
+    height: auto;
+}
+
+
+
+.div_4{
+    
+    background-color: antiquewhite;
+    width: 50%;
+    height: 100%;
+    border: solid;
+    margin: 0px;
+    position: relative;
+
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    
+
+
+
+}
+
+
+.youtube{
+    width: 100%;
+    aspect-ratio: 16 / 9; /* YouTube ratio */
+ /*    padding-right: 1rem; */
+   /*  border-radius: 10px; */
+   display: block;
+   flex-shrink: 0; /* prevents shrinking */
+
+    
+}
+
+
+
+
+
+
+
+
+.youtube_title{
+    height: 2rem;
+    display: block;
+    margin-bottom:1.85rem;
+    flex-shrink: 0;
+    
+
+}
+
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+/* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -482,36 +480,27 @@ iframe{
 
 h1{
     color: white;
-    font-family: "MyCustomFont3", sans-serif;
-    font-size: 1.75rem;
+    font-size: 2rem;
+
 
 }
 
 p{
     color: #ffffff;
-    font-family: "MyCustomFont3", sans-serif;
-    margin: 0px;
+
 }
 
 
 h2{
     color: white;
-   
-    padding-bottom: 40px;
-    font-size: 1.3rem;
-    font-family: "MyCustomFont3", sans-serif;
+    font-size: 1.68rem;
+
+    font-weight: bold;
 }
 
-
-h3{
-    color: white;
-    padding-top: 10px;
-    padding-bottom: 40px;
-    font-size: 1.618rem;
+p{
+    font-size: 1rem;
 }
-
-
-
 
 
 /* Chrome, Edge, Safari */
@@ -558,7 +547,7 @@ h3{
 
 
 #pop_sidebar{
-    background-color: rgb(249, 89, 255);
+    background-color:  rgb(249, 89, 255);
     color: rgb(255, 255, 255);
     width: 33%;
     height: 100vh;
@@ -589,6 +578,8 @@ h3{
 /* closing burger menu button */
 
 
+
+
 /* /////////////////////////////////////////////////////////////////////////////// */
 /*  media query this is for responsiveness of the 
 website in smaller screens 940 change this when finished now 
@@ -596,17 +587,6 @@ this 940is aprox what youtube uses to get two videos
 its less jus so u can work with the full layout
 on divided screen to see both visual studio and web*/
 
-@media (max-width:940px) {
-    #fullscreen {
-        display: grid;
-        grid-template-columns: 1fr;
-        grid-template-rows: auto;
-    }
-
-
-
-
-}
 
 
 
@@ -639,43 +619,22 @@ on divided screen to see both visual studio and web*/
 
 .section_header {
         grid-column: 1 / -1;
-        grid-row: auto; /* Let the height be decided by content */
+        grid-row: auto; 
     }
 .section_sidebar {
         grid-column: 1 / -1;
-        grid-row: auto; /* Let the height be decided by content */
+        grid-row: auto; 
         display: none; /* initially hidden then make it appear with javascript*/
     }
 .section_content {
         grid-column: 1 / -1;
-        grid-row: auto; /* Let the height be decided by content */
+        
     }
 
-#youtube_grid {
-    display: grid;
-    grid-template-columns: repeat(1, 1fr); /* 3 columns */
-    gap: 20px;
-    padding: 20px;
-}
 
-.video_cell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
-.video_cell iframe {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    border: none;
-    border-radius: 8px;
-}
-
-.video_cell h2 {
-    text-align: center;
-    font-size: 1rem;
-    margin-top: 10px;
-    color: black;
+#netflix_grid {
+  grid-template-columns: 1fr; /* force 1 video per row on mobile */
 }
 
 
@@ -692,7 +651,6 @@ on divided screen to see both visual studio and web*/
 /* here you add the logo and name of the website */
 
 
-
 #pop_sidebar {
   /* This ensures the sidebar doesn't shrink to an unreadable size on small screens */
   width: 50vw;
@@ -703,7 +661,6 @@ on divided screen to see both visual studio and web*/
   white-space: normal;
   word-break: break-word;
 }
-
 
 }
 
