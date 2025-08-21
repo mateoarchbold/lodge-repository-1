@@ -408,9 +408,13 @@ h1{
 
 }
 
-p{
+.txt{
     color: #ffffff;
+    margin-bottom: 0;      /* Removes default top and bottom margin */
+    padding-bottom: 0;     /* Removes default padding, if any */
+    font-size: 1.14rem;
 }
+
 
 
 h2{
