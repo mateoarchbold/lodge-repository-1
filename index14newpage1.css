@@ -446,6 +446,7 @@ that changes when u press something on the sidebar */
     justify-content: center;
     box-shadow: 0 4px 12px rgba(65, 65, 65, 0.6); /* soft dark shadow */
     max-height: 100vh;
+    font-family: "MyCustomFont3", sans-serif;
     
 }  
 
@@ -582,8 +583,6 @@ h2{
 
 
 /* closing burger menu button */
-
-
 
 
 

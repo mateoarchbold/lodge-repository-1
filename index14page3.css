@@ -292,8 +292,6 @@ body {
 
 
 
-
-
 /* here goes the content, text pictures video apps etc */
 .section_content {
     background: linear-gradient( rgb(93, 46, 124), rgb(0, 0, 0));  
@@ -436,8 +434,10 @@ h1{
 
 p{
     color: #ffffff;
-    font-family: "MyCustomFont3", sans-serif;
-    font-size: .618rem;
+    font-family: "MyCustomFont2", sans-serif;
+    font-size: 1.2rem;
+    margin: 0px;
+    padding: 0px;
 }
 
 

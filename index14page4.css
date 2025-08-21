@@ -322,7 +322,7 @@ body {
   gap: 20px; /* spacing between videos */
   width: 100%;
   grid-auto-rows: 1fr; /* make all rows equal height */
-  
+
 
    
 }
@@ -437,6 +437,13 @@ body {
   margin: 40px 0;           /* spacing */
   width: 100%;              /* full width */
 }
+
+
+.txt {
+    margin-bottom: 0;      /* Removes default top and bottom margin */
+    padding-bottom: 0;     /* Removes default padding, if any */
+}
+
 
 
 /* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
