@@ -429,6 +429,16 @@ body {
 
 }
 
+
+
+.section-divider {
+  border: none;             /* remove default */
+  border-top: 2px solid #ccc; /* thickness & color */
+  margin: 40px 0;           /* spacing */
+  width: 100%;              /* full width */
+}
+
+
 /* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
 /* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
 /* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  *//* this is the youtube grid section  */
@@ -580,6 +590,8 @@ p{
 
 
 
+
+
 /* /////////////////////////////////////////////////////////////////////////////// */
 /*  media query this is for responsiveness of the 
 website in smaller screens 940 change this when finished now 
@@ -638,6 +650,15 @@ on divided screen to see both visual studio and web*/
 }
 
 
+
+
+
+
+
+
+.div_2{
+    flex-direction: column;
+}
 
 
 
