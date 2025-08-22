@@ -50,8 +50,9 @@ body {
     background-color: rgb(0, 0, 0);
     display: grid;
     grid-template-columns: repeat(12, 1fr);
-    grid-template-rows: repeat(12, 1fr);
-    height: 100vh;
+        grid-template-rows: auto 1fr auto; /* header, main content, footer */
+    min-height: 100vh;
+    height: auto;
     gap: 10px; /* space between grid items */
     border: 1px dashed red;
  
@@ -424,8 +425,16 @@ body {
 
     #wp_container{
         display: flex;
-        justify-content: end;
+        justify-content: flex-end;
         align-items: end;
+        margin: 20px; /* adjust spacing from bottom/right */
+
+        position: fixed;   /* makes it stay in view */
+        bottom: 58px;      /* distance from bottom */
+        right: 15px;       /* distance from right */
+        z-index: 9999;     /* stay above other elements */
+        
+        
     }
 
 /* this is everything inside content  */
@@ -575,6 +584,7 @@ on divided screen to see both visual studio and web*/
         display: grid;
         grid-template-columns: 1fr;
         grid-template-rows: auto;
+
     }
 
 
@@ -631,6 +641,8 @@ on divided screen to see both visual studio and web*/
         display: grid;
         grid-template-columns: 1fr;
         grid-template-rows: auto;
+        min-height: 100vh;
+        height: auto;
     }
 /* these are the main sections inside the grid */
 
@@ -646,6 +658,7 @@ on divided screen to see both visual studio and web*/
 .section_content {
         grid-column: 1 / -1;
         grid-row: auto; /* Let the height be decided by content */
+        overflow: visible; /* allow page scroll */
     }
 
 #youtube_grid {
@@ -703,4 +716,7 @@ on divided screen to see both visual studio and web*/
 }
 
 
-
+#wp_container {
+    justify-content: flex-end;
+    margin: 20px 10px;
+}
