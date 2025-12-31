@@ -57,6 +57,7 @@ body {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     grid-template-rows: repeat(12, 1fr);
+    min-height: 100vh;
     height: 100vh;
     gap: 10px; /* space between grid items */
     border: 1px dashed red;
@@ -76,7 +77,7 @@ body {
     grid-column: 1 / -1;
     grid-row: 1 / 2;
     font-weight: bold;
-    font-size: 3.236rem;
+    font-size: 3.5rem;
     display: flex;      
     justify-content:left; /* Center horizontally */
     align-content: center;
