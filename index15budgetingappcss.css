@@ -1,0 +1,3812 @@
+/* --- THEME VARIABLES --- */
+:root {
+    --bg-color: #0a0a0a;         /* Deep black background */
+    --card-bg: #171717;          /* Dark grey for cards */
+    --primary: #ffffff;          /* White for primary buttons/accents */
+    --primary-invert: #000000;   /* Black text on white buttons */
+    --success: #10b981;
+    --danger: #ef4444;
+    --text: #f3f4f6;             /* Light grey/white for main text */
+    --text-muted: #9ca3af;       /* Dimmer text for secondary info */
+    --accent: #3b82f6;           /* Sleek blue for subtle highlights */
+    --border-color: #262626;     /* Subtle dark borders */
+    --input-bg: #262626;         /* Background for input fields */
+    --header-bg: #121212;
+    --table-hover: rgba(255, 255, 255, 0.04);
+    --table-even: rgba(255, 255, 255, 0.02);
+}
+
+/* --- LIGHT THEME OVERRIDES --- */
+body.light-theme {
+    --bg-color: #f3f4f6;
+    --card-bg: #ffffff;
+    --primary: #000000;
+    --primary-invert: #ffffff;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --accent: #2563eb;
+    --border-color: #e5e7eb;
+    --input-bg: #f9fafb;
+    --header-bg: #e5e7eb;
+    --table-hover: rgba(0, 0, 0, 0.04);
+    --table-even: rgba(0, 0, 0, 0.02);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Apply the same font to form controls - browsers don't inherit
+   font-family into inputs/buttons/selects by default. */
+button, input, select, textarea {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* --- Mobile login indicator: circle with account initial --- */
+.user-avatar-circle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    /* Only rendered at all once logged in (.logged-in), and only on
+       phone widths - desktop already shows "Synced" as text, so a
+       second indicator there would just be clutter. Fixed to the
+       corner of the viewport (not just the header) so it stays put
+       and visible no matter which tab/section you're scrolled into. */
+    .user-avatar-circle.logged-in {
+        display: flex;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 1002;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+}
+
+/* --- HEADER BAR --- */
+.header-container {
+    max-width: 1200px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-title {
+    margin: 0;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    font-size: 2rem;
+}
+
+/* Home / Account / Theme row - three equal-sized "boxes" instead of
+   pill buttons that stretched to fit their own label ("Dark Theme"
+   ended up visibly wider than "Home"). Fixed width + stacked
+   icon-over-label keeps all three the same size regardless of text
+   length. */
+.header-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.theme-toggle-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    border-radius: 14px;
+    width: 78px;
+    height: 60px;
+    padding: 6px 4px;
+    text-align: center;
+    line-height: 1.15;
+}
+
+.theme-toggle-btn span:first-child {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+/* --- LAYOUT GRID --- */
+.container {
+    max-width: 1200px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 1150px) {
+    .grid-3col {
+        display: grid;
+        /* Side columns used to be fixed at 320px/380px, which only ever
+           fit inside a maximized/full-screen window. Any narrower
+           window didn't have room for 320+380+the middle column's own
+           minimum width, so the grid overflowed its container and the
+           right column got sliced off / pushed past the edge of the
+           screen (the "everything looks tilted to the right" look).
+           minmax() lets each column shrink down to a smaller floor
+           instead of forcing that overflow.
+
+           The 3-column layout only turns on above 1150px now (used to
+           be 900px). Below that - which covers most "half a laptop
+           screen" window widths - the layout falls through to the
+           single-column stack further down instead of squeezing three
+           columns into a space that isn't wide enough for them, which
+           used to compress the Log Time form and overflow its Category
+           field. The Log Time column also gets its own floor
+           (minmax(300px, ...)) so it can't be squeezed thinner than
+           the side columns even at 1150-1300px widths. */
+        grid-template-columns: minmax(240px, 320px) minmax(300px, 1fr) minmax(260px, 380px);
+        gap: 20px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Grid items default to min-width: auto, which stops them from
+       ever shrinking below their content's natural width - that's
+       the other half of the overflow bug (a wide input or button
+       inside a column could force the whole column, and therefore
+       the whole grid, wider than the window). This lets them actually
+       shrink to fit. */
+    .grid-3col > * {
+        min-width: 0;
+    }
+}
+
+/* Between phone width (768px) and the full 3-column breakpoint
+   (1150px) - i.e. "half a screen" on most monitors - stack the three
+   cards full-width instead, same as on tablets. This range used to
+   fall through to the desktop 3-column grid at 900px with no floor
+   wide enough for the Log Time form, which is what compressed it and
+   pushed the Category field past the edge of its card. Note this only
+   restyles the .grid-3col cards themselves; the phone-only rules in
+   the 768px query (avatar circle, bottom nav, etc.) are untouched. */
+@media (min-width: 769px) and (max-width: 1149px) {
+    .grid-3col {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .grid-3col > .card {
+        width: 100%;
+    }
+}
+
+.card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+h2 {
+    margin-top: 0;
+    color: var(--text);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+}
+
+/* --- STOPWATCH / CHRONOMETER --- */
+.stopwatch { 
+    text-align: center; 
+}
+
+.display {
+    font-size: clamp(1.7rem, 9vw, 2.8rem);
+    font-family: monospace; 
+    background: var(--bg-color);
+    color: var(--text); 
+    padding: 15px 8px; 
+    border-radius: 8px; 
+    margin: 10px 0;
+    letter-spacing: clamp(0px, 0.5vw, 2px);
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+}
+
+.controls button {
+    width: 72px;
+    height: 72px;
+    border: none;
+    border-radius: 50%;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.1;
+    padding: 4px;
+}
+
+.btn-start { background: var(--success); color: white; }
+.btn-stop { background: var(--danger); color: white; }
+.btn-split { background: #3f3f46; color: white; }
+.btn-reset { background: transparent; color: var(--text-muted); border: 1px solid var(--border-color) !important; }
+.controls button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.split-container {
+    margin-top: 15px; 
+    max-height: 150px; 
+    overflow-y: auto; 
+    border: 1px solid var(--border-color); 
+    border-radius: 6px;
+}
+
+.split-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-family: monospace; 
+    font-size: 0.95rem; 
+}
+
+.split-table th, .split-table td { 
+    padding: 8px; 
+    text-align: center; 
+    border-bottom: 1px solid var(--border-color); 
+}
+
+.split-table th { 
+    background: var(--header-bg); 
+    color: var(--text-muted); 
+    font-family: sans-serif; 
+}
+
+/* --- MINI MONTHLY CALENDAR --- */
+.calendar-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 10px; 
+}
+
+.calendar-header button { 
+    background: var(--border-color); 
+    color: var(--text); 
+    border: none; 
+    padding: 4px 10px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+}
+
+.calendar-header button:hover { opacity: 0.8; }
+
+.calendar-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 2px; 
+    text-align: left; 
+    font-size: 0.9rem; 
+}
+
+.weekday { 
+    font-weight: bold; 
+    color: var(--text-muted); 
+    text-align: center;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    padding-bottom: 6px;
+}
+
+.weekday:nth-child(1) { color: var(--danger); }
+.weekday:nth-child(7) { color: var(--accent); }
+
+.day {
+    background: transparent; 
+    padding: 6px 5px; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    position: relative; 
+    min-height: 42px;
+    color: var(--text); 
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.day-number {
+    font-size: 0.85rem;
+}
+
+.day-total {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+}
+
+.day:hover { border-color: var(--text-muted); }
+.day.selected { background: transparent; border: 1px solid var(--text); font-weight: bold; }
+
+@media (max-width: 768px) {
+    #calendar-card {
+        margin-left: -20px;
+        margin-right: -20px;
+        width: calc(100% + 40px);
+        border-radius: 0;
+        padding: 14px 8px 10px;
+        border-left: none;
+        border-right: none;
+    }
+
+    .calendar-header { padding: 0 8px; margin-bottom: 16px; }
+    .calendar-header b { font-size: 1.15rem; }
+    .calendar-header button { padding: 6px 14px; font-size: 1rem; }
+
+    .calendar-grid {
+        gap: 0;
+        grid-auto-rows: minmax(80px, auto);
+    }
+
+    .weekday { font-size: 0.75rem; padding-bottom: 14px; }
+
+    .day {
+        min-height: 80px;
+        padding: 10px 6px;
+        border-radius: 0;
+        border-bottom: 1px solid var(--border-color);
+        gap: 5px;
+    }
+
+    .day-number { font-size: 1.05rem; }
+    .day-total { font-size: 0.78rem; }
+    .day.selected { border: 1px solid var(--text); border-radius: 6px; }
+}
+
+/* --- LOG TIME INPUT FORM --- */
+.toggle-container {
+    display: flex; 
+    background: var(--input-bg); 
+    border-radius: 6px; 
+    padding: 3px; 
+    margin-bottom: 15px; 
+    border: 1px solid var(--border-color);
+}
+
+.toggle-btn {
+    flex: 1; 
+    border: none; 
+    background: transparent; 
+    padding: 6px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    border-radius: 4px; 
+    color: var(--text-muted);
+}
+
+.toggle-btn.active { 
+    background: var(--card-bg); 
+    color: var(--text); 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+}
+
+.input-box { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    margin-bottom: 15px; 
+}
+
+input, select { 
+    padding: 10px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 6px; 
+    font-size: 1rem; 
+    background: var(--input-bg); 
+    color: var(--text);
+}
+
+input:focus { 
+    outline: none; 
+    border-color: var(--accent); 
+}
+
+.btn-add { 
+    background: var(--primary); 
+    color: var(--primary-invert); 
+    border: none; 
+    padding: 10px; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    width: 100%; 
+    text-transform: uppercase; 
+}
+
+.btn-add:hover { opacity: 0.9; }
+
+/* --- DAY SCHEDULE STACK ---
+   Restyled to match the simpler, colored-pill look of the Category
+   Analytics list (.category-stats-row / .category-stats-pct) instead of
+   the old dashed-timeline card, per request. Each entry is a flat row:
+   a colored hours pill, the category + note, and the time on the right.
+   The whole row stays clickable to open the edit modal (openEditModal),
+   same as before - just with a visible hover state and a pencil hint so
+   it actually reads as editable. */
+.timeline-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.time-block {
+    background: var(--input-bg);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.time-block:hover {
+    background: var(--table-hover);
+}
+
+.time-block:hover .time-block-edit-hint {
+    opacity: 1;
+}
+
+.time-block.selected-block {
+    outline: 2px solid var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+}
+
+/* The placeholder card shown on empty days so people can see the format
+   of an activity without it looking like real, interactive data - dashed
+   border, muted tones, a plain default cursor, and an "Example" tag. */
+.time-block.example-block {
+    background: transparent;
+    border: 1.5px dashed var(--border-color);
+    opacity: 0.65;
+    cursor: default;
+}
+
+.time-block.example-block:hover {
+    background: transparent;
+}
+
+.time-block.example-block .time-block-pill {
+    background: var(--text-muted);
+}
+
+.time-block.example-block .time-block-cat {
+    color: var(--text-muted);
+}
+
+.example-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+.time-block-pill {
+    flex-shrink: 0;
+    min-width: 40px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    padding: 4px 7px;
+    border-radius: 10px;
+}
+
+.time-block-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.time-block-top {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.time-block-cat {
+    font-size: 0.9rem;
+    text-transform: capitalize;
+}
+
+.time-block-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.time-block-side {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.time-block-time {
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.time-block-edit-hint {
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.block-actions button {
+    background: transparent; 
+    color: var(--text-muted); 
+    border: 1px solid var(--border-color); 
+    border-radius: 4px; 
+    padding: 4px 8px; 
+    cursor: pointer; 
+    font-size: 0.8rem; 
+    margin-left: 2px;
+}
+
+.block-actions button:hover { 
+    background: var(--border-color); 
+    color: var(--text); 
+}
+
+.block-actions .del-btn { 
+    color: var(--danger); 
+    border-color: rgba(239, 68, 68, 0.3); 
+}
+
+.block-actions .del-btn:hover { 
+    background: rgba(239, 68, 68, 0.1); 
+    color: var(--danger); 
+}
+
+.hours-summary {
+    font-size: 1.1rem; 
+    font-weight: bold; 
+    text-align: center; 
+    background: rgba(59, 130, 246, 0.1); 
+    padding: 10px; 
+    border-radius: 6px; 
+    margin-bottom: 15px; 
+    color: var(--accent); 
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* --- COLLAPSIBLE SECTION WRAPPERS --- */
+details.details-section {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    margin-top: 10px;
+}
+
+summary.details-summary {
+    padding: 16px 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    background: var(--card-bg);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid var(--border-color);
+}
+
+summary.details-summary:hover {
+    background: var(--input-bg);
+}
+
+.details-content {
+    padding: 20px;
+}
+
+/* Nested sub-section (e.g. Category Stats inside Details & Analytics) —
+   same visual language as .details-section but smaller, so it reads as a
+   subsection rather than a peer of the top-level collapsibles. */
+.nested-details {
+    margin-top: 18px;
+    box-shadow: none;
+}
+
+.nested-details summary.details-summary {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+}
+
+.nested-details .details-content {
+    padding: 16px;
+}
+
+/* --- CATEGORY STATS (donut chart + % breakdown) --- */
+.category-stats-wrap {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.category-stats-chart-col {
+    display: flex;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.category-stats-donut {
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--input-bg);
+}
+
+.category-stats-donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.2;
+    padding: 8px;
+}
+
+.category-stats-donut-center small {
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.category-stats-legend {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.category-stats-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--input-bg);
+    border-radius: 8px;
+}
+
+.category-stats-pct {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    padding: 3px 7px;
+    border-radius: 10px;
+    min-width: 42px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.category-stats-name {
+    flex: 1;
+    text-transform: capitalize;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.category-stats-hrs {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* --- ANALYTICS BAR & TABLES --- */
+.analytics-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.range-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.range-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.range-btn.active {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+}
+
+.backup-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.backup-btn:hover {
+    background: var(--input-bg);
+    border-color: var(--accent);
+}
+
+.category-search-input {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text);
+    min-width: 200px;
+    font-size: 0.9rem;
+}
+
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.cat-card {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.1s ease;
+}
+
+.cat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.cat-card-title {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: lowercase;
+}
+
+.cat-card-value {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--text);
+}
+
+/* --- GOAL TRACKING --- */
+.goal-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.goal-controls input {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 0.85rem;
+}
+
+.goal-controls input[type="text"] {
+    flex: 1 1 180px;
+    min-width: 140px;
+}
+
+.goal-controls input[type="number"] {
+    width: 140px;
+}
+
+.goal-controls .btn-add {
+    width: auto;
+    padding: 8px 16px;
+    margin: 0;
+}
+
+.goals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.goals-empty-msg {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 10px 2px 25px;
+}
+
+.goal-card {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px 14px;
+}
+
+.goal-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.goal-card-title {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--text);
+    text-transform: lowercase;
+}
+
+.goal-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+}
+
+.goal-delete-btn:hover {
+    color: var(--danger);
+}
+
+.goal-metrics-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.goal-metric-block {
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+}
+
+.goal-metric-block:first-child {
+    padding-top: 0;
+    border-top: none;
+}
+
+.goal-metric-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.goal-ring-svg {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    transform: rotate(-90deg);
+}
+
+.goal-ring-track {
+    fill: none;
+    stroke: var(--border-color);
+    stroke-width: 5;
+}
+
+.goal-ring-progress {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.4s ease, stroke 0.3s ease;
+}
+
+.goal-ring-text {
+    transform: rotate(90deg);
+    transform-box: fill-box;
+    transform-origin: center;
+    fill: var(--text);
+    font-size: 13px;
+    font-weight: bold;
+    text-anchor: middle;
+    font-family: inherit;
+}
+
+.goal-metric-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.goal-metric-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.goal-metric-hrs {
+    font-size: 0.72rem;
+    font-family: monospace;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* --- Week-over-week / month-over-month trend chart under each ring --- */
+.goal-history-label {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+.goal-history-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.goal-history-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    padding: 4px 2px 0;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+
+.goal-history-bar-wrap:hover {
+    background: var(--table-hover);
+}
+
+.goal-history-bar-wrap:hover .goal-history-bar-track {
+    filter: brightness(1.15);
+}
+
+.goal-history-bar-date {
+    font-size: 0.56rem;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+    white-space: nowrap;
+}
+
+.goal-history-bar-track {
+    width: 100%;
+    max-width: 16px;
+    height: 40px;
+    background: var(--border-color);
+    border-radius: 3px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.goal-history-bar-fill {
+    width: 100%;
+    border-radius: 2px 2px 0 0;
+    transition: height 0.3s ease, background 0.3s ease;
+}
+
+.goal-history-bar-fill.current {
+    box-shadow: 0 0 0 2px var(--accent) inset;
+}
+
+.goal-history-bar-pct {
+    font-size: 0.52rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+.details-table-container {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.details-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.details-table th, .details-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.details-table th {
+    background: var(--header-bg);
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.details-table tr:nth-child(even) { background: var(--table-even); }
+.details-table tr:hover { background: var(--table-hover); }
+
+.details-table tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+.details-table tbody tr.clickable-row:hover {
+    background: var(--table-hover);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.details-table tfoot tr {
+    background: var(--input-bg);
+    font-weight: bold;
+}
+
+.details-table tfoot td {
+    border-top: 2px solid var(--border-color);
+    border-bottom: none;
+    font-size: 1rem;
+}
+
+.table-edit-hint {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin: -6px 0 10px 2px;
+}
+
+.table-filter-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.table-filter-clear-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.table-filter-clear-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+/* --- VISUAL CALENDAR TIME-BLOCK MATRIX --- */
+.visual-matrix-container {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--bg-color);
+    position: relative;
+    cursor: grab;
+}
+
+/* Applied by setupBigCalendarHorizontalScroll (JS) for the duration of an
+   active horizontal drag - shows a "grabbing" cursor for mouse users and
+   stops the drag from selecting the time labels/day headers as text. */
+.visual-matrix-container.matrix-drag-scrolling {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.matrix-grid {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    min-width: 800px;
+}
+
+.matrix-header {
+    background: var(--header-bg);
+    padding: 10px 4px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    color: var(--text-muted);
+}
+
+.matrix-time-col {
+    display: grid;
+    grid-template-rows: repeat(24, 40px);
+}
+
+.time-slot-label {
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    box-sizing: border-box;
+}
+
+.matrix-day-col {
+    display: grid;
+    grid-template-rows: repeat(24, 40px);
+    position: relative;
+    border-right: 1px solid var(--border-color);
+}
+
+.matrix-slot {
+    height: 40px;
+    border-bottom: 1px dashed var(--border-color);
+    box-sizing: border-box;
+    /* manipulation (allows native panning in both directions): an
+       earlier attempt here used a custom JS drag-to-scroll instead of
+       the browser's own native scrolling, restricting this to pan-y so
+       the JS could take over horizontal - but that JS approach turned
+       out less reliable on real phones than just letting the browser
+       handle it natively, which is what actually worked. Back to plain
+       native scrolling, same as the version of this app that scrolled
+       correctly. */
+    touch-action: manipulation;
+}
+
+.matrix-slot:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.visual-block {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    border-radius: 6px;
+    padding: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    user-select: none;
+    z-index: 10;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    /* NOT touch-action:none - that used to block ANY native scrolling
+       (horizontal on the big calendar, vertical on the page) for the
+       entire duration of a touch that started on a block, since
+       touch-action is locked in at touchstart regardless of what the JS
+       decides later. With wide multi-day blocks that can cover most of
+       the visible grid, that made the calendar feel unscrollable. The
+       touch JS (see the touchstart listener below) now only calls
+       preventDefault once a deliberate press-and-hold has armed the
+       block, so a plain swipe is left free to scroll natively here too. */
+    touch-action: pan-x pan-y;
+}
+
+.visual-block.selected-block {
+    outline: 2px solid #ffffff;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+    z-index: 20;
+}
+
+.visual-block-title {
+    font-weight: bold;
+    text-transform: capitalize;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.visual-block-time {
+    font-size: 0.68rem;
+    opacity: 0.85;
+    font-family: monospace;
+    margin-top: 4px;
+}
+
+.category-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 0;
+}
+
+/* Unified collapsible panel above the big calendar (View Plane filter +
+   category legend). Closed by default, on every screen size, so it
+   doesn't crowd the planner - tap the toggle button to reveal it. */
+.planner-header-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.planner-header-toggle-btn:hover {
+    border-color: var(--accent);
+}
+
+.planner-header-toggle-arrow {
+    transition: transform 0.15s ease;
+    color: var(--text-muted);
+}
+
+.planner-header-toggle-btn.open .planner-header-toggle-arrow {
+    transform: rotate(180deg);
+}
+
+.planner-header-collapsible {
+    display: none;
+    margin-bottom: 15px;
+}
+
+.planner-header-collapsible.expanded {
+    display: block;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: min(10px, 35%);
+    cursor: ns-resize;
+    background: transparent;
+    touch-action: none;
+}
+
+/* --- WEEK / MONTH NAV BAR (below the big calendar grid) --- */
+.calendar-week-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 0 0 8px 8px;
+    background: var(--header-bg);
+}
+
+.week-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.week-nav-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.week-nav-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.week-nav-today-btn {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.week-nav-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    min-width: 120px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .calendar-week-nav-bar {
+        justify-content: center;
+    }
+
+    .week-nav-group {
+        flex: 1 1 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Bigger touch target for the resize handle, but capped as a % of the
+       block's own height so short blocks (e.g. 20-30px tall) don't get
+       almost entirely swallowed by the handle, leaving no room to grab
+       the block itself to move it. */
+    .resize-handle {
+        height: min(18px, 30%);
+        bottom: -3px;
+    }
+}
+
+/* --- CLEAN & SLEEK POPUP OVERLAY --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    /* Same flat grey as .mobile-daily-modal - one consistent overlay color
+       everywhere instead of different opacities per modal. */
+    background: rgba(30, 30, 30, 0.55);
+    /* Above .mobile-daily-modal (10500) - the quick-add modal now also
+       opens from inside that day sheet (the "+ Add Activity" button),
+       and needs to appear on top of it, not behind it. */
+    z-index: 10600;
+    display: none;
+}
+
+.modal-content {
+    position: absolute;
+    background: var(--card-bg);
+    color: var(--text);
+    padding: 20px;
+    border-radius: 10px;
+    width: 320px;
+    box-sizing: border-box;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+    z-index: 10000;
+    font-family: inherit;
+}
+
+.modal-content h4 {
+    margin: 0 0 14px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.modal-content .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+    width: 100%;
+}
+
+.modal-content label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.modal-content input[type="text"],
+.modal-content input[type="number"],
+.modal-content input[type="time"],
+.modal-content select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.88rem;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.modal-content input:focus,
+.modal-content select:focus {
+    border-color: var(--accent);
+}
+
+.modal-content .mode-toggle {
+    display: flex;
+    background: var(--input-bg);
+    padding: 3px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+}
+
+.modal-content .mode-toggle button {
+    flex: 1;
+    padding: 6px 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-content .mode-toggle button.active {
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.modal-content .btn-primary {
+    width: 100%;
+    padding: 9px;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: filter 0.2s ease;
+}
+
+.modal-content .btn-primary:hover {
+    filter: brightness(0.88);
+}
+
+/* Generic confirm dialog (see showConfirmDialog() in JS) - replaces
+   native browser confirm() popups, which look and feel jarringly out of
+   place next to the rest of the app's own styling. Reuses
+   .modal-content's own card styling, just centered via flex instead of
+   the absolute+transform trick some other modals use, and sized to fit
+   a short prompt instead of a form. */
+.confirm-dialog-content {
+    position: relative;
+    width: 320px;
+    max-width: calc(100vw - 40px);
+}
+#confirm-dialog-overlay.modal-overlay {
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+#confirm-dialog-overlay.visible {
+    display: flex;
+}
+.confirm-dialog-message {
+    margin: 0 0 18px 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text);
+}
+.confirm-dialog-actions {
+    display: flex;
+    gap: 8px;
+}
+.confirm-dialog-actions.btn-primary,
+.confirm-dialog-actions .btn-primary {
+    width: auto;
+    margin: 0;
+    flex: 1;
+}
+.confirm-dialog-cancel-btn {
+    background: var(--input-bg) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border-color) !important;
+}
+.confirm-dialog-confirm-btn.danger {
+    background: var(--danger) !important;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.modal-close-btn:hover {
+    color: var(--text);
+}
+
+/* --- RIGHT CLICK CONTEXT MENU STYLES --- */
+.context-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
+}
+
+.context-menu-content {
+    position: absolute;
+    background: #1e1e1e;
+    color: #ffffff;
+    padding: 12px;
+    border-radius: 10px;
+    width: 230px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    border: 1px solid #333333;
+    font-family: inherit;
+    user-select: none;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.context-menu-item:hover {
+    background: #2a2a2a;
+}
+
+.delete-item:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.context-divider {
+    border: none;
+    border-top: 1px solid #333333;
+    margin: 8px 0;
+}
+
+.context-palette-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 8px 6px;
+}
+
+.color-palette-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 0 2px;
+}
+
+.color-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+    border-color: #ffffff;
+}
+
+.context-default-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px;
+    background: #2a2a2a;
+    border: 1px solid #3d3d3d;
+    border-radius: 20px;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.context-default-btn:hover {
+    background: #333333;
+}
+
+.default-circle {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #10b981;
+}
+
+/* --- TWO-PLANE FILTER TOGGLE BAR --- */
+.plane-toggle-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    width: fit-content;
+}
+
+.plane-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-right: 4px;
+}
+
+.plane-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-main);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.plane-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.plane-btn.active {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+    font-weight: bold;
+}
+
+/* --- VISUAL BLOCK PLANE STYLING --- */
+.visual-block.projected {
+    opacity: 0.55 !important;
+    border: 2px dashed rgba(255, 255, 255, 0.8) !important;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.visual-block.actual {
+    opacity: 1 !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.plane-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.4);
+    margin-bottom: 2px;
+}
+
+/* --- MOBILE DAILY DRAWER MODAL & FLOATING FAB --- */
+.mobile-daily-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    /* Same flat grey as .modal-overlay (kept as one shared color instead of
+       each overlay having its own opacity) so the backdrop is a smooth,
+       even grey everywhere - including when the quick-add modal opens on
+       top of this sheet, instead of the two overlays stacking into a
+       patchy, unevenly-darker area. */
+    background: rgba(30, 30, 30, 0.55);
+    z-index: 10500;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+}
+
+.mobile-daily-sheet {
+    background: var(--card-bg);
+    width: 100%;
+    max-width: 500px;
+    height: 88vh;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+    overflow: hidden;
+}
+
+.mobile-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--header-bg);
+}
+
+.mobile-sheet-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.mobile-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.mobile-sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* The one action on the zoomed single-day sheet: add an activity for
+   this date. Opens the same lightweight quick-add modal used from the
+   Plan grid, so there's no second "log time" form to maintain. */
+.mobile-add-activity-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mobile-add-activity-btn span:first-child {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.mobile-day-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 30px 10px;
+}
+
+.mobile-category-select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    margin-bottom: 14px;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* --- CATEGORY COMBOBOX: type to filter, or click the arrow to browse the
+   full list. Used for every "Category" field in the app (the Log Time form,
+   the Backlog add form, and the calendar quick-add/edit modal) so picking a
+   category works the same way everywhere. The dropdown is always positioned
+   below the input (top: 100%) and given a high z-index so it renders on top
+   of modals instead of being clipped or flipping upward like a native
+   <select> would when there isn't much room below it. */
+.category-combo-wrap {
+    position: relative;
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.category-combo-input {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0 !important;
+    text-transform: capitalize;
+}
+
+.category-combo-arrow-btn {
+    flex-shrink: 0;
+    width: 38px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.category-combo-arrow-btn:hover,
+.category-combo-arrow-btn:focus {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.category-combo-list {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    max-height: 190px;
+    overflow-y: auto;
+    z-index: 20000;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.category-combo-list.open {
+    display: block;
+}
+
+.category-combo-item {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--text);
+    text-transform: capitalize;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.category-combo-item:last-child { border-bottom: none; }
+.category-combo-item:hover,
+.category-combo-item:active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.category-combo-item-new {
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: none;
+}
+
+.category-combo-empty {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+/* --- CATEGORY SELECT + MANAGE (Backlog / matrix "big calendar" forms) --- */
+.category-select-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.category-select-row .category-combo-wrap {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.category-select-row .category-manage-btn {
+    margin-top: 0;
+}
+
+.category-manage-btn {
+    flex-shrink: 0;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.category-manage-btn:hover {
+    border-color: var(--accent);
+}
+
+.category-manage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.category-manage-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--input-bg);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.category-manage-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.category-manage-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.88rem;
+    text-transform: capitalize;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.category-manage-inuse {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.category-manage-del {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+    border-radius: 4px;
+    padding: 3px 7px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.category-manage-del:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.category-manage-del:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.category-manage-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 12px 4px;
+}
+
+.mobile-fab-btn {
+    position: absolute;
+    bottom: 24px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #ff5252;
+    color: #ffffff;
+    font-size: 2rem;
+    border: none;
+    box-shadow: 0 4px 15px rgba(255, 82, 82, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+}
+
+
+/* --- BACKLOG DRAWER STYLES --- */
+/* Row that holds the big calendar (untouched) and the backlog drawer side-by-side.
+   The calendar column (.visual-matrix-container) keeps 100% of its original
+   width/behavior at all times - the drawer only adds/removes its own column,
+   it never resizes the calendar itself. */
+.planner-body-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+}
+
+.visual-matrix-column {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.backlog-toggle-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.backlog-toggle-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.backlog-count-badge {
+    background: var(--accent);
+    color: #ffffff;
+    font-size: 0.72rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
+/* The drawer itself is styled to match one "day" of the visual matrix:
+   same header look (.matrix-header) and the same column background/border
+   as .matrix-day-col, just with a freeform textarea instead of hour slots. */
+.backlog-drawer {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    border-left: 0 solid var(--border-color);
+    margin-left: 0;
+    transition: width 0.25s ease, min-width 0.25s ease, opacity 0.2s ease,
+                margin-left 0.25s ease, border-left-width 0.25s ease;
+}
+
+.backlog-drawer.open {
+    width: 240px;
+    min-width: 240px;
+    opacity: 1;
+    border-left: 1px solid var(--border-color);
+    margin-left: 14px;
+}
+
+.backlog-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    white-space: nowrap;
+}
+
+.backlog-drawer-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+}
+
+.backlog-drawer-close:hover {
+    color: var(--accent);
+}
+
+.backlog-add-form {
+    padding: 12px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.backlog-add-form input {
+    font-size: 0.82rem;
+    padding: 8px;
+}
+
+.backlog-add-form .btn-add {
+    padding: 8px;
+    font-size: 0.8rem;
+}
+
+/* Scrollable viewport around the backlog's day-column strip. */
+.backlog-scroll-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 120px;
+}
+
+/* The backlog list itself is now a literal copy of one .matrix-day-col from
+   the big calendar: same 24 hourly rows at the same 40px scale, same dashed
+   .matrix-slot background, same absolutely-positioned .visual-block items
+   with the same drag-to-resize handle. The only difference is it isn't
+   labeled with a day name (it says "Backlog" in the header instead), and
+   items stack back-to-back in order instead of sitting at a real clock time. */
+.backlog-day-col {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.backlog-empty-msg {
+    position: absolute;
+    top: 12px;
+    left: 8px;
+    right: 8px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 12px 4px;
+}
+
+/* Backlog items reuse .visual-block itself as-is (same background/colors,
+   same title + time typography, same border/shadow, same absolute
+   top/height positioning) so they are pixel-identical to an activity in the
+   big calendar. */
+.backlog-drawer .visual-block.backlog-block {
+    cursor: grab;
+}
+
+.backlog-drawer .visual-block.backlog-block:active {
+    cursor: grabbing;
+}
+
+/* Single delete button, top-right corner of each backlog card. Reordering
+   is done by dragging the card itself (see .backlog-drop-target below) -
+   there used to be separate up/down arrow buttons here too, but they sat
+   at this exact same position and rendered hidden underneath this button,
+   so they've been replaced entirely by drag-to-reorder. */
+.backlog-block-del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.35);
+    color: #ffffff;
+    font-size: 0.6rem;
+    line-height: 16px;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.backlog-block-del:hover {
+    background: rgba(0, 0, 0, 0.65);
+}
+
+/* Highlights the backlog card currently under the pointer while dragging
+   another card over it, showing where it'll land on drop. */
+.backlog-drop-target {
+    outline: 2px dashed rgba(255, 255, 255, 0.85);
+    outline-offset: -2px;
+}
+
+@media (max-width: 768px) {
+    .planner-body-row {
+        flex-direction: column;
+    }
+
+    /* --- Backlog drawer: on desktop it slides out as a side panel, but on
+       phones it now opens as a genuine full-page view instead of a small
+       floating panel over a translucent backdrop (which is what made it
+       "see-through" and cramped). Full inset, opaque background, no
+       rounded corners/backdrop-blur - it's a page, not a popover. --- */
+    #backlog-drawer.open {
+        position: fixed;
+        inset: 0;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        max-height: 100dvh;
+        margin: 0;
+        z-index: 2000;
+        border: none;
+        border-radius: 0;
+        background: var(--card-bg);
+        box-shadow: none;
+        padding: 14px;
+        padding-top: max(14px, env(safe-area-inset-top));
+        padding-bottom: max(14px, env(safe-area-inset-bottom));
+    }
+
+    .backlog-drawer {
+        width: 0;
+        min-width: 0;
+        height: 0;
+        margin-left: 0;
+        border-left: none;
+    }
+
+    .backlog-drawer-header {
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 1.05rem;
+    }
+
+    .backlog-drawer-close {
+        font-size: 1.2rem;
+        padding: 4px 8px;
+    }
+
+    /* The backdrop is now redundant (the drawer itself is a fully opaque
+       full page), but kept opaque too rather than transparent in case
+       anything peeks past the drawer's edges during the open transition. */
+    .backlog-drawer-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: var(--card-bg);
+        z-index: 1999;
+    }
+
+    .backlog-drawer-backdrop.open {
+        display: block;
+    }
+
+    /* Locks the page underneath from scrolling while the full-page
+       backlog is open (set/cleared by toggleBacklogDrawer()). */
+    body.backlog-drawer-open {
+        overflow: hidden !important;
+        position: fixed;
+        width: 100%;
+    }
+}
+
+/* =================================================== */
+/*             COMPLETE MOBILE FIX & LAYOUT            */
+/* =================================================== */
+
+@media (max-width: 768px) {
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    margin: 0 auto !important;
+    padding: 12px !important;
+    box-sizing: border-box !important;
+    /* touch-action deliberately NOT set here anymore (it used to be
+       "manipulation !important", to block pinch/double-tap zoom
+       app-wide). iOS Safari has a real quirk where declaring
+       touch-action on html/body - even a permissive value like
+       "manipulation" - can suppress horizontal touch-scrolling for
+       elements nested inside, even ones with their own explicit
+       "allow sideways scrolling" rule (like .visual-matrix-container's
+       touch-action: pan-x below). That's what was silently breaking the
+       weekly planner's left/right drag on phones. Zoom-blocking now
+       lives in a small JS gesturestart/touchmove listener instead
+       (search "PINCH-ZOOM / DOUBLE-TAP-ZOOM" in the JS), which achieves
+       the same app-like no-zoom feel without touching touch-action at
+       this top level, so it can't interfere with any element further
+       down the tree the way this did. */
+  }
+
+  .container, 
+  .app-container, 
+  .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .header-container, 
+  header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 12px !important;
+  }
+
+  /* On phones, the title bar (Lodge Time Budgeter / Home / Account /
+     Theme) only shows on the Timer tab - toggled by JS via
+     updateMobileHeaderVisibility(). Desktop/tablet is untouched since
+     this rule only exists inside this max-width:768px query. */
+  .header-container.mobile-header-hidden {
+    display: none !important;
+  }
+
+  .grid-3col {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  /* 1. Chronometer at the VERY TOP */
+  .card.stopwatch, 
+  .chronometer-section { 
+    order: -1 !important; 
+  }
+
+  /* 2. Mini Monthly Calendar directly under Chronometer */
+  .grid-3col > .card:nth-child(1), 
+  .small-calendar-section { 
+    order: 1 !important; 
+  }
+
+  /* Form & Desktop Stack order */
+  .grid-3col > .card:nth-child(2) { 
+    order: 2 !important; 
+  }
+
+  .grid-3col > .card:nth-child(3), 
+  .big-calendar-section { 
+    order: 3 !important; 
+  }
+
+  .visual-matrix-container, 
+  .big-calendar-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    /* No touch-action restriction here on purpose. At tablet/desktop
+       widths this container has never had one - overflow-x:auto is left
+       to the browser's own native touch-panning, and that's confirmed
+       working (scrollbar and all). The phone-width query used to
+       override this to pan-x, then pan-y, to make room for a custom JS
+       drag-to-scroll - but that JS turned out to be exactly what was
+       standing in the way of the native behavior that already works
+       fine at wider widths. So: let touch-action fall through to its
+       default here too, same as tablet/desktop, and let the browser
+       handle real touch input on its own. The JS drag-to-scroll (see
+       setupBigCalendarHorizontalScroll in the JS file) now explicitly
+       skips touch input entirely and only drives mouse drags, so it
+       can't compete with native touch-scrolling here. */
+  }
+
+  .matrix-grid, 
+  .big-calendar-inner {
+    min-width: 700px !important;
+  }
+
+  /* Center Popups on Mobile Screens */
+  .modal-content {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90% !important;
+    max-width: 360px !important;
+  }
+
+
+
+}
+/* =========================================================
+   NOTES SECTION
+   Two-pane layout, like a real notes app: a narrow vertical
+   list on the left (title + short preview per note, colored by
+   category the same way as the calendar/backlog), and one big
+   always-visible editing pane on the right showing whichever
+   note is selected. No popup/modal - clicking a note just
+   swaps what's shown in the right pane. No Save button either:
+   edits autosave a moment after you stop typing.
+   ========================================================= */
+
+.notes-layout {
+    display: flex;
+    gap: 16px;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+/* --- Left: the vertical note list --- */
+.notes-sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    overflow: hidden;
+}
+
+.notes-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notes-sidebar-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.notes-count {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.8rem;
+}
+
+.notes-new-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.notes-new-btn:hover {
+    opacity: 0.9;
+}
+
+/* Notebook picker: dropdown to filter/file notes into groups, + New and
+   Delete buttons alongside it. */
+.notebook-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notebook-filter-select {
+    flex: 1;
+    min-width: 0;
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 5px 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.notebook-new-btn,
+.notebook-del-btn {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notebook-new-btn:hover,
+.notebook-del-btn:hover {
+    border-color: var(--accent);
+}
+
+.notebook-del-btn {
+    display: none; /* toggled on via JS only when a notebook is selected */
+}
+
+/* Search bar above the notes list - filters by title or note content. */
+.notes-search-wrap {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notes-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+}
+
+.notes-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.notes-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.note-list-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    border-left: 3px solid var(--text);
+    cursor: pointer;
+    transition: background 0.12s ease, border-left-color 0.12s ease;
+}
+
+.note-list-item:hover {
+    background: var(--bg-color);
+}
+
+.note-list-item.active {
+    background: var(--bg-color);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.note-list-item-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 3px;
+}
+
+.note-list-item-preview {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+}
+
+.note-list-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.note-list-item-date {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+/* Category badge on the note's miniature - tap to set/change it without
+   opening the note (the old "Category (optional)" field inside the open
+   note now only exists as a hidden input kept in sync from here). */
+.note-list-item-category {
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    cursor: pointer;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.note-list-item-category:hover {
+    opacity: 0.8;
+}
+
+.note-list-item-category-empty {
+    opacity: 0.5;
+    font-weight: 400;
+}
+
+.notes-empty-msg {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 16px 12px;
+}
+
+/* --- Right: the big editing page --- */
+.notes-editor-pane {
+    flex: 1;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--note-bg, var(--card-bg));
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: background 0.2s ease;
+}
+
+.notes-empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 30px;
+}
+
+.notes-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px 14px;
+    min-height: 0;
+}
+
+.notes-editor-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+/* Back-to-list button: only meaningful in the single-screen mobile
+   layout (see the list/detail rules further down), so it's hidden on
+   desktop/tablet where the list and the open note already sit side by
+   side and there's nothing to "go back" to. Icon-only ("←") - the
+   word "Notes" next to it was redundant (you're already looking at
+   the notes list you'd be going back to) and just ate up space on a
+   small screen. */
+.notes-back-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 4px 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.note-title-input {
+    flex: 1;
+    min-width: 140px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--note-text, var(--text));
+    font-size: 1.25rem;
+    font-weight: 600;
+    padding: 4px 2px 10px;
+}
+
+.note-title-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.note-delete-btn {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.note-delete-btn:hover {
+    background: var(--danger);
+    color: white;
+}
+
+/* --- Toolbar: page-color swatches + Photo + Record, grouped into one
+   compact bar under the title. On phones this same bar becomes the
+   fixed "keyboard accessory" toolbar - see the max-width:768px rules
+   further down, and positionNotesToolbar() in JS for the part that
+   pins it just above the on-screen keyboard. --- */
+.notes-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 6px 0;
+}
+
+.notes-toolbar-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border-color);
+    flex-shrink: 0;
+}
+
+.notes-color-swatches {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.notes-color-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    padding: 0;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.notes-color-swatch:hover {
+    transform: scale(1.12);
+}
+
+.notes-color-swatch.active {
+    box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 4px var(--accent);
+}
+
+.notes-color-swatch.notes-color-reset {
+    background: repeating-linear-gradient(45deg, var(--border-color), var(--border-color) 2px, transparent 2px, transparent 5px);
+}
+
+.notes-category-field {
+    margin-bottom: 10px;
+}
+
+/* On phones the category is set from each note's miniature in the
+   sidebar list instead (see .note-list-item-category) - this field stays
+   in the DOM as a hidden input so existing save/load code keeps working,
+   it just isn't shown inside the open note anymore. Desktop is untouched:
+   the field still shows and works there like before. */
+@media (max-width: 768px) {
+    #notes-category-field {
+        display: none;
+    }
+}
+
+.notes-category-field label {
+    font-size: 0.72rem;
+    color: var(--note-text, var(--text-muted));
+}
+
+.notes-category-field input {
+    max-width: 260px;
+}
+
+.note-saved-indicator {
+    font-size: 0.75rem;
+    color: var(--note-text, var(--text-muted));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    align-self: flex-end;
+    margin-top: 6px;
+}
+
+.note-saved-indicator.visible {
+    opacity: 1;
+}
+
+/* --- Record button (toolbar) --- */
+.notes-voice-record-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notes-voice-record-btn:hover {
+    opacity: 0.9;
+}
+
+.notes-voice-record-btn.recording {
+    animation: notes-voice-pulse 1s ease-in-out infinite;
+}
+
+@keyframes notes-voice-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+/* --- Photo button (toolbar) --- */
+.notes-photo-btn {
+    background: var(--input-bg);
+    color: var(--note-text, var(--text));
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notes-photo-btn:hover {
+    opacity: 0.85;
+}
+
+.notes-photo-btn.uploading {
+    animation: notes-voice-pulse 1s ease-in-out infinite;
+}
+
+/* --- Undo button (toolbar) - a tappable Ctrl+Z for notes, mainly for
+   phones where there's no keyboard shortcut to fall back on. Steps
+   through notesUndoStack (deleted blocks, deleted notes). --- */
+.notes-undo-btn {
+    background: var(--input-bg);
+    color: var(--note-text, var(--text));
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notes-undo-btn:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.notes-undo-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.notes-voice-status {
+    font-size: 0.75rem;
+    color: var(--note-text, var(--text-muted));
+    min-height: 1.1em;
+}
+
+/* --- Block stack: ordered mix of text + voice-note blocks. Record
+   drops a player card in wherever the cursor last was, then opens a
+   fresh text block right after it so typing can continue immediately.
+   Every block (text or audio) can be nudged up/down or deleted. --- */
+.note-blocks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-height: 220px;
+    overflow-y: auto;
+}
+
+/* Empty tappable space after the last block - clicking here lands the
+   cursor at the end of the note (opening a fresh text block first if
+   the note currently ends on a photo or voice note), same as clicking
+   below the last line in a normal notes app. */
+.note-blocks-spacer {
+    flex: 1;
+    min-height: 60px;
+    cursor: text;
+}
+
+.note-text-block-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    border-radius: 6px;
+    transition: background-color 0.12s ease;
+}
+
+.note-text-block-wrap.block-selected {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Small grip to the left of the text, only visible on hover - clicking
+   it selects the block (see selectBlock() in JS) without interfering
+   with a normal click into the textarea itself, which just places the
+   cursor for typing like always. */
+.block-select-handle {
+    flex-shrink: 0;
+    width: 16px;
+    padding-top: 8px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    letter-spacing: -1px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    user-select: none;
+}
+
+.note-text-block-wrap:hover .block-select-handle,
+.note-text-block-wrap.block-selected .block-select-handle {
+    opacity: 0.5;
+}
+
+.block-select-handle:hover {
+    opacity: 1 !important;
+}
+
+.note-text-block {
+    background: transparent;
+    color: var(--note-text, var(--text));
+    border: none;
+    padding: 6px 2px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    resize: none;
+    flex: 1;
+    min-width: 0;
+    min-height: 32px;
+    overflow: hidden;
+}
+
+.note-text-block:focus {
+    outline: none;
+}
+
+.note-block-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    padding-top: 6px;
+}
+
+.note-text-block-wrap:hover .note-block-actions {
+    opacity: 0.6;
+}
+
+.note-block-actions:hover {
+    opacity: 1 !important;
+}
+
+.note-block-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--note-text, var(--text-muted));
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.note-block-icon-btn:hover {
+    background: var(--input-bg);
+    color: var(--note-text, var(--text));
+}
+
+.note-block-icon-btn.note-block-delete:hover {
+    color: var(--danger);
+}
+
+/* --- Voice-note block: small player card, insertable/movable inline
+       between text blocks --- */
+.note-audio-block {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin: 4px 0;
+    outline: 2px solid transparent;
+    transition: outline-color 0.12s ease;
+}
+
+.note-audio-block.block-selected {
+    outline-color: var(--accent);
+}
+
+.note-audio-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.note-audio-row .block-select-handle {
+    padding-top: 0;
+    width: auto;
+}
+
+.note-audio-play-btn {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.note-audio-play-btn:hover {
+    opacity: 0.9;
+}
+
+.note-audio-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.note-audio-label {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 2px 0;
+}
+
+.note-audio-label:focus {
+    outline: none;
+    border-bottom: 1px solid var(--accent);
+}
+
+.note-audio-duration {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.note-audio-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+}
+
+.note-audio-block:hover .note-audio-actions {
+    opacity: 1;
+}
+
+.note-audio-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.note-audio-icon-btn:hover {
+    background: var(--card-bg);
+    color: var(--text);
+}
+
+.note-audio-icon-btn.note-audio-delete:hover {
+    color: var(--danger);
+}
+
+/* --- Photo block: thumbnail card, insertable/movable inline between
+       text blocks, same shell as the voice-note card --- */
+.note-image-block {
+    /* No background/border/padding "box" by default - just the photo
+       itself. A thin highlight only appears once selected (see
+       .block-selected below), same treatment as text/audio blocks. */
+    margin: 4px 0;
+    border-radius: 10px;
+    padding: 3px;
+    border: 2px solid transparent;
+    transition: border-color 0.12s ease;
+}
+
+.note-image-block.block-selected {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.note-image-thumb-wrap {
+    position: relative;
+    width: 100%;
+    min-width: 120px;
+    max-width: 100%;
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--card-bg);
+}
+
+.note-image-thumb {
+    display: block;
+    width: 100%;
+    max-height: 340px;
+    object-fit: contain;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+/* Drag-to-resize grip, bottom-right corner of the photo - a small
+   diagonal-lines handle like the resize grip in most editors. Always
+   there at a low opacity (not gated behind selection - resizing is
+   something you'd want without first having to select the photo),
+   brightening on hover/tap so it's easy to find without being loud. */
+.note-image-resize-handle {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    touch-action: none;
+    opacity: 0.45;
+    transition: opacity 0.15s ease;
+    background:
+        linear-gradient(135deg, transparent 0 40%, rgba(255,255,255,0.9) 40% 46%, transparent 46% 56%, rgba(255,255,255,0.9) 56% 62%, transparent 62% 72%, rgba(255,255,255,0.9) 72% 78%, transparent 78%);
+    filter: drop-shadow(0 0 1px rgba(0,0,0,0.6));
+}
+
+.note-image-block:hover .note-image-resize-handle {
+    opacity: 0.85;
+}
+
+.note-image-resize-handle:hover {
+    opacity: 1 !important;
+}
+
+/* The caption + move/delete row - hidden entirely by default (this is
+   what used to always show and made every photo feel boxed-in/cluttered
+   with an input field and buttons under it), only appearing once the
+   photo is selected (single click). */
+.note-image-selected-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.note-image-block.block-selected .note-image-selected-bar {
+    display: flex;
+}
+
+.note-image-caption {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.8rem;
+    padding: 2px 0;
+}
+
+.note-image-caption:focus {
+    outline: none;
+    border-bottom: 1px solid var(--accent);
+}
+
+.note-image-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.note-image-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.note-image-icon-btn:hover {
+    background: var(--card-bg);
+    color: var(--text);
+}
+
+.note-image-icon-btn.note-image-delete:hover {
+    color: var(--danger);
+}
+
+.note-list-item-voice-badge {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.note-list-item-photo-badge {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* --- Full-screen photo lightbox --- */
+.photo-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    cursor: zoom-out;
+}
+
+.photo-lightbox-img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 6px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    cursor: default;
+}
+
+.photo-lightbox-close {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.photo-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+@media (max-width: 768px) {
+    .notes-layout {
+        flex-direction: column;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .notes-sidebar {
+        width: 100%;
+        max-height: 32vh;
+        max-height: 32dvh;
+    }
+
+    .notes-list {
+        max-height: none;
+    }
+
+    .notes-editor-pane {
+        flex: 1;
+        min-height: 60vh;
+        min-height: 60dvh;
+    }
+
+    .note-block-actions {
+        opacity: 0.6;
+    }
+
+    .note-image-actions {
+        opacity: 0.6;
+    }
+
+    .note-image-thumb {
+        max-height: 260px;
+    }
+}
+
+/* =========================================================
+   MOBILE BOTTOM NAV
+   On phone widths, the page stops being one long scroll and
+   becomes a set of screens - Timer / Log / Plan / Stats / Notes -
+   switched with a fixed bottom tab bar, like a native app. Each
+   top-level section is tagged data-mobile-section="..." in the
+   HTML; JS shows only the one matching the active tab and hides
+   the rest with .mobile-section-hidden. Desktop/tablet is
+   completely unaffected - the nav bar stays display:none and
+   nothing gets the hidden class.
+   ========================================================= */
+
+.mobile-section-hidden {
+    display: none !important;
+}
+
+.mobile-bottom-nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 1000;
+    display: none;
+    justify-content: space-around;
+    align-items: stretch;
+    background: var(--header-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 26px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+
+.mobile-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 2px;
+    cursor: pointer;
+    border-radius: 20px;
+}
+
+.mobile-tab-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    filter: grayscale(1);
+    opacity: 0.7;
+}
+
+.mobile-tab-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
+.mobile-tab-btn.active {
+    color: var(--accent);
+}
+
+.mobile-tab-btn.active .mobile-tab-icon {
+    filter: none;
+    opacity: 1;
+}
+
+/* Room at the bottom of the page so content doesn't sit under the
+   floating nav bar (its own height, plus the 10px gap above and
+   below it). */
+body.mobile-nav-mode {
+    padding-bottom: 96px;
+}
+
+/* Tab-controlled sections are plain <details open> elements under the
+   hood, so their <summary> is still technically clickable - without
+   this, tapping the section header would collapse it via the native
+   disclosure behavior even though a tab is what's supposed to control
+   visibility now. The "click to expand/collapse" hint and marker are
+   just noise in this mode, so they're hidden too; JS additionally
+   calls preventDefault() on these summaries while mobile-nav-mode is
+   active so a tap can't collapse them. Nested sub-sections (like
+   Category Stats inside Stats) keep their normal collapse behavior.
+   */
+body.mobile-nav-mode [data-mobile-section] > summary.details-summary {
+    cursor: default;
+    list-style: none;
+}
+
+body.mobile-nav-mode [data-mobile-section] > summary.details-summary::-webkit-details-marker {
+    display: none;
+}
+
+body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+    }
+
+    /* --- Log tab, simplified: the calendar is the whole screen ---
+       On phones the "Log" tab used to stack the calendar, the full Log
+       Time form, and the Day Schedule Stack card one under another,
+       needing a long scroll to see it all. Now only the calendar shows;
+       tapping a date opens the zoomed single-day sheet
+       (#mobile-daily-modal) instead, so the form and stack card are
+       never shown inline here. They stay untouched (and visible) in the
+       desktop 3-column layout, which this rule doesn't reach. */
+    #log-time-card,
+    #day-schedule-card {
+        display: none !important;
+    }
+
+    /* --- Toolbar becomes a fixed "keyboard accessory" bar on phones,
+       floating above the mobile bottom-nav by default and slid up to sit
+       right above the keyboard while a text field in the note is
+       focused (positionNotesToolbar() in JS drives the `bottom` offset
+       and toggles body.keyboard-open). Styled as the same floating
+       rounded pill as .mobile-bottom-nav (10px side insets, 26px radius)
+       instead of the old edge-to-edge bar, which is what was reading as
+       "overflowing" past the left edge. --- */
+    .notes-toolbar {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: 84px;
+        z-index: 1001;
+        margin: 0;
+        padding: 8px 12px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        background: var(--header-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 26px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+        transition: bottom 0.15s ease;
+    }
+
+    /* The color row is the one part of the toolbar with a variable
+       number of items - let it scroll horizontally within its own lane
+       instead of wrapping, which is what was pushing/overflowing the
+       rest of the bar. */
+    .notes-toolbar .notes-color-swatches {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        max-width: 96px;
+        scrollbar-width: none;
+    }
+
+    .notes-toolbar .notes-color-swatches::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Room at the bottom of the block stack so the last block in a
+       note isn't hidden behind the now-fixed toolbar. */
+    #notes-section .note-blocks-container {
+        padding-bottom: 60px;
+    }
+
+    /* While the keyboard is open, the toolbar already sits right above
+       it - the separate bottom-nav tab bar underneath would just be
+       wasted, hidden-behind space, so it steps out of the way. */
+    body.keyboard-open .mobile-bottom-nav {
+        display: none;
+    }
+
+    /* --- Edge-to-edge notes, like a dedicated notes app screen ---
+       Scoped to #notes-section only, so no other card/section on the
+       page is affected. Cancels out the page's own side padding with a
+       negative margin so the notes panel reaches both edges of the phone
+       screen instead of floating in a bordered card, and cancels the
+       page's top padding too so it starts right at the very top of the
+       screen instead of leaving a gap above it. */
+    #notes-section {
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+        margin-top: -12px;
+        margin-left: -12px;
+        margin-right: -12px;
+        width: calc(100% + 24px);
+    }
+
+    /* The "📝 Notes / Click to expand" section header is redundant on
+       phones - the bottom-nav tab you tapped to get here already says
+       "Notes" - and eating a full header's worth of height at the top of
+       what's meant to feel like a dedicated notes-app screen was wasted
+       space. Hidden here (not via the shared mobile-nav-mode rule further
+       below, which only strips the "click to expand" hint) so every
+       other tab keeps its own title. */
+    body.mobile-nav-mode #notes-section > summary.details-summary {
+        display: none;
+    }
+
+    #notes-section > .details-content {
+        padding: 0;
+    }
+
+    #notes-section .notes-layout {
+        gap: 0;
+        min-height: calc(100vh - 96px);
+        min-height: calc(100dvh - 96px);
+    }
+
+    #notes-section .notes-sidebar {
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+        border-top: none;
+    }
+
+    /* The list view is the one screen inside Notes that now starts at the
+       very top of the phone screen (see #notes-section margin-top above) -
+       which put it directly under the fixed login-avatar circle, covering
+       the start of the "Notes" title. Only the list header needs the
+       clearance; the open-note detail view has no such title to collide
+       with, so it stays fully edge-to-edge as before. */
+    #notes-section.mobile-view-list .notes-sidebar-header {
+        margin-top: 48px;
+    }
+
+    #notes-section .notes-editor-pane {
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        border-radius: 0;
+    }
+
+    /* No side padding - the note occupies the full width of the screen,
+       edge to edge, instead of floating with margins on either side. */
+    #notes-section .notes-editor {
+        padding: 14px 0 16px;
+    }
+
+    /* Just enough (4px) so button borders/icons in the topbar don't get
+       visually clipped by the screen edge - negligible next to the old
+       14px, so it still reads as edge-to-edge. */
+    #notes-section .notes-editor-topbar,
+    #notes-section .note-blocks-container {
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    /* --- Single-screen mobile notes: show either the full list or the
+       full open note, never both stacked on top of each other like the
+       desktop side-by-side layout collapses into by default. JS toggles
+       #notes-section between these two classes (setMobileNotesView) -
+       tapping a note in the list switches to "detail"; the new "← Notes"
+       back button (shown here, hidden on desktop above) switches back
+       to "list". --- */
+    #notes-section.mobile-view-list .notes-editor-pane {
+        display: none !important;
+    }
+
+    #notes-section.mobile-view-list .notes-sidebar {
+        max-height: none !important;
+        flex: 1;
+    }
+
+    #notes-section.mobile-view-detail .notes-sidebar {
+        display: none !important;
+    }
+
+    #notes-section.mobile-view-detail .notes-editor-pane {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .notes-back-btn {
+        display: inline-flex;
+    }
+
+    /* Notes should feel like a normal notes-app page on a phone: plain
+       up/down scrolling only, no pinch-to-zoom or double-tap-to-zoom.
+       touch-action is what actually controls this on mobile - the old
+       viewport-meta trick (user-scalable=no) is deliberately ignored by
+       iOS Safari for accessibility, so it can't be relied on alone.
+       (Zoom itself is now blocked via a small JS listener instead of
+       touch-action on html/body - see "PINCH-ZOOM / DOUBLE-TAP-ZOOM" in
+       the JS; this rule just narrows notes further to vertical-only, no
+       horizontal panning, matching a plain notes-app page.) */
+    #notes-section,
+    #notes-section .notes-layout,
+    #notes-section .notes-sidebar,
+    #notes-section .notes-list,
+    #notes-section .notes-editor-pane,
+    #notes-section .notes-editor,
+    #notes-section .note-blocks-container,
+    #notes-section .note-text-block,
+    #notes-section .notes-empty-state {
+        touch-action: pan-y;
+    }
+}
+
+/* --- SAVE TOAST (manualSave() / Ctrl+S confirmation) --- */
+.save-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    z-index: 20000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.save-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* --- INITIAL LOAD OVERLAY --- */
+/* Covers the whole page for the brief window (on refresh, while logged
+   in) between the page appearing and cloud data finishing its fetch, so
+   nothing empty is ever visible even for a moment - see initBootstrap()
+   in the JS. Sits above literally everything, including modals, since it
+   only exists for that first fraction of a second on load. */
+.initial-load-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-color);
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.initial-load-overlay.hidden {
+    display: none;
+}
+
+.initial-load-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent);
+    animation: initial-load-spin 0.8s linear infinite;
+}
+
+@keyframes initial-load-spin {
+    to { transform: rotate(360deg); }
+}

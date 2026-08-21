@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dynamic Time Budgeter & Advanced Visual Planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index15budgetingappcss.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- Mobile-only login indicator: a small circle with your account's
+         initial, fixed at the top-left corner of the screen at all times
+         so you always know at a glance whether you're logged in - on
+         EVERY tab, not just Timer. Hidden entirely (via CSS/JS) when
+         logged out, and hidden on desktop where the "Synced" label
+         already says the same thing. Deliberately kept OUTSIDE
+         .header-container: that container gets display:none on phones
+         whenever you're not on the Timer tab (see .mobile-header-hidden),
+         and a display:none ancestor hides fixed-position children too -
+         so this has to live as its own top-level element to actually
+         stay put across tabs. -->
+    <div class="user-avatar-circle" id="user-avatar-circle" title="Logged in"></div>
+
+    <div class="header-container">
+        <h1 class="header-title">Lodge Time Budgeter</h1>
+        
+        <div class="header-actions">
+            <a href="index.html" class="theme-toggle-btn" style="text-decoration: none;">
+                <span>🏠</span> <span>Home</span>
+            </a>
+            <button class="theme-toggle-btn" id="manual-save-btn" onclick="manualSave()" title="Save now (Ctrl+S)">
+                <span>💾</span> <span>Save</span>
+            </button>
+            <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()">
+                <span>👤</span> <span id="auth-btn-label">Account</span>
+            </button>
+            <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">
+                <span id="theme-icon">☀️</span> <span id="theme-text">Light Theme</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <!-- STOPWATCH CARD -->
+        <div class="card stopwatch" data-mobile-section="timer">
+            <h2>Chronometer</h2>
+            <div class="display" id="stopwatch-display">00:00:00.00</div>
+            <div class="controls">
+                <button class="btn-start" id="start-btn">Start</button>
+                <button class="btn-split" id="split-btn" disabled>Split</button>
+                <button class="btn-stop" id="stop-btn" disabled>Stop</button>
+                <button class="btn-reset" id="reset-btn">Reset</button>
+            </div>
+            
+            <div class="split-container" id="split-container" style="display: none;">
+                <table class="split-table">
+                    <thead>
+                        <tr>
+                            <th>Split #</th>
+                            <th>Split Time</th>
+                            <th>Total Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="split-log"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MAIN 3-COLUMN GRID -->
+        <div class="grid-3col" data-mobile-section="log">
+            
+            <!-- MONTHLY MINI CALENDAR -->
+            <div class="card" id="calendar-card">
+                <div class="calendar-header">
+                    <button id="prev-month">◀</button>
+                    <b id="month-year-title">Month Year</b>
+                    <button id="next-month">▶</button>
+                </div>
+                <div class="calendar-grid" id="calendar-grid"></div>
+            </div>
+
+            <!-- LOG TIME INPUT FORM -->
+            <div class="card" id="log-time-card">
+                <h2 id="selected-date-title">Log Time</h2>
+                
+                <div class="toggle-container">
+                    <button class="toggle-btn active" id="mode-simple" onclick="setMode('simple')">Simple Hours</button>
+                    <button class="toggle-btn" id="mode-exact" onclick="setMode('exact')">Exact Times</button>
+                </div>
+
+                <!-- ADDED: Planned vs Actual Default Toggle -->
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted); display:block; margin-bottom:4px;">Entry Type</label>
+                    <div class="toggle-container" style="margin-bottom:0;">
+                        <button class="toggle-btn" id="type-projected" onclick="setEntryType('projected')">🌫️ Planned</button>
+                        <button class="toggle-btn active" id="type-actual" onclick="setEntryType('actual')">🎯 Completed</button>
+                    </div>
+                </div>
+
+                <div class="input-box">
+                    <div id="simple-input-group">
+                        <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted);">How many hours?</label>
+                        <input type="number" id="duration-hours" min="0.5" max="24" step="0.5" placeholder="e.g. 1.5, 2, 8">
+                    </div>
+
+                    <div id="exact-input-group" style="display: none; gap: 10px;">
+                        <div style="flex: 1; display:flex; flex-direction:column;">
+                            <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted);">Start Time</label>
+                            <input type="time" id="start-time" value="09:00">
+                        </div>
+                        <div style="flex: 1; display:flex; flex-direction:column;">
+                            <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted);">End Time</label>
+                            <input type="time" id="end-time" value="11:00">
+                        </div>
+                    </div>
+
+                    <label style="font-size:0.85rem; font-weight:bold; margin-top:5px; color:var(--text-muted);">Category</label>
+                    <div class="category-combo-wrap">
+                        <input type="text" id="category-name" class="category-combo-input" placeholder="e.g. coding, math, exercise, studio" autocomplete="off" oninput="showCategoryCombo('category-name')" onfocus="showCategoryCombo('category-name')">
+                        <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('category-name')" title="Show all categories">▾</button>
+                        <div id="category-name-combo-list" class="category-combo-list"></div>
+                    </div>
+                    <datalist id="category-list"></datalist>
+                    <datalist id="notebook-list"></datalist>
+
+                    <label style="font-size:0.85rem; font-weight:bold; margin-top:5px; color:var(--text-muted);">Notes / Topic (Optional)</label>
+                    <input type="text" id="activity-name" placeholder="e.g. website, calculus, leg day">
+                </div>
+
+                <button class="btn-add" onclick="addTimeBlock()">Add Time Block</button>
+            </div>
+
+            <!-- DAILY SCHEDULE STACK -->
+            <div class="card" id="day-schedule-card">
+                <h2>Day Activities</h2>
+                <div class="hours-summary" id="hours-summary">Logged Today: 0 hrs</div>
+                <div class="timeline-container" id="timeline-container"></div>
+            </div>
+
+        </div>
+
+        <!-- SECTION 1: COLLAPSIBLE DETAILS & ANALYTICS -->
+        <details class="details-section" open id="analytics-details-section" data-mobile-section="stats">
+            <summary class="details-summary">
+                <span>📊 Category Analytics</span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+            </summary>
+            
+            <div class="details-content">
+                <!-- Primary view: one graph, toggled Week/Month, and the
+                     spending list right under it. Everything else (raw
+                     session log, backup/restore, search) is one tap away
+                     in "More" below instead of stacked on top of this. -->
+                <div class="range-bar" style="margin-bottom:16px;">
+                    <button class="range-btn active" id="stats-period-week" onclick="setStatsPeriod('week')">Week</button>
+                    <button class="range-btn" id="stats-period-month" onclick="setStatsPeriod('month')">Month</button>
+                </div>
+                <div class="category-stats-wrap">
+                    <div class="category-stats-chart-col">
+                        <div id="category-stats-donut" class="category-stats-donut"></div>
+                    </div>
+                    <div class="category-stats-legend" id="category-stats-legend"></div>
+                </div>
+
+                <!-- SUB-SECTION: everything else, tucked away so it doesn't crowd the main view -->
+                <details class="details-section nested-details" id="all-sessions-details-section" style="margin-top:16px;">
+                    <summary class="details-summary">
+                        <span>🗂️ All Sessions & Export</span>
+                        <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+                    </summary>
+                    <div class="details-content">
+                        <div class="analytics-controls">
+                            <div class="range-bar">
+                                <button class="range-btn active" onclick="setRangeFilter('day', this)">Day</button>
+                                <button class="range-btn" onclick="setRangeFilter('week', this)">Week</button>
+                                <button class="range-btn" onclick="setRangeFilter('month', this)">Month</button>
+                                <button class="range-btn" onclick="setRangeFilter('all', this)">All Time</button>
+                            </div>
+
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button onclick="exportData()" class="backup-btn">💾 Export everything</button>
+                                <button onclick="document.getElementById('import-file').click()" class="backup-btn">📂 Import backup</button>
+                                <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
+                            </div>
+
+                            <div>
+                                <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" oninput="handleCategorySearch(this.value)">
+                            </div>
+                        </div>
+
+                        <small class="table-edit-hint">Click any row to edit or delete that entry.</small>
+
+                        <!-- Shown when a goal history bar was clicked - tells you what
+                             you're looking at and lets you get back to the full list. -->
+                        <div id="table-filter-indicator" class="table-filter-indicator" style="display:none;"></div>
+
+                        <div class="details-table-container" id="details-table-container">
+                            <table class="details-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Category</th>
+                                        <th>Description</th>
+                                        <th style="text-align: center;">Plane</th>
+                                        <th style="text-align: right;">Hrs</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="details-table-body"></tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" id="table-total-label" style="text-align: right; color: var(--text-muted);">Total Hours:</td>
+                                        <td id="table-total-value" style="text-align: right; font-family: monospace; font-size: 1.1rem; color: var(--accent);">0.0</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </details>
+
+        <!-- SECTION: GOAL TRACKING (own collapsible section) -->
+        <details class="details-section" open data-mobile-section="stats">
+            <summary class="details-summary">
+                <span>🎯 Goal Tracking</span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+            </summary>
+
+            <div class="details-content">
+                <div class="goal-controls">
+                    <input type="text" id="goal-category" list="category-list" placeholder="Category (e.g. coding)" autocomplete="off">
+                    <input type="number" id="goal-weekly-hours" min="0" step="0.5" placeholder="Weekly target (hrs)">
+                    <input type="number" id="goal-monthly-hours" min="0" step="0.5" placeholder="Monthly target (hrs)">
+                    <button class="btn-add" onclick="setCategoryGoal()">Set Goal</button>
+                </div>
+                <div class="goals-grid" id="goals-grid"></div>
+            </div>
+        </details>
+
+    <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
+<details class="details-section" open style="position: relative;" data-mobile-section="plan">
+    <summary class="details-summary">
+        <span>🗓️ Visual Weekly Time-Block Planner</span>
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <!-- Backlog Toggle Button -->
+            <button type="button" class="backlog-toggle-btn" onclick="toggleBacklogDrawer(event)">
+                📋 Backlog <span id="backlog-badge-count" class="backlog-count-badge">0</span>
+            </button>
+            <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+        </div>
+    </summary>
+    
+    <div class="details-content" style="position: relative;">
+        <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default so the
+             planner doesn't feel crowded; tap to reveal the View Plane
+             filter and the category color legend. -->
+        <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
+            <span>🎨 Filters &amp; Categories</span>
+            <span class="planner-header-toggle-arrow">▾</span>
+        </button>
+
+        <div class="planner-header-collapsible" id="planner-header-collapsible">
+            <!-- VIEW PLANE FILTER TOGGLE BAR -->
+            <div class="plane-toggle-bar">
+                <span class="plane-label">View Plane:</span>
+                <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')">🌐 All</button>
+                <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')">🌫️ Planned</button>
+                <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
+            </div>
+
+            <!-- Category color legend -->
+            <div class="category-legend" id="category-legend"></div>
+        </div>
+        
+        <div class="planner-body-row">
+            <div class="visual-matrix-column">
+                <div class="visual-matrix-container">
+                    <div class="matrix-grid" id="matrix-grid"></div>
+                </div>
+
+                <!-- WEEK / MONTH NAV BAR: sits right under the calendar grid
+                     (below the 23:00 row), outside the horizontally-scrolling
+                     calendar itself, so it stays put and visible even when
+                     the grid is scrolled sideways - and you can flip weeks
+                     or jump months without leaving this section or
+                     scrolling back up to the small calendar. -->
+                <div class="calendar-week-nav-bar">
+                    <div class="week-nav-group">
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(-1)" title="Previous week">◀ Week</button>
+                        <span class="week-nav-label" id="week-nav-label"></span>
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(1)" title="Next week">Week ▶</button>
+                    </div>
+                    <div class="week-nav-group">
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(-1)" title="Previous month">◀ Month</button>
+                        <button type="button" class="week-nav-btn week-nav-today-btn" onclick="jumpPlannerToToday()" title="Jump to today">Today</button>
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(1)" title="Next month">Month ▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backdrop for the mobile floating backlog panel - tapping
+                 it closes the drawer, same as the ✕ button. Purely a
+                 phone-width thing; CSS keeps it invisible/inert otherwise. -->
+            <div id="backlog-drawer-backdrop" class="backlog-drawer-backdrop" onclick="toggleBacklogDrawer()" style="display:none;"></div>
+
+            <!-- BACKLOG SLIDE-OUT PANEL: items rendered exactly like calendar activities -->
+            <div id="backlog-drawer" class="backlog-drawer">
+                <div class="matrix-header backlog-drawer-header">
+                    <span>📋 Backlog</span>
+                    <button class="backlog-drawer-close" onclick="toggleBacklogDrawer()" title="Close">✕</button>
+                </div>
+
+                <div class="input-box backlog-add-form">
+                    <div class="category-select-row">
+                        <div class="category-combo-wrap">
+                            <input type="text" id="backlog-category" class="category-combo-input" placeholder="Category (e.g. coding)" autocomplete="off" oninput="showCategoryCombo('backlog-category')" onfocus="showCategoryCombo('backlog-category')">
+                            <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('backlog-category')" title="Show all categories">▾</button>
+                            <div id="backlog-category-combo-list" class="category-combo-list"></div>
+                        </div>
+                        <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                    </div>
+                    <input type="text" id="backlog-name" placeholder="Notes / topic (optional)">
+                    <input type="number" id="backlog-hours" min="0.25" step="0.25" value="1" placeholder="Hours">
+                    <button class="btn-add" onclick="addBacklogItem()">+ Add to Backlog</button>
+                </div>
+
+                <div class="backlog-scroll-wrap">
+                    <div id="backlog-block-list" class="matrix-day-col backlog-day-col"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</details>
+
+        <!-- SECTION 3: NOTES -->
+        <details class="details-section" open id="notes-section" data-mobile-section="notes">
+            <summary class="details-summary">
+                <span>📝 Notes</span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+            </summary>
+
+            <div class="details-content">
+                <div class="notes-layout">
+                    <!-- LEFT: vertical list of notes (small preview each) -->
+                    <div class="notes-sidebar">
+                        <div class="notes-sidebar-header">
+                            <span class="notes-sidebar-title">Notes <span class="notes-count" id="notes-count-badge">0</span></span>
+                            <button class="notes-new-btn" onclick="exportAllNotes()" title="Export all notes as a backup file" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);">⬇️</button>
+                            <button class="notes-new-btn" onclick="createNote()" title="New note">+ New</button>
+                        </div>
+
+                        <!-- Notebook picker: groups notes (e.g. "Coding"),
+                             and new notes created while one is selected get
+                             auto-numbered into it (Coding 1, Coding 2...). -->
+                        <div class="notebook-picker-row">
+                            <select id="notebook-filter-select" class="notebook-filter-select" onchange="handleNotebookFilterChange(this.value)" title="Filter by notebook"></select>
+                            <button type="button" class="notebook-new-btn" onclick="createNotebook()" title="New notebook">+ 📓</button>
+                            <button type="button" class="notebook-del-btn" onclick="deleteCurrentNotebook()" title="Delete this notebook">🗑️</button>
+                        </div>
+
+                        <div class="notes-search-wrap">
+                            <input type="text" id="notes-search-input" class="notes-search-input" placeholder="🔎 Search notes..." oninput="handleNotesSearch(this.value)">
+                        </div>
+
+                        <div class="notes-list" id="notes-list"></div>
+                    </div>
+
+                    <!-- RIGHT: the big page - whatever note is selected on the left opens here -->
+                    <div class="notes-editor-pane">
+                        <div class="notes-empty-state" id="notes-empty-state">
+                            Select a note on the left, or click "+ New" to start writing.
+                        </div>
+
+                        <div class="notes-editor" id="notes-editor" style="display:none;">
+                            <div class="notes-editor-topbar">
+                                <button type="button" class="notes-back-btn" onclick="showMobileNotesList()" title="Back to notes list">←</button>
+                                <input type="text" id="note-title-input" class="note-title-input" placeholder="Untitled note" oninput="handleNoteEdited()">
+                                <button class="note-delete-btn" onclick="deleteCurrentNote()" title="Delete this note">🗑️</button>
+                            </div>
+
+                            <!-- Page color + Photo + Record, grouped into one compact
+                                 toolbar. On desktop it's just a normal row under the
+                                 title. On phones, JS (positionNotesToolbar) pins this
+                                 bar right above the on-screen keyboard whenever a
+                                 text field in the note is focused - like a native
+                                 app's keyboard accessory bar - so these controls are
+                                 always in thumb's reach while typing, instead of
+                                 scrolled away above. -->
+                            <div class="notes-toolbar" id="notes-toolbar">
+                                <div class="notes-color-swatches" id="notes-color-swatches" title="Page color"></div>
+                                <button type="button" class="notes-undo-btn" id="notes-undo-btn" onclick="undoNoteAction()" title="Undo last note change" disabled>↺</button>
+                                <button type="button" class="notes-undo-btn" id="notes-redo-btn" onclick="redoNoteAction()" title="Redo" disabled>↻</button>
+                                <div class="notes-toolbar-divider"></div>
+                                <button type="button" class="notes-photo-btn" id="notes-photo-btn" onclick="triggerPhotoUpload()" title="Add a photo">📷</button>
+                                <input type="file" id="note-photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoFilesSelected(event)">
+                                <button type="button" class="notes-voice-record-btn" id="notes-voice-record-btn" onclick="toggleNoteRecording()" title="Record a voice note here">●</button>
+                                <div class="notes-toolbar-divider"></div>
+                                <button type="button" class="notes-photo-btn" onclick="exportCurrentNote()" title="Export this note as a text file">⬇️</button>
+                            </div>
+
+                            <!-- This field assigns which NOTEBOOK a note belongs to (used
+                                 to point at the calendar's own activity categories via
+                                 category-list, which never made sense for a note - now
+                                 uses notebook-list, populated from notesNotebooks in
+                                 renderNotebookSelector()). On phones it's set from each
+                                 note's miniature in the sidebar list instead (tap it) -
+                                 see .note-list-item-category / openNoteNotebookPicker(). -->
+                            <div class="form-group notes-category-field" id="notes-category-field">
+                                <label>Notebook</label>
+                                <input type="text" id="note-category-input" list="notebook-list" placeholder="leave blank for no notebook" autocomplete="off" oninput="handleNoteEdited()">
+                            </div>
+
+                            <div class="notes-voice-status" id="notes-voice-status"></div>
+
+                            <!-- Ordered stack of blocks: text blocks are auto-growing
+                                 textareas, voice recordings are small player cards.
+                                 Hitting Record drops a new player card right after
+                                 wherever the cursor last was, then opens a fresh
+                                 text block after it so typing can continue right away.
+                                 Every block can be nudged up/down or deleted. -->
+                            <div class="note-blocks-container" id="note-blocks-container"></div>
+
+                            <span id="note-saved-indicator" class="note-saved-indicator">Saved</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- RIGHT-CLICK CONTEXT MENU -->
+        <div id="block-context-menu" class="context-menu-overlay" style="display: none;">
+            <div class="context-menu-content">
+                <button class="context-menu-item" onclick="toggleContextBlockPlane()">
+                    <span style="font-size: 1rem;" id="context-plane-icon">🎯</span>
+                    <span id="context-plane-text">Convert to Completed</span>
+                </button>
+
+                <hr class="context-divider">
+
+                <button class="context-menu-item delete-item" onclick="deleteContextBlock()">
+                    <span style="font-size: 1rem;">🗑️</span>
+                    <span>Delete (Supr)</span>
+                </button>
+                
+                <hr class="context-divider">
+
+                <div class="context-palette-header">
+                    <span style="font-size: 0.85rem;">✏️</span>
+                    <span style="font-size: 0.75rem; color: #aaa;">Category Color</span>
+                </div>
+
+                <div class="color-palette-grid">
+                    <button class="color-swatch" style="background: #ef4444;" onclick="setCategoryCustomColor('#ef4444')"></button>
+                    <button class="color-swatch" style="background: #f43f5e;" onclick="setCategoryCustomColor('#f43f5e')"></button>
+                    <button class="color-swatch" style="background: #ec4899;" onclick="setCategoryCustomColor('#ec4899')"></button>
+                    <button class="color-swatch" style="background: #d946ef;" onclick="setCategoryCustomColor('#d946ef')"></button>
+                    <button class="color-swatch" style="background: #a855f7;" onclick="setCategoryCustomColor('#a855f7')"></button>
+                    <button class="color-swatch" style="background: #8b5cf6;" onclick="setCategoryCustomColor('#8b5cf6')"></button>
+
+                    <button class="color-swatch" style="background: #6366f1;" onclick="setCategoryCustomColor('#6366f1')"></button>
+                    <button class="color-swatch" style="background: #3b82f6;" onclick="setCategoryCustomColor('#3b82f6')"></button>
+                    <button class="color-swatch" style="background: #0284c7;" onclick="setCategoryCustomColor('#0284c7')"></button>
+                    <button class="color-swatch" style="background: #06b6d4;" onclick="setCategoryCustomColor('#06b6d4')"></button>
+                    <button class="color-swatch" style="background: #14b8a6;" onclick="setCategoryCustomColor('#14b8a6')"></button>
+                    <button class="color-swatch" style="background: #10b981;" onclick="setCategoryCustomColor('#10b981')"></button>
+
+                    <button class="color-swatch" style="background: #22c55e;" onclick="setCategoryCustomColor('#22c55e')"></button>
+                    <button class="color-swatch" style="background: #84cc16;" onclick="setCategoryCustomColor('#84cc16')"></button>
+                    <button class="color-swatch" style="background: #eab308;" onclick="setCategoryCustomColor('#eab308')"></button>
+                    <button class="color-swatch" style="background: #f97316;" onclick="setCategoryCustomColor('#f97316')"></button>
+                    <button class="color-swatch" style="background: #78716c;" onclick="setCategoryCustomColor('#78716c')"></button>
+                    <button class="color-swatch" style="background: #64748b;" onclick="setCategoryCustomColor('#64748b')"></button>
+                </div>
+
+                <button class="context-default-btn" onclick="resetCategoryDefaultColor()">
+                    <span class="default-circle"></span>
+                    <span>Default</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MOBILE DAILY BOTTOM SHEET: tapping a calendar date on phones opens this,
+             pulling the real Log Time form in so there's no duplicate logic/IDs. -->
+        <div id="mobile-daily-modal" class="mobile-daily-modal" style="display:none;">
+            <div class="mobile-daily-sheet">
+                <div class="mobile-sheet-header">
+                    <div>
+                        <h3 id="mobile-sheet-title">Day</h3>
+                        <small id="mobile-sheet-subtitle" style="color:var(--text-muted); font-size:0.8rem;">0.00 / 24 Hours</small>
+                    </div>
+                    <button class="mobile-close-btn" onclick="closeMobileDailyModal()">✕</button>
+                </div>
+                <div class="mobile-sheet-body">
+                    <button type="button" class="mobile-add-activity-btn" onclick="openMobileAddModal()">
+                        <span>＋</span> <span>Add Activity</span>
+                    </button>
+
+                    <div class="hours-summary" id="mobile-hours-summary">Logged Today: 0 hrs</div>
+                    <div class="timeline-container" id="mobile-timeline-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCOUNT / LOGIN / SIGNUP MODAL -->
+        <div id="auth-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 320px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <button class="modal-close-btn" onclick="closeAuthModal()">✕</button>
+                <h4 style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Account</h4>
+
+                <div id="auth-guest-view">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="auth-email-input" placeholder="you@example.com" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="auth-password-input" placeholder="At least 6 characters" autocomplete="current-password">
+                    </div>
+                    <div id="auth-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 4px; display: none;"></div>
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="btn-primary" style="margin:0; flex:1;" onclick="handleLoginClick()">LOG IN</button>
+                        <button class="btn-primary" style="margin:0; flex:1; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="handleSignUpClick()">SIGN UP</button>
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:12px; line-height:1.4;">You're browsing as a guest - nothing is saved between visits. Log in or sign up to save your data to the cloud so it's there next time and on any device you use.</p>
+                </div>
+
+                <div id="auth-user-view" style="display:none;">
+                    <p style="font-size:0.9rem;">Logged in as <b id="auth-user-email"></b></p>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:6px;">☁️ Your data is syncing to your account.</p>
+                    <button class="btn-primary" style="margin-top:14px; width:100%; background:var(--danger);" onclick="logOutUser()">LOG OUT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTEXTUAL QUICK ADD / EDIT POPUP MODAL -->
+        <div id="quick-add-modal" class="modal-overlay">
+            <div class="modal-content" id="quick-add-modal-content" style="width: 320px;">
+                <button class="modal-close-btn" onclick="closeQuickAddModal()">✕</button>
+                <h4 id="modal-time-label" style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Log Time</h4>
+                
+                <!-- Added Planned vs Actual Toggle inside Modal -->
+                <div class="mode-toggle" style="display: flex; gap: 4px; margin-bottom: 12px;">
+                    <button id="modal-type-projected" class="range-btn" style="flex:1;" onclick="setModalType('projected')">🌫️ Planned</button>
+                    <button id="modal-type-actual" class="range-btn active" style="flex:1;" onclick="setModalType('actual')">🎯 Completed</button>
+                </div>
+
+                <!-- Date is pre-filled from whichever cell was clicked, but it's
+                     editable and clearable - clearing it sends the item to the
+                     Backlog (unscheduled) instead of forcing it onto a specific
+                     day. Not shown in edit mode for items dragged in from the
+                     backlog without a clock time. -->
+                <div class="form-group" id="modal-date-group">
+                    <label>Date <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">(optional — leave blank to send to Backlog)</span></label>
+                    <input type="date" id="modal-date-input">
+                </div>
+
+                <div class="form-group" style="display:flex; flex-direction:row; gap:10px;">
+                    <div style="flex:1; display:flex; flex-direction:column;">
+                        <label>Start Time</label>
+                        <input type="time" id="modal-start-time" value="09:00">
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column;">
+                        <label>End Time</label>
+                        <input type="time" id="modal-end-time" value="10:00">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Category</label>
+                    <div class="category-select-row">
+                        <div class="category-combo-wrap">
+                            <input type="text" id="modal-category-name" class="category-combo-input" placeholder="e.g. coding, math, exercise" autocomplete="off" oninput="showCategoryCombo('modal-category-name')" onfocus="showCategoryCombo('modal-category-name')">
+                            <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('modal-category-name')" title="Show all categories">▾</button>
+                            <div id="modal-category-name-combo-list" class="category-combo-list"></div>
+                        </div>
+                        <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes / Topic (Optional)</label>
+                    <input type="text" id="modal-activity-name" placeholder="e.g. website, calculus, leg day">
+                </div>
+
+                <div id="modal-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: -6px; margin-bottom: 6px; display: none;"></div>
+
+                <div style="display:flex; gap:8px; margin-top:14px;">
+                    <button id="modal-submit-btn" class="btn-primary" style="margin:0; flex:1;" onclick="submitQuickAddModal()">ADD TIME BLOCK</button>
+                    <button id="modal-delete-btn" class="btn-primary" style="margin:0; background:var(--danger); display:none;" onclick="deleteModalActivity()">DELETE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CATEGORY MANAGEMENT MODAL: add new categories or delete ones
+             that were created but aren't used anywhere in the calendar,
+             backlog, or goals. Opened from the ⚙️ next to any category
+             dropdown in the Visual Weekly Time-Block Planner. -->
+        <div id="category-manage-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 320px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <button class="modal-close-btn" onclick="closeCategoryManageModal()">✕</button>
+                <h4 style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Manage Categories</h4>
+
+                <div style="display:flex; gap:8px; margin-bottom:14px;">
+                    <input type="text" id="new-category-input" placeholder="New category name" style="flex:1; margin-bottom:0;">
+                    <button class="btn-add" style="margin:0; white-space:nowrap;" onclick="addNewCategoryFromManageModal()">+ Add</button>
+                </div>
+
+                <div id="category-manage-list" class="category-manage-list"></div>
+            </div>
+        </div>
+
+        <!-- PHOTO LIGHTBOX: full-screen preview of a note's image block -->
+        <div id="photo-lightbox" class="photo-lightbox-overlay" style="display:none;" onclick="closePhotoLightbox(event)">
+            <button type="button" class="photo-lightbox-close" onclick="closePhotoLightbox(event)">✕</button>
+            <img id="photo-lightbox-img" class="photo-lightbox-img" src="" alt="Note photo">
+        </div>
+
+        <!-- MOBILE BOTTOM NAV: on phone screens, only one top-level section
+             shows at a time - tap an icon here to switch, instead of
+             scrolling through the whole page. Hidden on desktop/tablet. -->
+        <nav id="mobile-bottom-nav" class="mobile-bottom-nav" style="display:none;">
+            <button type="button" class="mobile-tab-btn" data-section="timer" onclick="setMobileSection('timer')">
+                <span class="mobile-tab-icon">⏱️</span>
+                <span class="mobile-tab-label">Timer</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="log" onclick="setMobileSection('log')">
+                <span class="mobile-tab-icon">📅</span>
+                <span class="mobile-tab-label">Log</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="plan" onclick="setMobileSection('plan')">
+                <span class="mobile-tab-icon">🗓️</span>
+                <span class="mobile-tab-label">Plan</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="stats" onclick="setMobileSection('stats')">
+                <span class="mobile-tab-icon">📊</span>
+                <span class="mobile-tab-label">Stats</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
+                <span class="mobile-tab-icon">📝</span>
+                <span class="mobile-tab-label">Notes</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Save confirmation toast (see manualSave()/showSaveToast() in JS) -
+         hidden by default, JS toggles it visible + fades it out. -->
+    <div id="save-toast" class="save-toast"></div>
+
+    <!-- Generic confirm dialog (see showConfirmDialog() in JS) - replaces
+         native browser confirm() popups, which look and feel jarringly
+         out of place next to the rest of the app's own styling, with
+         something that matches the app's own modal design instead.
+         Hidden by default; JS fills in the message/button text and
+         resolves a Promise<boolean> based on which button is clicked. -->
+    <div id="confirm-dialog-overlay" class="modal-overlay">
+        <div class="modal-content confirm-dialog-content">
+            <p id="confirm-dialog-message" class="confirm-dialog-message"></p>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn-primary confirm-dialog-cancel-btn" id="confirm-dialog-cancel-btn" onclick="resolveConfirmDialog(false)">Cancel</button>
+                <button type="button" class="btn-primary confirm-dialog-confirm-btn" id="confirm-dialog-confirm-btn" onclick="resolveConfirmDialog(true)">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Picks which notebook a note belongs to - opened from a note's
+         miniature in the sidebar list (see openNoteNotebookPicker() /
+         .note-list-item-category). Replaces a plain prompt() with
+         something that actually shows the existing notebooks instead of
+         requiring you to remember/retype a name exactly. -->
+    <div id="notebook-picker-modal" class="modal-overlay">
+        <div class="modal-content confirm-dialog-content">
+            <h4>Notebook</h4>
+            <div class="form-group">
+                <label>Choose an existing notebook</label>
+                <select id="notebook-picker-select" onchange="document.getElementById('notebook-picker-new-input').value='';"></select>
+            </div>
+            <div class="form-group">
+                <label>...or create a new one</label>
+                <input type="text" id="notebook-picker-new-input" placeholder="New notebook name" autocomplete="off">
+            </div>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn-primary confirm-dialog-cancel-btn" onclick="closeNotebookPickerModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveNotebookPickerModal()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shown only for the brief moment (usually a fraction of a second)
+         while a logged-in session's cloud data is loading on first page
+         load, so a real reload never shows an empty calendar/notes/backlog
+         that a moment later gets replaced by your actual data - it waits
+         and shows this instead, then reveals everything already filled
+         in. Guests skip this entirely since there's nothing to wait for. -->
+    <div id="initial-load-overlay" class="initial-load-overlay">
+        <div class="initial-load-spinner"></div>
+        <div>Loading your data…</div>
+    </div>
+
+    <script src="index15budgetingappjs.js"></script>
+</body>
+</html>
