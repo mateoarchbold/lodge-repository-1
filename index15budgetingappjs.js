@@ -1,4 +1,4 @@
-// BUILD MARKER: 2026-08-21 07:43 UTC (redeployed clean after a partial push left files out of sync)
+// BUILD MARKER: 2026-08-21 08:05 UTC (critical fix: emergencySaveOnExit could overwrite real cloud data with blank state during the loading window)
 // 1. Initialize Supabase Client
 const SUPABASE_URL = 'https://icjhcoxjxpwohbnuejnr.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_aXiCqpts_u0Apyf7hbyHEg_ZYcwmoiy';
@@ -4586,7 +4586,15 @@ function flushCloudSync() {
 // cap, at least one of the two has a real shot at landing instead of
 // neither.
 function emergencySaveOnExit() {
-    if (!currentUser || !currentAccessToken) return;
+    // CRITICAL: must match queueCloudSync's guard exactly. The app starts
+    // blank locally and only fills in with real data once the cloud
+    // fetch finishes (isLoadingCloudData tracks that window) - firing a
+    // save before that finishes would upload the still-blank local state
+    // and overwrite the real data in the cloud with emptiness. This
+    // check was missing here (present in queueCloudSync, not here) and
+    // is exactly the kind of bug that causes "I logged in and all my
+    // data is gone."
+    if (!currentUser || !currentAccessToken || isLoadingCloudData) return;
     try {
         const body = JSON.stringify([{ user_id: currentUser.id, app_data: buildSyncPayload() }]);
         fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
@@ -5001,6 +5009,16 @@ async function manualSave() {
     if (!currentUser) {
         showSaveToast('Log in to save your data', false);
         openAuthModal();
+        return;
+    }
+
+    if (isLoadingCloudData) {
+        // Your real data is still being fetched from the cloud - saving
+        // right now would upload the still-loading (effectively blank)
+        // local state and overwrite it. In practice the loading overlay
+        // blocks this button from even being clickable during this
+        // window, but this guard matches queueCloudSync/emergencySaveOnExit
+        // for safety regardless.
         return;
     }
 
