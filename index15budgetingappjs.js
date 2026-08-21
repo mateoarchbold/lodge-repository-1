@@ -1,3 +1,4 @@
+// BUILD MARKER: 2026-08-21 07:43 UTC (redeployed clean after a partial push left files out of sync)
 // 1. Initialize Supabase Client
 const SUPABASE_URL = 'https://icjhcoxjxpwohbnuejnr.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_aXiCqpts_u0Apyf7hbyHEg_ZYcwmoiy';
