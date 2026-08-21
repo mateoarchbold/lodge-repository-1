@@ -5238,17 +5238,52 @@ async function bootAppWithSession(session) {
     if (didInitialBoot) return;
     didInitialBoot = true;
 
-    await handleAuthSession(session);
-
-    refreshApp();
-    renderNotebookSelector();
-    initBacklogPanel();
+    try {
+        await handleAuthSession(session);
+        refreshApp();
+        renderNotebookSelector();
+        initBacklogPanel();
+        migrateBase64MediaToStorage();
+    } catch (err) {
+        // Whatever just went wrong (a bad data shape, a Supabase hiccup,
+        // anything) - without this, an error here used to leave the
+        // whole page stuck behind the loading overlay forever with zero
+        // indication why, since nothing after the failing line ever ran,
+        // including the code that hides the overlay. That's the worst
+        // possible failure mode for a page load, so no matter what
+        // breaks above, the overlay below is now guaranteed to still
+        // come down, and the actual error is now visible instead of
+        // silently swallowed as an uncaught promise rejection.
+        console.error('Error during app boot:', err);
+        showBootErrorBanner(err);
+    }
 
     const overlay = document.getElementById('initial-load-overlay');
     if (overlay) overlay.classList.add('hidden');
-
-    migrateBase64MediaToStorage();
 }
+
+// Shown only if bootAppWithSession above actually caught something - a
+// dismissible banner explaining the app may be showing incomplete data,
+// with the real error underneath for anyone who needs to report it
+// (visible in place of a silent infinite spinner, which gave no way to
+// even know something had gone wrong, let alone what).
+function showBootErrorBanner(err) {
+    const existing = document.getElementById('boot-error-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'boot-error-banner';
+    banner.className = 'boot-error-banner';
+    banner.innerHTML = `
+        <div class="boot-error-banner-text">
+            ⚠️ Something went wrong loading your data. The app may be showing incomplete or empty information - try refreshing. If this keeps happening, screenshot this message.
+            <div class="boot-error-banner-detail">${escapeHtml(err && err.message ? err.message : String(err))}</div>
+        </div>
+        <button type="button" class="boot-error-banner-close" onclick="this.parentElement.remove()">✕</button>
+    `;
+    document.body.appendChild(banner);
+}
+
 
 // Two independent paths race to boot the app - didInitialBoot above
 // guarantees only the winner actually runs it, so running both is safe:
@@ -5271,6 +5306,12 @@ async function bootAppWithSession(session) {
 let didInitialBoot = false;
 supabaseClient.auth.getSession().then(({ data }) => {
     bootAppWithSession(data.session);
+}).catch((err) => {
+    // getSession() itself failed outright (not just slow) - boot as a
+    // guest rather than waiting out the 6-second safety net below for
+    // no reason when we already know this path won't recover on its own.
+    console.error('getSession() failed:', err);
+    bootAppWithSession(null);
 });
 
 supabaseClient.auth.onAuthStateChange((_event, session) => {
@@ -5284,19 +5325,14 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
     handleAuthSession(session);
 });
 
-// Safety net: if Supabase never calls back at all (offline, a script
-// error, a blocked request) the page would otherwise be stuck behind the
-// loading overlay forever. After a few seconds, force the same one-time
-// render to happen anyway so the app is at least usable, even if
-// whatever cloud data exists hasn't loaded.
+// Safety net: if Supabase never calls back at all (offline, a blocked
+// request, or literally any other reason both paths above never fired)
+// the page would otherwise be stuck behind the loading overlay forever.
+// Routes through the same protected bootAppWithSession as everything
+// else above, rather than duplicating the render/overlay-hide steps
+// unprotected here too.
 setTimeout(() => {
-    if (didInitialBoot) return;
-    didInitialBoot = true;
-    refreshApp();
-    renderNotebookSelector();
-    initBacklogPanel();
-    const overlay = document.getElementById('initial-load-overlay');
-    if (overlay) overlay.classList.add('hidden');
+    bootAppWithSession(null);
 }, 6000);
 
 // Restore the collapsed/expanded state of the filters + category legend
