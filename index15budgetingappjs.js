@@ -2472,6 +2472,279 @@ function exportAllNotes() {
     downloadAnchor.remove();
 }
 
+// --- DROPBOX AUTO-BACKUP ---
+// A second, fully independent backup destination alongside the manual
+// "Export everything" download - once linked, a snapshot of everything
+// (calendar, backlog, goals, notes) gets uploaded to your own Dropbox
+// automatically in the background, no action needed each time.
+//
+// Deliberately independent of Supabase in every sense that matters:
+// - The Dropbox refresh token lives ONLY in this browser's localStorage,
+//   never inside app_data / buildSyncPayload() - if it were bundled into
+//   the same synced blob as everything else, it would (a) get wiped out
+//   by the exact kind of Supabase bug that caused a real data loss
+//   earlier in this project, taking the backup link down with the data
+//   it was meant to protect, and (b) leak your Dropbox access into any
+//   "Export everything" JSON file you ever shared with anyone. Neither
+//   is acceptable for something whose whole point is to be a safety net.
+// - Trade-off: linking is per-browser, not synced across devices. That's
+//   the right trade for a backup mechanism.
+// - Keeps DATED files (lodge_backup_2026-08-21.json etc.), not just one
+//   overwritten "latest" file - so even if a future bug silently backs
+//   up bad/empty data once, every earlier day's backup is untouched and
+//   still recoverable. A single overwritten "latest" file would have
+//   the exact same blind spot the Supabase bug did.
+//
+// SETUP (one-time, done by whoever owns this Dropbox integration - see
+// the DROPBOX_CLIENT_ID placeholder below):
+//   1. https://www.dropbox.com/developers/apps -> Create app
+//   2. Choose "Scoped access" -> "App folder" (NOT "Full Dropbox" - this
+//      sandboxes the app to its own dedicated folder inside the user's
+//      Dropbox, so it can never see or touch anything else in their
+//      account, regardless of what site/user is granting access)
+//   3. Name it anything (e.g. "Lodge Time Budgeter Backups")
+//   4. In the app's Settings tab: under "OAuth 2" -> "Redirect URIs",
+//      add this site's exact URL (e.g.
+//      https://lalogia.pro/index15budgetingapphtml.html)
+//   5. Copy the "App key" shown at the top of the Settings tab into
+//      DROPBOX_CLIENT_ID below.
+const DROPBOX_CLIENT_ID = 'PASTE_YOUR_DROPBOX_APP_KEY_HERE';
+const DROPBOX_REDIRECT_URI = window.location.origin + window.location.pathname;
+const DROPBOX_AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000; // at most once per 15 min automatically
+let lastDropboxAutoBackupAt = 0;
+let dropboxAccessTokenCache = null; // { token, expiresAt }
+let pendingFirstDropboxBackup = false; // set true right after linking; acted on once boot has real data loaded (see bootAppWithSession)
+
+function isDropboxConfigured() {
+    return DROPBOX_CLIENT_ID && DROPBOX_CLIENT_ID !== 'PASTE_YOUR_DROPBOX_APP_KEY_HERE';
+}
+
+function getDropboxRefreshToken() {
+    return localStorage.getItem('dropboxRefreshToken');
+}
+
+// --- PKCE helpers (no client secret needed - safe to run entirely
+// client-side, same reason Supabase's anon key is safe to have in this
+// file) ---
+function dropboxRandomVerifier() {
+    const arr = new Uint8Array(64);
+    crypto.getRandomValues(arr);
+    return btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function dropboxChallengeFromVerifier(verifier) {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Kicks off linking: redirects to Dropbox's own consent screen. Nothing
+// happens here except building that URL - the actual token exchange
+// happens after Dropbox redirects back (see handleDropboxOAuthRedirect,
+// called on every page load).
+async function linkDropboxAccount() {
+    if (!isDropboxConfigured()) {
+        showSaveToast('⚠️ Dropbox isn\'t set up yet - see DROPBOX_CLIENT_ID in the JS file', false);
+        setTimeout(() => showSaveToast('', false), 4000);
+        return;
+    }
+    const verifier = dropboxRandomVerifier();
+    const challenge = await dropboxChallengeFromVerifier(verifier);
+    sessionStorage.setItem('dropboxPkceVerifier', verifier);
+
+    const params = new URLSearchParams({
+        client_id: DROPBOX_CLIENT_ID,
+        redirect_uri: DROPBOX_REDIRECT_URI,
+        response_type: 'code',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        token_access_type: 'offline' // needed to get a refresh_token back, so backups can keep happening without you re-linking every few hours
+    });
+    window.location.href = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+}
+
+// Runs on every page load - checks whether we just got redirected back
+// from Dropbox's consent screen (a ?code=... in the URL) and, if so,
+// exchanges that code for real tokens and stores the refresh token.
+async function handleDropboxOAuthRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (!code) return;
+
+    // Clean the code out of the URL right away regardless of outcome -
+    // it's single-use and shouldn't linger in the address bar/history.
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+
+    const verifier = sessionStorage.getItem('dropboxPkceVerifier');
+    sessionStorage.removeItem('dropboxPkceVerifier');
+    if (!verifier) return; // redirect from an unrelated/stale link attempt - nothing we can do with it
+
+    try {
+        const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                code,
+                grant_type: 'authorization_code',
+                client_id: DROPBOX_CLIENT_ID,
+                code_verifier: verifier,
+                redirect_uri: DROPBOX_REDIRECT_URI
+            })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.refresh_token) throw new Error(data.error_description || data.error || 'No refresh token returned');
+
+        localStorage.setItem('dropboxRefreshToken', data.refresh_token);
+        dropboxAccessTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+        updateDropboxUI();
+        showSaveToast('📦 Dropbox linked - backups will happen automatically', false);
+        setTimeout(() => showSaveToast('', false), 3000);
+        // Don't back up immediately here - this can run before the real
+        // Supabase data has finished loading (this whole page just
+        // reloaded via the OAuth redirect), which would back up the
+        // still-blank starting state as the very first "backup" - the
+        // exact same class of bug just fixed for emergencySaveOnExit.
+        // bootAppWithSession fires the real first backup once data has
+        // actually loaded instead (see pendingFirstDropboxBackup below).
+        pendingFirstDropboxBackup = true;
+    } catch (err) {
+        console.error('Dropbox linking failed:', err);
+        showSaveToast('⚠️ Dropbox linking failed - try again', false);
+        setTimeout(() => showSaveToast('', false), 3000);
+    }
+}
+
+// Returns a currently-valid access token, refreshing via the stored
+// refresh_token if the cached one is missing/expired. Access tokens are
+// short-lived (~4 hours) by design on Dropbox's side; the refresh_token
+// itself doesn't expire (unless you unlink from Dropbox's own end).
+async function getDropboxAccessToken() {
+    if (dropboxAccessTokenCache && dropboxAccessTokenCache.expiresAt > Date.now()) {
+        return dropboxAccessTokenCache.token;
+    }
+    const refreshToken = getDropboxRefreshToken();
+    if (!refreshToken) return null;
+
+    const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            client_id: DROPBOX_CLIENT_ID
+        })
+    });
+    if (!res.ok) {
+        console.error('Dropbox token refresh failed - the link may have been revoked from Dropbox\'s side');
+        return null;
+    }
+    const data = await res.json();
+    dropboxAccessTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+    return data.access_token;
+}
+
+async function uploadJsonToDropbox(path, jsonStr, accessToken) {
+    const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Dropbox-API-Arg': JSON.stringify({ path, mode: 'overwrite', mute: true }),
+            'Content-Type': 'application/octet-stream'
+        },
+        body: jsonStr
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Dropbox upload failed (${res.status}): ${text.slice(0, 200)}`);
+    }
+}
+
+// Uploads two files each time: a dated one (a real historical snapshot,
+// never overwritten again once that day has passed) and latest.json
+// (always current, easy to grab without hunting for the newest date).
+// silent=true is used for the automatic background trigger, so routine
+// backups don't pop up a toast every 15 minutes.
+async function backupNowToDropbox(silent) {
+    if (!isDropboxConfigured() || !getDropboxRefreshToken()) return;
+    try {
+        const token = await getDropboxAccessToken();
+        if (!token) {
+            if (!silent) {
+                showSaveToast('⚠️ Dropbox link expired - please link again', false);
+                setTimeout(() => showSaveToast('', false), 3000);
+            }
+            return;
+        }
+        const payload = {
+            exportedFrom: 'Lodge Time Budgeter (automatic Dropbox backup)',
+            exportedAt: new Date().toISOString(),
+            ...buildSyncPayload()
+        };
+        const jsonStr = JSON.stringify(payload, null, 2);
+        const dateStr = formatDateKey(new Date());
+
+        await uploadJsonToDropbox(`/lodge_backup_${dateStr}.json`, jsonStr, token);
+        await uploadJsonToDropbox('/lodge_backup_latest.json', jsonStr, token);
+
+        lastDropboxAutoBackupAt = Date.now();
+        updateDropboxUI();
+        if (!silent) {
+            showSaveToast('📦 Backed up to Dropbox ✓', false);
+            setTimeout(() => showSaveToast('', false), 2000);
+        }
+    } catch (err) {
+        console.error('Dropbox backup failed:', err);
+        if (!silent) {
+            showSaveToast('⚠️ Dropbox backup failed - check your connection', false);
+            setTimeout(() => showSaveToast('', false), 3000);
+        }
+    }
+}
+
+// Called from saveUserData() on every successful Supabase save (see
+// below) - rate-limited so a burst of edits doesn't hammer Dropbox's
+// API with an upload per keystroke; only fires if enough time has
+// passed since the last one.
+function maybeAutoBackupToDropbox() {
+    if (!getDropboxRefreshToken()) return;
+    if (Date.now() - lastDropboxAutoBackupAt < DROPBOX_AUTO_BACKUP_MIN_INTERVAL_MS) return;
+    backupNowToDropbox(true);
+}
+
+function unlinkDropboxAccount() {
+    localStorage.removeItem('dropboxRefreshToken');
+    dropboxAccessTokenCache = null;
+    updateDropboxUI();
+    showSaveToast('Dropbox unlinked', false);
+    setTimeout(() => showSaveToast('', false), 2000);
+}
+
+function updateDropboxUI() {
+    const linkBtn = document.getElementById('dropbox-link-btn');
+    const statusEl = document.getElementById('dropbox-status');
+    const backupNowBtn = document.getElementById('dropbox-backup-now-btn');
+    const unlinkBtn = document.getElementById('dropbox-unlink-btn');
+    if (!linkBtn || !statusEl || !backupNowBtn || !unlinkBtn) return;
+
+    const connected = !!getDropboxRefreshToken();
+    linkBtn.style.display = connected ? 'none' : 'inline-flex';
+    statusEl.style.display = connected ? 'inline' : 'none';
+    backupNowBtn.style.display = connected ? 'inline-flex' : 'none';
+    unlinkBtn.style.display = connected ? 'inline-flex' : 'none';
+
+    if (connected) {
+        statusEl.className = 'dropbox-status connected';
+        statusEl.textContent = lastDropboxAutoBackupAt
+            ? `📦 Backed up ${new Date(lastDropboxAutoBackupAt).toLocaleTimeString()}`
+            : '📦 Linked';
+    }
+}
+
+// Runs once on load - if this page load IS the redirect back from
+// Dropbox's consent screen, complete the linking. Harmless no-op
+// otherwise (no ?code= param present).
+handleDropboxOAuthRedirect();
+
 
 
 // --- BACKLOG ITEMS (RENDERED AS REAL CALENDAR ACTIVITY BLOCKS) ---
@@ -4921,6 +5194,7 @@ async function saveUserData(userId, payload) {
     showSaveToast('⚠️ Could not save - check your connection', false);
   } else {
     lastLocalSaveAt = Date.now();
+    maybeAutoBackupToDropbox();
   }
   return { data, error };
 }
@@ -5262,6 +5536,16 @@ async function bootAppWithSession(session) {
         refreshApp();
         renderNotebookSelector();
         initBacklogPanel();
+        updateDropboxUI();
+        if (pendingFirstDropboxBackup) {
+            // Real data has now actually loaded (we're past
+            // handleAuthSession above) - safe to take the first backup
+            // now, bypassing the normal 15-minute rate limit just this
+            // once so linking Dropbox doesn't feel like it silently did
+            // nothing.
+            pendingFirstDropboxBackup = false;
+            backupNowToDropbox();
+        }
         migrateBase64MediaToStorage();
     } catch (err) {
         // Whatever just went wrong (a bad data shape, a Supabase hiccup,

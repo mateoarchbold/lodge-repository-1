@@ -835,6 +835,26 @@ summary.details-summary:hover {
     border-color: var(--accent);
 }
 
+.dropbox-backup-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.dropbox-status {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.dropbox-status.connected {
+    color: #4ade80;
+}
+
+.dropbox-status.error {
+    color: var(--danger);
+}
+
 .category-search-input {
     padding: 8px 12px;
     border-radius: 6px;

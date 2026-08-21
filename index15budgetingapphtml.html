@@ -189,6 +189,17 @@
                                 <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
                             </div>
 
+                            <!-- Dropbox auto-backup - see dropbox-*() functions in JS.
+                                 A completely independent backup destination from Supabase
+                                 on purpose: a bug or outage on one side can't touch the
+                                 other, so there's always a second copy somewhere else. -->
+                            <div class="dropbox-backup-row" id="dropbox-backup-row">
+                                <button class="backup-btn" id="dropbox-link-btn" onclick="linkDropboxAccount()">📦 Link Dropbox for automatic backups</button>
+                                <span class="dropbox-status" id="dropbox-status" style="display:none;"></span>
+                                <button class="backup-btn" id="dropbox-backup-now-btn" onclick="backupNowToDropbox()" style="display:none;">Backup now</button>
+                                <button class="backup-btn" id="dropbox-unlink-btn" onclick="unlinkDropboxAccount()" style="display:none;">Unlink</button>
+                            </div>
+
                             <div>
                                 <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" oninput="handleCategorySearch(this.value)">
                             </div>
