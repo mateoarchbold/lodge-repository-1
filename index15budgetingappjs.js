@@ -3,6 +3,32 @@
 const SUPABASE_URL = 'https://icjhcoxjxpwohbnuejnr.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_aXiCqpts_u0Apyf7hbyHEg_ZYcwmoiy';
 
+// Guards the one line in this whole file that runs before ANY of the
+// app's own error handling exists yet (bootAppWithSession's try/catch,
+// the boot-error-banner, all of it - none of that code has even been
+// reached at this point in the file). If the Supabase SDK script itself
+// failed to load from the CDN (slow connection, blocked by a firewall/
+// ad-blocker, briefly offline, etc.), `supabase` is undefined here and
+// the very next line would throw immediately - which used to silently
+// kill the entire rest of the script, including everything that hides
+// the loading overlay, leaving the page stuck on "Loading your data..."
+// forever with zero explanation. This is exactly what a slow/blocked
+// CDN load looks like, and it's a real, ordinary thing that happens on
+// real networks - not a code bug, but the app should still say so
+// clearly instead of hanging silently.
+if (typeof supabase === 'undefined') {
+    const overlay = document.getElementById('initial-load-overlay');
+    if (overlay) {
+        overlay.innerHTML = `
+            <div style="max-width:320px; text-align:center; padding:20px; color:#f87171;">
+                ⚠️ A required script didn't load (usually a slow or blocked connection).
+                <br><br>
+                <button onclick="location.reload()" style="padding:8px 20px; cursor:pointer; background:#2563eb; color:#fff; border:none; border-radius:6px; font-weight:600;">Refresh to try again</button>
+            </div>`;
+    }
+    throw new Error('Supabase SDK failed to load from the CDN - required script missing.');
+}
+
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- ALWAYS START BLANK ---
@@ -2508,7 +2534,7 @@ function exportAllNotes() {
 //      https://lalogia.pro/index15budgetingapphtml.html)
 //   5. Copy the "App key" shown at the top of the Settings tab into
 //      DROPBOX_CLIENT_ID below.
-const DROPBOX_CLIENT_ID = 'PASTE_YOUR_DROPBOX_APP_KEY_HERE';
+const DROPBOX_CLIENT_ID = '4nx0s8pdmsywjfs';
 const DROPBOX_REDIRECT_URI = window.location.origin + window.location.pathname;
 const DROPBOX_AUTO_BACKUP_MIN_INTERVAL_MS = 15 * 60 * 1000; // at most once per 15 min automatically
 let lastDropboxAutoBackupAt = 0;
@@ -2720,23 +2746,37 @@ function unlinkDropboxAccount() {
 }
 
 function updateDropboxUI() {
+    const connected = !!getDropboxRefreshToken();
+    const statusText = lastDropboxAutoBackupAt
+        ? `Backed up ${new Date(lastDropboxAutoBackupAt).toLocaleTimeString()}`
+        : 'Linked';
+
+    // Analytics/Export section controls (full row: link/status/backup now/unlink)
     const linkBtn = document.getElementById('dropbox-link-btn');
     const statusEl = document.getElementById('dropbox-status');
     const backupNowBtn = document.getElementById('dropbox-backup-now-btn');
     const unlinkBtn = document.getElementById('dropbox-unlink-btn');
-    if (!linkBtn || !statusEl || !backupNowBtn || !unlinkBtn) return;
+    if (linkBtn && statusEl && backupNowBtn && unlinkBtn) {
+        linkBtn.style.display = connected ? 'none' : 'inline-flex';
+        statusEl.style.display = connected ? 'inline' : 'none';
+        backupNowBtn.style.display = connected ? 'inline-flex' : 'none';
+        unlinkBtn.style.display = connected ? 'inline-flex' : 'none';
+        if (connected) {
+            statusEl.className = 'dropbox-status connected';
+            statusEl.textContent = '📦 ' + statusText;
+        }
+    }
 
-    const connected = !!getDropboxRefreshToken();
-    linkBtn.style.display = connected ? 'none' : 'inline-flex';
-    statusEl.style.display = connected ? 'inline' : 'none';
-    backupNowBtn.style.display = connected ? 'inline-flex' : 'none';
-    unlinkBtn.style.display = connected ? 'inline-flex' : 'none';
-
-    if (connected) {
-        statusEl.className = 'dropbox-status connected';
-        statusEl.textContent = lastDropboxAutoBackupAt
-            ? `📦 Backed up ${new Date(lastDropboxAutoBackupAt).toLocaleTimeString()}`
-            : '📦 Linked';
+    // Compact header button (visible from every tab, not just Analytics) -
+    // swaps between "Link Dropbox" and a live status pill that doubles as
+    // a one-click "back up now" button.
+    const headerLinkBtn = document.getElementById('dropbox-header-link-btn');
+    const headerStatusBtn = document.getElementById('dropbox-header-status-btn');
+    const headerStatusText = document.getElementById('dropbox-header-status-text');
+    if (headerLinkBtn && headerStatusBtn && headerStatusText) {
+        headerLinkBtn.style.display = connected ? 'none' : 'flex';
+        headerStatusBtn.style.display = connected ? 'flex' : 'none';
+        if (connected) headerStatusText.textContent = statusText;
     }
 }
 
@@ -5328,11 +5368,31 @@ function showSaveToast(message, sticky) {
 }
 
 // Ctrl+S / Cmd+S triggers the same manual save instead of the browser's
-// own "Save Page As…" dialog.
+// own "Save Page As…" dialog. Explicitly excludes Shift so this doesn't
+// also fire (alongside the Dropbox shortcut below) when Ctrl+Shift+S is
+// pressed - without this check both used to trigger together, with two
+// save toasts competing on screen.
 document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         manualSave();
+    }
+});
+
+// Ctrl+Shift+S / Cmd+Shift+S triggers an immediate Dropbox backup - kept
+// as a distinct shortcut from plain Ctrl+S (which saves to the Supabase
+// account, not Dropbox) so the two don't get confused with each other.
+// Does nothing if Dropbox isn't linked yet - backupNowToDropbox() already
+// handles that case with its own clear toast message.
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (!getDropboxRefreshToken()) {
+            showSaveToast('Link Dropbox first (see the backup section)', false);
+            setTimeout(() => showSaveToast('', false), 2500);
+            return;
+        }
+        backupNowToDropbox();
     }
 });
 
