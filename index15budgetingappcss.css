@@ -1341,9 +1341,117 @@ summary.details-summary:hover {
     margin-bottom: 0;
 }
 
-/* Unified collapsible panel above the big calendar (View Plane filter +
-   category legend). Closed by default, on every screen size, so it
-   doesn't crowd the planner - tap the toggle button to reveal it. */
+/* --- LIVE TIMER BAR --- */
+.live-timer-bar {
+    margin-bottom: 10px;
+}
+.live-timer-idle,
+.live-timer-active {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+.live-timer-idle-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+#live-timer-category-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-size: 0.85rem;
+}
+.live-timer-start-btn {
+    flex-shrink: 0;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+.live-timer-active {
+    border-color: var(--accent);
+}
+.live-timer-pulse-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ef4444;
+    flex-shrink: 0;
+    animation: liveTimerPulse 1.4s ease-in-out infinite;
+}
+/* Paused state uses the same markup but with the pulse animation
+   stopped and the dot dimmed, so "running vs paused" is visible at a
+   glance without reading the button label. */
+.live-timer-active.paused .live-timer-pulse-dot {
+    animation: none;
+    background: var(--text-muted);
+}
+@keyframes liveTimerPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+}
+.live-timer-active-category {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.live-timer-active-location {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.live-timer-active-elapsed {
+    font-family: monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.live-timer-ctrl-btn {
+    flex-shrink: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--text);
+}
+.live-timer-finish-btn {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+/* The calendar block driven by an active live timer - a subtle pulsing
+   outline so it reads as "currently growing", distinct from an ordinary
+   static block, even when it's too short to fit any text inside. */
+.visual-block.live-timer-running {
+    animation: liveTimerBlockPulse 1.4s ease-in-out infinite;
+}
+@keyframes liveTimerBlockPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+    50% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+}
+
 .planner-header-toggle-btn {
     display: flex;
     align-items: center;
@@ -2367,6 +2475,143 @@ summary.details-summary:hover {
     color: var(--text-muted);
     font-size: 0.8rem;
     padding: 12px 4px;
+}
+
+/* --- BOARD (To Do / Doing / Done) --- */
+.board-columns {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.board-column {
+    flex: 1;
+    min-width: 0;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+}
+
+.board-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--text);
+    padding: 2px 4px 10px 4px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+
+.board-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: var(--card-bg);
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
+/* Turns red once Doing is at its work-in-progress limit - a visual nudge
+   that finishing something is the way to make room, not just piling on. */
+.board-count.board-count-full {
+    color: #fff;
+    background: var(--danger);
+}
+
+.board-column-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 60px;
+}
+
+.board-empty-msg {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    padding: 16px 4px;
+}
+
+.board-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid transparent;
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: grab;
+    transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.board-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.board-card.board-card-drop-target {
+    border-top: 2px solid var(--accent);
+}
+
+.board-card-done {
+    opacity: 0.6;
+}
+
+.board-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.board-card-category {
+    font-weight: 700;
+    font-size: 0.82rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.board-card-del {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.board-card-del:hover {
+    color: var(--danger);
+}
+
+.board-card-name {
+    font-size: 0.78rem;
+    color: var(--text);
+    margin-top: 3px;
+    line-height: 1.3;
+}
+
+.board-card-hours {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* Phones: three side-by-side columns don't fit - stack them instead. */
+@media (max-width: 768px) {
+    .board-columns {
+        flex-direction: column;
+    }
+    .board-column {
+        width: 100%;
+    }
 }
 
 /* Backlog items reuse .visual-block itself as-is (same background/colors,

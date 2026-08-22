@@ -280,6 +280,29 @@
     </summary>
     
     <div class="details-content" style="position: relative;">
+        <!-- LIVE TIMER - starts a real-time-growing activity block on
+             today's calendar column (see startLiveTimerActivity() /
+             tickLiveTimers() in the JS). Controls live here, in a
+             persistent bar, rather than inside the block itself - a
+             block that starts at zero elapsed time is a sliver a
+             fraction of a pixel tall, which would be an impossible
+             click target for Pause/Finish buttons. -->
+        <div id="live-timer-bar" class="live-timer-bar">
+            <div id="live-timer-idle" class="live-timer-idle">
+                <span class="live-timer-idle-icon">⏱️</span>
+                <input type="text" id="live-timer-category-input" placeholder="What are you working on?" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity();">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity()">▶ Start</button>
+            </div>
+            <div id="live-timer-active" class="live-timer-active" style="display:none;">
+                <span class="live-timer-pulse-dot"></span>
+                <span id="live-timer-active-category" class="live-timer-active-category"></span>
+                <span id="live-timer-active-location" class="live-timer-active-location"></span>
+                <span id="live-timer-active-elapsed" class="live-timer-active-elapsed">00:00:00</span>
+                <button type="button" id="live-timer-pause-btn" class="live-timer-ctrl-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
+                <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
+            </div>
+        </div>
+
         <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default so the
              planner doesn't feel crowded; tap to reveal the View Plane
              filter and the category color legend. -->
@@ -360,6 +383,47 @@
         </div>
     </div>
 </details>
+
+        <!-- SECTION: BOARD (To Do / Doing / Done) -->
+        <!-- A fuller, three-column view of the exact same backlogItems
+             the drawer above already uses (see initBoardSection/
+             renderBoardSection/moveBoardItem in the JS) - its own
+             top-level section since three real columns need more room
+             than the narrow drawer sidebar can give them. Cards drag
+             between columns, drag onto the calendar to schedule (same
+             mechanism the drawer already uses), and Doing enforces a
+             work-in-progress limit of 3. -->
+        <details class="details-section" open data-mobile-section="board">
+            <summary class="details-summary">
+                <span>📋 Kanban Board</span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Click to expand / collapse</span>
+            </summary>
+            <div class="details-content">
+                <div class="board-columns">
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span>📥 To Do</span>
+                            <span class="board-count" id="board-count-todo">0</span>
+                        </div>
+                        <div class="board-column-list" id="board-col-todo"></div>
+                    </div>
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span>🔨 Doing</span>
+                            <span class="board-count" id="board-count-doing">0/3</span>
+                        </div>
+                        <div class="board-column-list" id="board-col-doing"></div>
+                    </div>
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span>✅ Done</span>
+                            <span class="board-count" id="board-count-done">0</span>
+                        </div>
+                        <div class="board-column-list" id="board-col-done"></div>
+                    </div>
+                </div>
+            </div>
+        </details>
 
         <!-- SECTION 3: NOTES -->
         <details class="details-section" open id="notes-section" data-mobile-section="notes">
@@ -618,6 +682,13 @@
                     <button id="modal-submit-btn" class="btn-primary" style="margin:0; flex:1;" onclick="submitQuickAddModal()">ADD TIME BLOCK</button>
                     <button id="modal-delete-btn" class="btn-primary" style="margin:0; background:var(--danger); display:none;" onclick="deleteModalActivity()">DELETE</button>
                 </div>
+                <!-- Only shown when adding a brand new activity (not while
+                     editing one) - uses this same Category/Notes/Date/
+                     Start Time you've already filled in as the exact spot
+                     to start the chronometer, instead of always starting
+                     at "right now" like the bar above the calendar does.
+                     See startLiveTimerFromModal() in the JS. -->
+                <button id="modal-start-chronometer-btn" class="btn-primary" style="margin:8px 0 0 0; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="startLiveTimerFromModal()">⏱️ Start Live Chronometer Here</button>
             </div>
         </div>
 
@@ -668,6 +739,10 @@
             <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
                 <span class="mobile-tab-icon">📝</span>
                 <span class="mobile-tab-label">Notes</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="board" onclick="setMobileSection('board')">
+                <span class="mobile-tab-icon">📋</span>
+                <span class="mobile-tab-label">Kanban</span>
             </button>
         </nav>
 

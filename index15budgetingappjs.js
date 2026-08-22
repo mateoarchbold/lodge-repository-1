@@ -169,6 +169,8 @@ function refreshApp() {
     renderCategoryStats();
     renderNotesList();
     refreshAllCategoryDropdowns();
+    activeLiveTimerRef = findActiveLiveTimer();
+    renderLiveTimerWidget();
 }
 
 // --- BIG CALENDAR WEEK/MONTH NAV BAR ---
@@ -991,6 +993,203 @@ function toggleBlockPlane(dateKey, index) {
     }
 }
 
+// --- LIVE TIMER (chronometer-driven calendar block) ---
+// Instead of picking a start/end time up front, this starts a block
+// "now" on today's column and grows it in real time for as long as
+// it's running - press Start, work, press Pause when you step away,
+// Resume to keep going, Finish to lock it in as a normal completed
+// block with whatever the total came out to.
+//
+// Only one of these can be active (running or paused-but-unfinished) at
+// a time - starting a second one before finishing the first would mean
+// two blocks both claiming to represent "what I'm doing right now",
+// which doesn't really make sense. Reference to the current one:
+let activeLiveTimerRef = null; // { dateKey, index } - kept in sync with whichever block in timeData has an unfinished liveTimer
+
+function findActiveLiveTimer() {
+    for (const dateKey in timeData) {
+        const blocks = timeData[dateKey];
+        for (let i = 0; i < blocks.length; i++) {
+            if (blocks[i].liveTimer && !blocks[i].liveTimer.finished) {
+                return { dateKey, index: i };
+            }
+        }
+    }
+    return null;
+}
+
+// Shared by both ways to start a chronometer: the always-"right now"
+// button in the bar above the calendar, and "Start Live Chronometer
+// Here" in the Add Activity modal, which uses whatever date/time/
+// category/notes you'd already filled in there - so you get to choose
+// exactly where it lands, the same way any other activity you add gets
+// placed wherever you clicked.
+function beginLiveTimer(dateKey, startHour, startMin, category, name) {
+    if (activeLiveTimerRef) {
+        showSaveToast('⚠️ Finish your current activity first', false);
+        setTimeout(() => showSaveToast('', false), 2000);
+        return false;
+    }
+    if (!timeData[dateKey]) timeData[dateKey] = [];
+
+    timeData[dateKey].push({
+        category: category || 'General',
+        name: name || '',
+        type: 'actual',
+        liveTimer: {
+            startHour,
+            startMin,
+            runningSince: Date.now(),
+            accumulatedMs: 0,
+            finished: false
+        }
+    });
+
+    activeLiveTimerRef = { dateKey, index: timeData[dateKey].length - 1 };
+    saveData();
+    refreshApp();
+    renderLiveTimerWidget();
+    return true;
+}
+
+function startLiveTimerActivity() {
+    const input = document.getElementById('live-timer-category-input');
+    const category = (input && input.value.trim()) || 'General';
+    const now = new Date();
+    const started = beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, '');
+    if (started && input) input.value = '';
+}
+
+// Reads the same Category/Notes/Date/Start Time fields already filled
+// in on the Add Activity modal and starts the chronometer exactly
+// there, instead of always at "right now" - this is what gives you the
+// same positional control over a live timer that you already have for
+// a normal fixed-duration activity.
+function startLiveTimerFromModal() {
+    const category = (document.getElementById('modal-category-name').value || '').trim();
+    const name = (document.getElementById('modal-activity-name').value || '').trim();
+    const dateInput = document.getElementById('modal-date-input');
+    const dateKey = (dateInput && dateInput.value) || formatDateKey(new Date());
+    const [startH, startM] = (document.getElementById('modal-start-time').value || '09:00').split(':').map(Number);
+
+    const started = beginLiveTimer(dateKey, startH, startM || 0, category, name);
+    if (started) closeQuickAddModal();
+}
+
+function pauseResumeLiveTimer() {
+    if (!activeLiveTimerRef) return;
+    const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+    if (!block || !block.liveTimer) return;
+
+    if (block.liveTimer.runningSince) {
+        // Currently running -> pause: fold the just-finished running
+        // stretch into accumulatedMs and stop the clock.
+        block.liveTimer.accumulatedMs += Date.now() - block.liveTimer.runningSince;
+        block.liveTimer.runningSince = null;
+    } else {
+        // Currently paused -> resume: start a new running stretch from
+        // now, on top of whatever was already accumulated.
+        block.liveTimer.runningSince = Date.now();
+    }
+    saveData();
+    refreshApp();
+    renderLiveTimerWidget();
+}
+
+function finishLiveTimer() {
+    if (!activeLiveTimerRef) return;
+    const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+    if (!block || !block.liveTimer) { activeLiveTimerRef = null; renderLiveTimerWidget(); return; }
+
+    const totalMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
+    const totalHours = Math.max(totalMs / 3600000, 0.05); // floor of 3 min so a near-instant Finish doesn't leave a literally invisible block
+
+    const startH = block.liveTimer.startHour;
+    const startM = block.liveTimer.startMin;
+    const endTotalMins = Math.min(23 * 60 + 59, (startH * 60 + startM) + Math.round(totalHours * 60));
+    const endH = Math.floor(endTotalMins / 60);
+    const endM = endTotalMins % 60;
+
+    block.hours = Math.round(totalHours * 100) / 100;
+    block.timeRange = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')} to ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    block.liveTimer.finished = true;
+    block.liveTimer.runningSince = null;
+
+    activeLiveTimerRef = null;
+    saveData();
+    refreshApp();
+    renderLiveTimerWidget();
+    showSaveToast(`Logged ${timeToString(totalMs).slice(0, 8)} to ${block.category} ✓`, false);
+    setTimeout(() => showSaveToast('', false), 2500);
+}
+
+// Single shared interval driving both the widget's live elapsed-time
+// text and the growing calendar block, ticking every second. Cheap even
+// long-term since there's at most one active timer at a time (only 1-2
+// DOM elements touched per tick, not a full calendar re-render).
+setInterval(() => {
+    if (!activeLiveTimerRef) return;
+    const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+    if (!block || !block.liveTimer || block.liveTimer.finished) { activeLiveTimerRef = null; return; }
+
+    const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
+
+    const elapsedEl = document.getElementById('live-timer-active-elapsed');
+    if (elapsedEl) elapsedEl.textContent = timeToString(elapsedMs).slice(0, 8);
+
+    // Only actually grow the block's height while running - paused
+    // means the number on screen keeps showing the frozen total, but
+    // nothing moves, which is the visual cue for "paused" alongside the
+    // dot animation stopping.
+    if (block.liveTimer.runningSince) {
+        const el = document.querySelector(`.visual-block[data-timer-date="${activeLiveTimerRef.dateKey}"][data-timer-index="${activeLiveTimerRef.index}"]`);
+        if (el) el.style.height = `${Math.max((elapsedMs / 3600000) * 40, 4)}px`;
+    }
+}, 1000);
+
+function renderLiveTimerWidget() {
+    const idleEl = document.getElementById('live-timer-idle');
+    const activeEl = document.getElementById('live-timer-active');
+    if (!idleEl || !activeEl) return;
+
+    if (!activeLiveTimerRef) {
+        idleEl.style.display = 'flex';
+        activeEl.style.display = 'none';
+        return;
+    }
+
+    const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+    if (!block || !block.liveTimer) {
+        activeLiveTimerRef = null;
+        idleEl.style.display = 'flex';
+        activeEl.style.display = 'none';
+        return;
+    }
+
+    idleEl.style.display = 'none';
+    activeEl.style.display = 'flex';
+    activeEl.classList.toggle('paused', !block.liveTimer.runningSince);
+
+    const catEl = document.getElementById('live-timer-active-category');
+    if (catEl) catEl.textContent = block.category;
+
+    const locEl = document.getElementById('live-timer-active-location');
+    if (locEl) {
+        const dateParts = activeLiveTimerRef.dateKey.split('-');
+        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const startLabel = `${String(block.liveTimer.startHour).padStart(2,'0')}:${String(block.liveTimer.startMin).padStart(2,'0')}`;
+        locEl.textContent = `· started ${startLabel}, ${monthNamesShort[d.getMonth()]} ${d.getDate()}`;
+    }
+
+    const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
+    const elapsedEl = document.getElementById('live-timer-active-elapsed');
+    if (elapsedEl) elapsedEl.textContent = timeToString(elapsedMs).slice(0, 8);
+
+    const pauseBtn = document.getElementById('live-timer-pause-btn');
+    if (pauseBtn) pauseBtn.textContent = block.liveTimer.runningSince ? '⏸ Pause' : '▶ Resume';
+}
+
 // --- ANALYTICS ---
 function setRangeFilter(range, btn) {
     currentRangeFilter = range;
@@ -1517,35 +1716,69 @@ function renderVisualMatrix() {
                 return;
             }
 
-            if (!block.timeRange) {
-                const startH = autoHourOffset;
-                const endH = Math.min(23, startH + Math.ceil(block.hours || 1));
-                block.timeRange = `${String(startH).padStart(2, '0')}:00 to ${String(endH).padStart(2, '0')}:00`;
-                autoHourOffset = endH;
+            // A block still being driven by an active (unfinished) live
+            // timer computes its own position/height from the timer's
+            // fields directly, instead of a fixed timeRange - see
+            // startLiveTimerActivity()/tickLiveTimers() further down.
+            const isLiveTimer = !!(block.liveTimer && !block.liveTimer.finished);
+            let topPx, heightPx;
+            // Declared here (not nested inside the else branch below) on
+            // purpose - the resize-handle drag closures further down
+            // this same block-building code close over startH/startM by
+            // reference, and need them in scope regardless of which
+            // branch actually set them. Nesting them inside the else
+            // block previously made them invisible outside it, which
+            // silently broke resizeTimeBlock() from ever being called
+            // (a ReferenceError inside the mouseup handler, swallowed
+            // with no visible error) - the resize would show correctly
+            // while dragging, then snap back to its old size on the
+            // next render since nothing had actually been saved.
+            let startH = 0, startM = 0;
+
+            if (isLiveTimer) {
+                startH = block.liveTimer.startHour;
+                startM = block.liveTimer.startMin;
+                topPx = (startH * 40) + ((startM / 60) * 40);
+                const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? (Date.now() - block.liveTimer.runningSince) : 0);
+                heightPx = Math.max((elapsedMs / 3600000) * 40, 4);
+            } else {
+                if (!block.timeRange) {
+                    const autoStartH = autoHourOffset;
+                    const autoEndH = Math.min(23, autoStartH + Math.ceil(block.hours || 1));
+                    block.timeRange = `${String(autoStartH).padStart(2, '0')}:00 to ${String(autoEndH).padStart(2, '0')}:00`;
+                    autoHourOffset = autoEndH;
+                }
+
+                const rangeParts = block.timeRange.split(' to ');
+                if (rangeParts.length !== 2) return;
+
+                const [rangeStartH, rangeStartM] = rangeParts[0].split(':').map(Number);
+                const [endH, endM] = rangeParts[1].split(':').map(Number);
+                startH = rangeStartH;
+                startM = rangeStartM;
+
+                topPx = (startH * 40) + ((startM / 60) * 40);
+                const durationHrs = (endH + (endM / 60)) - (startH + (startM / 60));
+                heightPx = Math.max(durationHrs * 40, 18);
             }
-
-            const rangeParts = block.timeRange.split(' to ');
-            if (rangeParts.length !== 2) return;
-
-            const [startH, startM] = rangeParts[0].split(':').map(Number);
-            const [endH, endM] = rangeParts[1].split(':').map(Number);
-
-            const topPx = (startH * 40) + ((startM / 60) * 40);
-            const durationHrs = (endH + (endM / 60)) - (startH + (startM / 60));
-            const heightPx = Math.max(durationHrs * 40, 18);
 
             const color = getCategoryColor(block.category);
 
             const vBlock = document.createElement('div');
             vBlock.className = `visual-block ${blockType}`;
+            if (isLiveTimer) {
+                vBlock.classList.add('live-timer-running');
+                vBlock.dataset.timerDate = dateKey;
+                vBlock.dataset.timerIndex = index;
+            }
             if (selectedBlockReference && selectedBlockReference.dateKey === dateKey && selectedBlockReference.index === index) {
                 vBlock.classList.add('selected-block');
             }
             vBlock.style.top = `${topPx}px`;
             vBlock.style.height = `${heightPx}px`;
             vBlock.style.backgroundColor = color;
-            vBlock.style.cursor = 'grab';
-            vBlock.draggable = true;
+            vBlock.style.cursor = isLiveTimer ? 'default' : 'grab';
+            vBlock.draggable = !isLiveTimer;
 
             // Single-click/tap to select only — enables the move drag on
             // desktop and Ctrl+Delete/Supr without popping the edit box open
@@ -1605,6 +1838,7 @@ function renderVisualMatrix() {
             // menu, same as before.
             vBlock.addEventListener('touchstart', (e) => {
                 if (e.target.closest('.resize-handle')) return;
+                if (isLiveTimer) return; // don't let a touch-drag reposition a block that's being driven by an active timer
 
                 const touch = e.touches[0];
                 const rect = vBlock.getBoundingClientRect();
@@ -2082,9 +2316,11 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     const label = document.getElementById('modal-time-label');
     const submitBtn = document.getElementById('modal-submit-btn');
     const deleteBtn = document.getElementById('modal-delete-btn');
+    const chronoBtn = document.getElementById('modal-start-chronometer-btn');
     if (label) label.innerText = 'Add Activity';
     if (submitBtn) submitBtn.innerText = 'ADD TIME BLOCK';
     if (deleteBtn) deleteBtn.style.display = 'none';
+    if (chronoBtn) chronoBtn.style.display = activeLiveTimerRef ? 'none' : 'block';
 
     if (modal) {
         modal.style.display = 'block';
@@ -2119,9 +2355,11 @@ function openEditModal(dateKey, index, clickEvent) {
     const label = document.getElementById('modal-time-label');
     const submitBtn = document.getElementById('modal-submit-btn');
     const deleteBtn = document.getElementById('modal-delete-btn');
+    const chronoBtn = document.getElementById('modal-start-chronometer-btn');
     if (label) label.innerText = 'Edit Activity';
     if (submitBtn) submitBtn.innerText = 'SAVE CHANGES';
     if (deleteBtn) deleteBtn.style.display = 'block';
+    if (chronoBtn) chronoBtn.style.display = 'none';
 
     if (modal) {
         modal.style.display = 'block';
@@ -2163,9 +2401,11 @@ function openBacklogEditModal(backlogId, clickEvent) {
     const label = document.getElementById('modal-time-label');
     const submitBtn = document.getElementById('modal-submit-btn');
     const deleteBtn = document.getElementById('modal-delete-btn');
+    const chronoBtn = document.getElementById('modal-start-chronometer-btn');
     if (label) label.innerText = 'Edit Backlog Item';
     if (submitBtn) submitBtn.innerText = 'SAVE CHANGES';
     if (deleteBtn) deleteBtn.style.display = 'block';
+    if (chronoBtn) chronoBtn.style.display = 'none';
 
     if (modal) {
         modal.style.display = 'block';
@@ -2827,7 +3067,8 @@ function addBacklogItem() {
         category,
         name,
         hours,
-        type: 'actual'
+        type: 'actual',
+        status: 'todo'
     });
 
     saveBacklogItems();
@@ -2904,7 +3145,7 @@ function placeBacklogItemOnCalendar(backlogId, targetDate, startHour, startMinut
 // BUGFIX: same double-snapshot issue as placeBacklogItemOnCalendar above,
 // mirrored in the other direction. Fixed the same way - one snapshot, then
 // both keys persisted together.
-function sendCalendarBlockToBacklog(sourceDate, index) {
+function sendCalendarBlockToBacklog(sourceDate, index, targetStatus) {
     if (!timeData[sourceDate] || !timeData[sourceDate][index]) return;
 
     pushUndoSnapshot();
@@ -2917,7 +3158,8 @@ function sendCalendarBlockToBacklog(sourceDate, index) {
         category: item.category,
         name: item.name,
         hours: item.hours || 1,
-        type: item.type || 'actual'
+        type: item.type || 'actual',
+        status: targetStatus || 'todo'
     });
 
     localStorage.setItem('flexibleTimeData', JSON.stringify(timeData));
@@ -2948,6 +3190,7 @@ function renderBacklogList() {
     const list = document.getElementById('backlog-block-list');
     const badge = document.getElementById('backlog-badge-count');
     if (badge) badge.innerText = backlogItems.length;
+    renderBoardSection();
     if (!list) return;
 
     list.innerHTML = '';
@@ -3104,7 +3347,196 @@ function initBacklogPanel() {
         });
     }
     renderBacklogList();
+    initBoardSection();
 }
+
+// --- BOARD (To Do / Doing / Done) ---
+// A second, fuller view of the exact same backlogItems array the drawer
+// already uses - a card here and a card in the drawer are the same
+// object, just status defaults to 'todo' so an item with no status yet
+// (anything created before this existed) shows up in To Do rather than
+// vanishing. The drawer stays as the quick, narrow "things I haven't
+// scheduled" list; this is the fuller three-column view of the same
+// data, its own top-level section since three real columns need more
+// room than a sidebar drawer can give them.
+//
+// Deliberately reuses draggedBlockInfo (the same variable the drawer and
+// calendar already share) rather than inventing a separate drag system -
+// a card dragged out of a Board column already lands correctly on the
+// calendar for free, since the calendar's day-column drop handler only
+// ever looks up backlogItems by id, not which UI the drag started in.
+const BOARD_DOING_WIP_LIMIT = 3;
+const BOARD_COLUMNS = [
+    { status: 'todo', label: '📥 To Do' },
+    { status: 'doing', label: '🔨 Doing' },
+    { status: 'done', label: '✅ Done' }
+];
+
+function boardItemsByStatus(status) {
+    // Anything without a status at all (every item that existed before
+    // Board did) is treated as 'todo' - so upgrading to this feature
+    // never makes existing backlog items disappear from view.
+    return backlogItems.filter(i => (i.status || 'todo') === status);
+}
+
+function initBoardSection() {
+    BOARD_COLUMNS.forEach(col => {
+        const el = document.getElementById(`board-col-${col.status}`);
+        if (!el) return;
+        el.addEventListener('dragover', (e) => e.preventDefault());
+        el.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (!draggedBlockInfo) return;
+            if (draggedBlockInfo.source === 'calendar') {
+                // A calendar activity dragged straight into a Board
+                // column - becomes a backlog item AND lands directly in
+                // that column in one motion, rather than always having
+                // to go through To Do first.
+                if (col.status === 'doing' && boardItemsByStatus('doing').length >= BOARD_DOING_WIP_LIMIT) {
+                    showSaveToast(`Doing is full (${BOARD_DOING_WIP_LIMIT}/${BOARD_DOING_WIP_LIMIT}) - finish or move something first`, false);
+                    setTimeout(() => showSaveToast('', false), 2500);
+                    draggedBlockInfo = null;
+                    return;
+                }
+                sendCalendarBlockToBacklog(draggedBlockInfo.sourceDate, draggedBlockInfo.index, col.status);
+                draggedBlockInfo = null;
+                return;
+            }
+            if (draggedBlockInfo.source === 'backlog') {
+                moveBoardItem(draggedBlockInfo.backlogId, col.status, null);
+                draggedBlockInfo = null;
+            }
+        });
+    });
+    renderBoardSection();
+}
+
+// Moves a card to (or within) a column: pulls it out of its current
+// position, sets its status, and re-inserts either at the end of the
+// column (beforeId is null - dropped on empty column space) or right
+// before a specific card (beforeId set - dropped on top of another
+// card, for precise reordering). Enforces the Doing WIP limit here so
+// every path that can move a card into Doing (drawer drag, calendar
+// drag, board-to-board drag) goes through the same check.
+function moveBoardItem(draggedId, newStatus, beforeId) {
+    const idx = backlogItems.findIndex(i => i.id === draggedId);
+    if (idx === -1) return;
+    const item = backlogItems[idx];
+    const currentStatus = item.status || 'todo';
+
+    if (newStatus === 'doing' && currentStatus !== 'doing') {
+        const doingCount = boardItemsByStatus('doing').length;
+        if (doingCount >= BOARD_DOING_WIP_LIMIT) {
+            showSaveToast(`Doing is full (${BOARD_DOING_WIP_LIMIT}/${BOARD_DOING_WIP_LIMIT}) - finish or move something first`, false);
+            setTimeout(() => showSaveToast('', false), 2500);
+            return;
+        }
+    }
+
+    pushUndoSnapshot();
+    backlogItems.splice(idx, 1);
+    item.status = newStatus;
+
+    if (beforeId) {
+        const targetIdx = backlogItems.findIndex(i => i.id === beforeId);
+        backlogItems.splice(targetIdx === -1 ? backlogItems.length : targetIdx, 0, item);
+    } else {
+        backlogItems.push(item);
+    }
+
+    localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
+    queueCloudSync();
+    renderBacklogList(); // also re-renders the Board (see renderBacklogList)
+}
+
+function renderBoardSection() {
+    BOARD_COLUMNS.forEach(col => {
+        const listEl = document.getElementById(`board-col-${col.status}`);
+        const countEl = document.getElementById(`board-count-${col.status}`);
+        if (!listEl) return;
+
+        const items = boardItemsByStatus(col.status);
+        if (countEl) {
+            countEl.textContent = col.status === 'doing' ? `${items.length}/${BOARD_DOING_WIP_LIMIT}` : items.length;
+            countEl.classList.toggle('board-count-full', col.status === 'doing' && items.length >= BOARD_DOING_WIP_LIMIT);
+        }
+
+        listEl.innerHTML = '';
+        if (items.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'board-empty-msg';
+            empty.textContent = col.status === 'todo' ? 'Nothing here yet.' : 'Drag a card here.';
+            listEl.appendChild(empty);
+            return;
+        }
+        items.forEach(item => listEl.appendChild(buildBoardCardEl(item, col.status)));
+    });
+}
+
+function buildBoardCardEl(item, status) {
+    const color = getCategoryColor(item.category);
+    const card = document.createElement('div');
+    card.className = `board-card ${status === 'done' ? 'board-card-done' : ''}`;
+    card.draggable = true;
+    card.dataset.backlogId = item.id;
+    card.style.borderLeftColor = color;
+
+    card.innerHTML = `
+        <div class="board-card-top">
+            <span class="board-card-category" style="color:${color};">${item.type === 'projected' ? '🌫️ ' : ''}${escapeHtml(item.category)}</span>
+            <button type="button" class="board-card-del" title="Delete">✕</button>
+        </div>
+        ${item.name ? `<div class="board-card-name">${escapeHtml(item.name)}</div>` : ''}
+        <div class="board-card-hours">${item.hours} hr${item.hours == 1 ? '' : 's'}</div>
+    `;
+
+    card.querySelector('.board-card-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteBacklogItem(item.id);
+    });
+
+    card.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        openBacklogEditModal(item.id, e);
+    });
+    addDoubleTapListener(card, (e) => openBacklogEditModal(item.id, e));
+
+    // Same dragstart shape the drawer already uses (source:'backlog',
+    // backlogId) - this is exactly what makes dragging a card straight
+    // onto the calendar work without any extra code: the day-column
+    // drop handler already knows what to do with it.
+    card.addEventListener('dragstart', (e) => {
+        draggedBlockInfo = { source: 'backlog', backlogId: item.id, grabOffsetY: 0 };
+        card.style.opacity = '0.4';
+        e.stopPropagation();
+    });
+    card.addEventListener('dragend', () => {
+        card.style.opacity = '1';
+        document.querySelectorAll('.board-card-drop-target').forEach(el => el.classList.remove('board-card-drop-target'));
+    });
+
+    // Dropping directly on top of another card reorders precisely
+    // (inserts before it) instead of just landing at the end of
+    // whichever column it's dropped into.
+    card.addEventListener('dragover', (e) => {
+        if (!draggedBlockInfo || draggedBlockInfo.source !== 'backlog' || draggedBlockInfo.backlogId === item.id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.classList.add('board-card-drop-target');
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('board-card-drop-target'));
+    card.addEventListener('drop', (e) => {
+        if (!draggedBlockInfo || draggedBlockInfo.source !== 'backlog' || draggedBlockInfo.backlogId === item.id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.classList.remove('board-card-drop-target');
+        moveBoardItem(draggedBlockInfo.backlogId, status, item.id);
+        draggedBlockInfo = null;
+    });
+
+    return card;
+}
+
 
 // --- NOTES ---
 // Two-pane layout, not a popup: a vertical list of notes on the left
