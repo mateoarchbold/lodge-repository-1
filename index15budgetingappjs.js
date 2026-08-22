@@ -582,11 +582,14 @@ function setPlaneFilter(plane) {
 }
 
 // --- THEME SWITCHER LOGIC ---
+const THEME_ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>';
+const THEME_ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
+
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
-    document.getElementById('theme-icon').innerText = isLight ? '🌙' : '☀️';
-    document.getElementById('theme-text').innerText = isLight ? 'Dark Theme' : 'Light Theme';
+    document.getElementById('theme-icon').innerHTML = isLight ? THEME_ICON_MOON : THEME_ICON_SUN;
+    document.getElementById('theme-text').innerText = 'Theme';
     localStorage.setItem('themePreference', isLight ? 'light' : 'dark');
 }
 
@@ -4874,6 +4877,26 @@ function setLastFocusedBlock(blockId) {
 
 const NOTE_IMAGE_MIN_WIDTH_PX = 120;
 
+// Called when a note photo's <img> fails to load - instead of the
+// browser's default silent broken-image icon (which gives zero
+// information about WHY), this shows a clear message plus the actual
+// URL that failed, so the difference between "this link expired" and
+// "the storage bucket/permissions broke" is actually visible instead of
+// a mystery.
+function handleNoteImageError(imgEl) {
+    if (imgEl.dataset.errorHandled) return; // guard against onerror firing repeatedly
+    imgEl.dataset.errorHandled = 'true';
+    const failedUrl = imgEl.src;
+    const wrap = imgEl.closest('.note-image-thumb-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = `
+        <div class="note-image-broken">
+            <div class="note-image-broken-icon">⚠️</div>
+            <div class="note-image-broken-text">This photo couldn't load.</div>
+            <div class="note-image-broken-url" title="${escapeHtml(failedUrl)}">${escapeHtml(failedUrl.length > 60 ? failedUrl.slice(0, 60) + '…' : failedUrl)}</div>
+        </div>`;
+}
+
 function buildImageBlockEl(block) {
     const wrap = document.createElement('div');
     wrap.className = 'note-image-block';
@@ -4891,7 +4914,7 @@ function buildImageBlockEl(block) {
     // (or Escape) deselects, Delete/Backspace removes it while selected.
     wrap.innerHTML = `
         <div class="note-image-thumb-wrap"${widthStyle}>
-            <img class="note-image-thumb" src="${block.imageData}" alt="Note photo">
+            <img class="note-image-thumb" src="${block.imageData}" alt="Note photo" onerror="handleNoteImageError(this)">
             <div class="note-image-resize-handle" title="Drag to resize"></div>
         </div>
         <div class="note-image-selected-bar">
@@ -5102,8 +5125,8 @@ function renderNotebookSelector() {
     const select = document.getElementById('notebook-filter-select');
     if (!select) return;
 
-    select.innerHTML = ['<option value="">📚 All Notes</option>']
-        .concat(notesNotebooks.map(nb => `<option value="${escapeHtml(nb)}">📓 ${escapeHtml(nb)}</option>`))
+    select.innerHTML = ['<option value="">All Notes</option>']
+        .concat(notesNotebooks.map(nb => `<option value="${escapeHtml(nb)}">${escapeHtml(nb)}</option>`))
         .join('');
     select.value = activeNotebookFilter;
 
@@ -6459,6 +6482,7 @@ function setMobileSection(section) {
     });
 
     updateMobileHeaderVisibility();
+    updateMobileNavGlassPosition();
 
     // Only jump to the top when the person actually tapped a different
     // tab - not on every call. Mobile browsers fire a `resize` event
@@ -6467,6 +6491,50 @@ function setMobileSection(section) {
     // to the top before it could settle at the bottom.
     if (isTabSwitch) window.scrollTo(0, 0);
 }
+
+// Slides the frosted-glass highlight (.mobile-nav-glass) to sit exactly
+// behind whichever tab is currently active, by measuring that button's
+// real position/width and moving the glass element there with a CSS
+// transform - one shared element animating between positions, rather
+// than a background color swap on each button (which wouldn't have any
+// "sliding" motion to it at all).
+// Slides the frosted-glass highlight (.mobile-nav-glass) to sit exactly
+// behind whichever tab is currently active, by measuring that button's
+// real position and moving the glass element there with a CSS
+// transform - one shared element animating between positions, rather
+// than a background color swap on each button.
+//
+// IMPORTANT for performance: width is set here but deliberately NOT
+// included in the CSS transition (see .mobile-nav-glass), and only
+// actually changes on first positioning or a real resize - never on a
+// plain tab switch. All 6 tabs are equal width by design (flex: 1 in
+// the nav), so there's never a real reason to re-animate it between
+// switches. Combining a width transition with backdrop-filter (already
+// one of the more expensive things a browser renders) was forcing a
+// full layout recalculation on every frame of every tab switch, which
+// is what was actually causing the visible lag - not the glass blur by
+// itself. Tab switching now moves via transform alone, which the
+// browser can composite on the GPU without touching layout at all.
+function updateMobileNavGlassPosition() {
+    const nav = document.getElementById('mobile-bottom-nav');
+    const glass = document.getElementById('mobile-nav-glass');
+    const activeBtn = document.querySelector('.mobile-tab-btn.active');
+    if (!nav || !glass || !activeBtn) return;
+
+    const navRect = nav.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+    const offsetX = btnRect.left - navRect.left;
+
+    // Only touches width if it's actually different from last time
+    // (first call, or a real resize) - never on an ordinary tab switch,
+    // so switching tabs is a pure, cheap transform animation.
+    const targetWidth = `${btnRect.width}px`;
+    if (glass.style.width !== targetWidth) glass.style.width = targetWidth;
+
+    glass.style.transform = `translateX(${offsetX}px)`;
+    glass.classList.add('positioned');
+}
+window.addEventListener('resize', () => { if (isMobileNavViewport()) updateMobileNavGlassPosition(); });
 
 // On phone widths, the "Lodge Time Budgeter" title bar (Home / Account
 // / Theme buttons) only shows on the Timer tab - everywhere else it was

@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dynamic Time Budgeter & Advanced Visual Planner</title>
+    <title>NABU — Time Budgeting & Visual Planner</title>
+    <link rel="icon" type="image/svg+xml" href="nabu-favicon.svg">
+    <link rel="apple-touch-icon" href="nabu-favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -27,31 +29,33 @@
     <div class="user-avatar-circle" id="user-avatar-circle" title="Logged in"></div>
 
     <div class="header-container">
-        <h1 class="header-title">Lodge Time Budgeter</h1>
+        <h1 class="header-title"><img src="nabu-favicon.svg" alt="" class="header-logo-icon">NABU</h1>
         
         <div class="header-actions-wrap" id="header-actions-wrap">
         <div class="header-actions" id="header-actions">
             <a href="index.html" class="theme-toggle-btn" title="Home" style="text-decoration: none;">
-                <span>🏠</span> <span>Home</span>
+                <span class="icon-badge icon-badge-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span> <span>Home</span>
             </a>
             <button class="theme-toggle-btn" id="manual-save-btn" onclick="manualSave()" title="Save now (Ctrl+S)">
-                <span>💾</span> <span>Save</span>
+                <span class="icon-badge icon-badge-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></span> <span>Save</span>
             </button>
             <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()" title="Account">
-                <span>👤</span> <span id="auth-btn-label">Account</span>
+                <span class="icon-badge icon-badge-account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></span> <span id="auth-btn-label">Account</span>
             </button>
             <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-                <span id="theme-icon">☀️</span> <span id="theme-text">Light Theme</span>
+                <span class="icon-badge icon-badge-theme" id="theme-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+                </span> <span id="theme-text">Theme</span>
             </button>
             <!-- Compact Dropbox status/link button, mirrors the one in the
                  Analytics/Export section (see updateDropboxUI() in JS,
                  which now updates both) - kept up here too since this
                  header row is the one place visible from every tab. -->
             <button class="theme-toggle-btn" id="dropbox-header-link-btn" onclick="linkDropboxAccount()" title="Link Dropbox for automatic backups">
-                <span>📦</span> <span>Link Dropbox</span>
+                <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span>Dropbox</span>
             </button>
             <button class="theme-toggle-btn" id="dropbox-header-status-btn" onclick="backupNowToDropbox()" title="Click to back up now" style="display:none;">
-                <span>📦</span> <span id="dropbox-header-status-text">Dropbox</span>
+                <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span id="dropbox-header-status-text">Dropbox</span>
             </button>
         </div>
         </div>
@@ -160,7 +164,7 @@
         <!-- SECTION 1: COLLAPSIBLE DETAILS & ANALYTICS -->
         <details class="details-section" open id="analytics-details-section" data-mobile-section="stats">
             <summary class="details-summary">
-                <span>📊 Category Analytics</span>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>Category Analytics</span>
                 <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
             </summary>
             
@@ -183,7 +187,7 @@
                 <!-- SUB-SECTION: everything else, tucked away so it doesn't crowd the main view -->
                 <details class="details-section nested-details" id="all-sessions-details-section" style="margin-top:16px;">
                     <summary class="details-summary">
-                        <span>🗂️ All Sessions & Export</span>
+                        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg>All Sessions & Export</span>
                         <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
                     </summary>
                     <div class="details-content">
@@ -251,7 +255,7 @@
         <!-- SECTION: GOAL TRACKING (own collapsible section) -->
         <details class="details-section" open data-mobile-section="stats">
             <summary class="details-summary">
-                <span>🎯 Goal Tracking</span>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Goal Tracking</span>
                 <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
             </summary>
 
@@ -269,11 +273,11 @@
     <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
 <details class="details-section" open style="position: relative;" data-mobile-section="plan">
     <summary class="details-summary">
-        <span>🗓️ Visual Weekly Time-Block Planner</span>
+        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Visual Weekly Time-Block Planner</span>
         <div style="display: flex; align-items: center; gap: 14px;">
             <!-- Backlog Toggle Button -->
             <button type="button" class="backlog-toggle-btn" onclick="toggleBacklogDrawer(event)">
-                📋 Backlog <span id="backlog-badge-count" class="backlog-count-badge">0</span>
+                <svg class="section-icon" style="margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Backlog <span id="backlog-badge-count" class="backlog-count-badge">0</span>
             </button>
             <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
         </div>
@@ -307,7 +311,7 @@
              planner doesn't feel crowded; tap to reveal the View Plane
              filter and the category color legend. -->
         <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
-            <span>🎨 Filters &amp; Categories</span>
+            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg>Filters &amp; Categories</span>
             <span class="planner-header-toggle-arrow">▾</span>
         </button>
 
@@ -395,28 +399,28 @@
              work-in-progress limit of 3. -->
         <details class="details-section" open data-mobile-section="board">
             <summary class="details-summary">
-                <span>📋 Kanban Board</span>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>Kanban Board</span>
                 <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Click to expand / collapse</span>
             </summary>
             <div class="details-content">
                 <div class="board-columns">
                     <div class="board-column">
                         <div class="board-column-header">
-                            <span>📥 To Do</span>
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>To Do</span>
                             <span class="board-count" id="board-count-todo">0</span>
                         </div>
                         <div class="board-column-list" id="board-col-todo"></div>
                     </div>
                     <div class="board-column">
                         <div class="board-column-header">
-                            <span>🔨 Doing</span>
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Doing</span>
                             <span class="board-count" id="board-count-doing">0/3</span>
                         </div>
                         <div class="board-column-list" id="board-col-doing"></div>
                     </div>
                     <div class="board-column">
                         <div class="board-column-header">
-                            <span>✅ Done</span>
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>Done</span>
                             <span class="board-count" id="board-count-done">0</span>
                         </div>
                         <div class="board-column-list" id="board-col-done"></div>
@@ -428,7 +432,7 @@
         <!-- SECTION 3: NOTES -->
         <details class="details-section" open id="notes-section" data-mobile-section="notes">
             <summary class="details-summary">
-                <span>📝 Notes</span>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>Notes</span>
                 <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
             </summary>
 
@@ -438,7 +442,7 @@
                     <div class="notes-sidebar">
                         <div class="notes-sidebar-header">
                             <span class="notes-sidebar-title">Notes <span class="notes-count" id="notes-count-badge">0</span></span>
-                            <button class="notes-new-btn" onclick="openTrashModal()" title="Trash" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color); position:relative;">🗑️<span id="trash-badge-count" class="trash-header-badge">0</span></button>
+                            <button class="notes-new-btn" onclick="openTrashModal()" title="Trash" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color); position:relative;"><svg style="width:15px; height:15px; vertical-align:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg><span id="trash-badge-count" class="trash-header-badge">0</span></button>
                             <button class="notes-new-btn" onclick="exportAllNotes()" title="Export all notes as a backup file" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);">⬇️</button>
                             <button class="notes-new-btn" onclick="createNote()" title="New note">+ New</button>
                         </div>
@@ -448,7 +452,7 @@
                              auto-numbered into it (Coding 1, Coding 2...). -->
                         <div class="notebook-picker-row">
                             <select id="notebook-filter-select" class="notebook-filter-select" onchange="handleNotebookFilterChange(this.value)" title="Filter by notebook"></select>
-                            <button type="button" class="notebook-new-btn" onclick="createNotebook()" title="New notebook">+ 📓</button>
+                            <button type="button" class="notebook-new-btn" onclick="createNotebook()" title="New notebook">+ <svg style="width:13px; height:13px; vertical-align:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></button>
                             <button type="button" class="notebook-del-btn" onclick="deleteCurrentNotebook()" title="Delete this notebook">🗑️</button>
                         </div>
 
@@ -485,11 +489,11 @@
                                 <button type="button" class="notes-undo-btn" id="notes-undo-btn" onclick="undoNoteAction()" title="Undo last note change" disabled>↺</button>
                                 <button type="button" class="notes-undo-btn" id="notes-redo-btn" onclick="redoNoteAction()" title="Redo" disabled>↻</button>
                                 <div class="notes-toolbar-divider"></div>
-                                <button type="button" class="notes-photo-btn" id="notes-photo-btn" onclick="triggerPhotoUpload()" title="Add a photo">📷</button>
+                                <button type="button" class="notes-photo-btn" id="notes-photo-btn" onclick="triggerPhotoUpload()" title="Add a photo"><svg style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg></button>
                                 <input type="file" id="note-photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoFilesSelected(event)">
                                 <button type="button" class="notes-voice-record-btn" id="notes-voice-record-btn" onclick="toggleNoteRecording()" title="Record a voice note here">●</button>
                                 <div class="notes-toolbar-divider"></div>
-                                <button type="button" class="notes-photo-btn" onclick="exportCurrentNote()" title="Export this note as a text file">⬇️</button>
+                                <button type="button" class="notes-photo-btn" onclick="exportCurrentNote()" title="Export this note as a text file"><svg style="width:15px; height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 19h16"/></svg></button>
                             </div>
 
                             <!-- This field assigns which NOTEBOOK a note belongs to (used
@@ -720,28 +724,46 @@
              shows at a time - tap an icon here to switch, instead of
              scrolling through the whole page. Hidden on desktop/tablet. -->
         <nav id="mobile-bottom-nav" class="mobile-bottom-nav" style="display:none;">
+            <!-- Frosted-glass highlight that slides behind whichever tab
+                 is active (see updateMobileNavGlassPosition() in the JS) -
+                 a single element animated via CSS transform, not
+                 re-created per tab switch. -->
+            <div class="mobile-nav-glass" id="mobile-nav-glass"></div>
+
             <button type="button" class="mobile-tab-btn" data-section="timer" onclick="setMobileSection('timer')">
-                <span class="mobile-tab-icon">⏱️</span>
+                <span class="mobile-tab-icon icon-badge icon-badge-timer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/><path d="M12 2v2"/></svg>
+                </span>
                 <span class="mobile-tab-label">Timer</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="log" onclick="setMobileSection('log')">
-                <span class="mobile-tab-icon">📅</span>
+                <span class="mobile-tab-icon icon-badge icon-badge-log">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                </span>
                 <span class="mobile-tab-label">Log</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="plan" onclick="setMobileSection('plan')">
-                <span class="mobile-tab-icon">🗓️</span>
+                <span class="mobile-tab-icon icon-badge icon-badge-plan">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>
+                </span>
                 <span class="mobile-tab-label">Plan</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="stats" onclick="setMobileSection('stats')">
-                <span class="mobile-tab-icon">📊</span>
+                <span class="mobile-tab-icon icon-badge icon-badge-stats">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+                </span>
                 <span class="mobile-tab-label">Stats</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
-                <span class="mobile-tab-icon">📝</span>
+                <span class="mobile-tab-icon icon-badge icon-badge-notes">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                </span>
                 <span class="mobile-tab-label">Notes</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="board" onclick="setMobileSection('board')">
-                <span class="mobile-tab-icon">📋</span>
+                <span class="mobile-tab-icon icon-badge icon-badge-board">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+                </span>
                 <span class="mobile-tab-label">Kanban</span>
             </button>
         </nav>
@@ -818,7 +840,7 @@
          load overlay. -->
     <div id="session-takeover-overlay" class="session-takeover-overlay">
         <div class="session-takeover-box">
-            <div class="session-takeover-icon">🔒</div>
+            <div class="session-takeover-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:32px; height:32px; color:var(--accent);"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
             <h3>Open in another window</h3>
             <p>This account is active in another tab or device. To protect your data, this tab can't save until you take over.</p>
             <button type="button" class="btn-primary" onclick="useSessionHere()">Use here instead</button>

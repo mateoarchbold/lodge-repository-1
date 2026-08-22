@@ -1,34 +1,40 @@
-/* BUILD MARKER: 2026-08-21 07:43 UTC (redeployed clean after a partial push left files out of sync) */
+/* BUILD MARKER: 2026-08-22 UTC (v4) (Nabu verdigris-bronze rebrand - white background per explicit request, overriding the source SVG's own cream tone; accent/title color pulled from the logo's verdigris, --danger and --success intentionally left untouched) */
 /* --- THEME VARIABLES --- */
 :root {
-    --bg-color: #0a0a0a;         /* Deep black background */
-    --card-bg: #171717;          /* Dark grey for cards */
-    --primary: #ffffff;          /* White for primary buttons/accents */
-    --primary-invert: #000000;   /* Black text on white buttons */
-    --success: #10b981;
-    --danger: #ef4444;
-    --text: #f3f4f6;             /* Light grey/white for main text */
-    --text-muted: #9ca3af;       /* Dimmer text for secondary info */
-    --accent: #3b82f6;           /* Sleek blue for subtle highlights */
-    --border-color: #262626;     /* Subtle dark borders */
-    --input-bg: #262626;         /* Background for input fields */
-    --header-bg: #121212;
-    --table-hover: rgba(255, 255, 255, 0.04);
-    --table-even: rgba(255, 255, 255, 0.02);
+    --bg-color: #ffffff;         /* Pure white, per explicit request - NOT the logo SVG's own cream background */
+    --card-bg: #F7F6F3;          /* A whisper off-white, just enough to separate cards from the page */
+    --primary: #000000;
+    --primary-invert: #ffffff;
+    --success: #10b981;          /* Deliberately NOT part of the re-theme - Start stays green */
+    --danger: #ef4444;           /* Deliberately NOT part of the re-theme - Stop stays red */
+    --text: #1F2937;             /* Neutral dark for body-text readability at scale - the logo's own verdigris is used specifically for the title/branding (see .header-title), not diluted across every line of body text */
+    --text-muted: #6b7280;
+    --accent: #3E5C54;           /* Verdigris from the logo - the same color as "NABU" in the logo's own wordmark */
+    --icon-badge-bg: #57606A;    /* Neutral slate for badges - kept deliberately NOT verdigris, so the accent color stays meaningful as "this one is active/highlighted" rather than every icon looking the same as the active one */
+    --border-color: #e5e7eb;
+    --input-bg: #f9fafb;
+    --header-bg: #ffffff;
+    --table-hover: rgba(0, 0, 0, 0.04);
+    --table-even: rgba(0, 0, 0, 0.02);
 }
 
 /* --- LIGHT THEME OVERRIDES --- */
+/* Kept intentionally close to :root above (same white/verdigris look) so
+   the theme toggle doesn't jump to something jarring - the request this
+   round was specifically "make the background white", not "give me a
+   working dark mode too". */
 body.light-theme {
-    --bg-color: #f3f4f6;
+    --bg-color: #ffffff;
     --card-bg: #ffffff;
     --primary: #000000;
     --primary-invert: #ffffff;
-    --text: #111827;
+    --text: #1F2937;
     --text-muted: #6b7280;
-    --accent: #2563eb;
+    --accent: #3E5C54;
+    --icon-badge-bg: #57606A;
     --border-color: #e5e7eb;
     --input-bg: #f9fafb;
-    --header-bg: #e5e7eb;
+    --header-bg: #ffffff;
     --table-hover: rgba(0, 0, 0, 0.04);
     --table-even: rgba(0, 0, 0, 0.02);
 }
@@ -105,8 +111,20 @@ button, input, select, textarea {
 .header-title {
     margin: 0;
     font-weight: 800;
-    letter-spacing: -0.5px;
+    letter-spacing: 2px;
     font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--accent); /* Verdigris, matching the logo's own "NABU" wordmark color exactly */
+}
+
+.header-logo-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 11px;
+    flex-shrink: 0;
 }
 
 /* Home / Account / Theme row - three equal-sized "boxes" instead of
@@ -130,7 +148,8 @@ button, input, select, textarea {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-top: 8px;
     gap: 4px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     border-radius: 14px;
@@ -668,6 +687,19 @@ summary.details-summary {
 
 summary.details-summary:hover {
     background: var(--input-bg);
+}
+
+/* Small inline icon prefixing a section title (Goal Tracking, Category
+   Analytics, etc.) - replaces what used to be an emoji character.
+   Colored with the accent (terracotta) so it reads as "brand", distinct
+   from the plain-text title next to it. */
+.section-icon {
+    width: 17px;
+    height: 17px;
+    margin-right: 8px;
+    vertical-align: -3px;
+    color: var(--accent);
+    flex-shrink: 0;
 }
 
 .details-content {
@@ -2814,6 +2846,15 @@ summary.details-summary:hover {
     border-radius: 50% !important;
     padding: 0 !important;
     gap: 0 !important;
+    /* The base .theme-toggle-btn rule uses justify-content:flex-start
+       (needed on desktop so icons stay aligned regardless of how long
+       each button's text label is - see the desktop alignment fix).
+       On mobile there's no text label at all (hidden below), just the
+       one icon - flex-start left it sitting at the TOP of this circle
+       instead of dead-center in it, which is exactly what looked "not
+       centered". With only one child and no label to worry about,
+       centering here is correct and safe. */
+    justify-content: center !important;
   }
   /* Icon stays, the text label under it (span:last-child) is hidden -
      the button's title="..." attribute still identifies it via a
@@ -3665,6 +3706,31 @@ summary.details-summary:hover {
     cursor: pointer;
 }
 
+.note-image-broken {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 20px 12px;
+    text-align: center;
+}
+.note-image-broken-icon {
+    font-size: 1.3rem;
+}
+.note-image-broken-text {
+    font-size: 0.82rem;
+    color: var(--text);
+    font-weight: 600;
+}
+.note-image-broken-url {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-family: monospace;
+    word-break: break-all;
+    max-width: 90%;
+}
+
 /* Drag-to-resize grip, bottom-right corner of the photo - a small
    diagonal-lines handle like the resize grip in most editors. Always
    there at a low opacity (not gated behind selection - resizing is
@@ -3867,6 +3933,41 @@ summary.details-summary:hover {
     border-radius: 26px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    position: fixed; /* re-stated: also needs position:relative behavior for the glass indicator below to anchor against - see note on .mobile-nav-glass */
+}
+
+/* Frosted-glass highlight that slides behind the active tab - a single
+   element, positioned/sized via JS (updateMobileNavGlassPosition) to
+   exactly match whichever button is currently active, animated with a
+   CSS transition rather than re-created on every tab switch. Backdrop-
+   filter is what gives the actual "glass" look (blurring/lightening
+   whatever's behind it); browsers without backdrop-filter support just
+   fall back to the plain translucent background, which still reads
+   fine as a highlight. */
+.mobile-nav-glass {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 0;
+    width: 0;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(10px) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.2s ease;
+    will-change: transform;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 0;
+}
+.mobile-nav-glass.positioned {
+    opacity: 1;
+}
+body.light-theme .mobile-nav-glass {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
 }
 
 .mobile-tab-btn {
@@ -3882,13 +3983,8 @@ summary.details-summary:hover {
     padding: 10px 2px;
     cursor: pointer;
     border-radius: 20px;
-}
-
-.mobile-tab-icon {
-    font-size: 1.4rem;
-    line-height: 1;
-    filter: grayscale(1);
-    opacity: 0.7;
+    position: relative;
+    z-index: 1; /* sits above .mobile-nav-glass so the icon/label remain crisp, not blurred */
 }
 
 .mobile-tab-label {
@@ -3897,12 +3993,43 @@ summary.details-summary:hover {
 }
 
 .mobile-tab-btn.active {
-    color: var(--accent);
+    color: var(--text);
 }
 
-.mobile-tab-btn.active .mobile-tab-icon {
-    filter: none;
-    opacity: 1;
+/* --- ICON BADGES (shared by header row + mobile nav) --- */
+/* Small squircle behind each icon glyph, in the style of a flat/2D
+   system-app icon - not an emoji, not a photo, just a simple monochrome
+   line-icon on a solid card. Every badge uses the SAME neutral "ink"
+   color everywhere (header row and mobile nav alike) - the only thing
+   that ever changes color is whichever mobile nav tab is currently
+   active, which shifts to the terracotta accent. One consistent color
+   language, not a different color per icon. */
+.icon-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: #fff;
+    flex-shrink: 0;
+    background: var(--icon-badge-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    transition: background-color 0.2s ease;
+}
+.icon-badge svg {
+    width: 17px;
+    height: 17px;
+}
+.mobile-tab-btn .icon-badge {
+    width: 32px;
+    height: 32px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.mobile-tab-btn.active .icon-badge {
+    background: var(--accent);
+    color: var(--bg-color);
+    transform: scale(1.06);
 }
 
 /* Room at the bottom of the page so content doesn't sit under the
