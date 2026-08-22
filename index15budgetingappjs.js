@@ -2778,6 +2778,7 @@ function updateDropboxUI() {
         headerStatusBtn.style.display = connected ? 'flex' : 'none';
         if (connected) headerStatusText.textContent = statusText;
     }
+    if (typeof updateHeaderActionsScrollHint === 'function') updateHeaderActionsScrollHint();
 }
 
 // Runs once on load - if this page load IS the redirect back from
@@ -3773,6 +3774,161 @@ function selectBlock(blockId, opts) {
 // Also used by deleteNoteBlock() below (kept as a thin wrapper) so the
 // text/audio blocks' own persistent delete buttons keep working exactly
 // as before, unchanged.
+// --- TRASH / RECENTLY DELETED ---
+// The gap every backup layer in this app shares (Supabase autosave,
+// Dropbox, manual export) is that none of them can tell the difference
+// between "the data broke" and "I meant to delete this" - they all
+// faithfully protect whatever state exists, mistakes included, since a
+// deletion syncs and gets backed up just as reliably as anything else.
+// This is what actually closes that gap: deleting a note or a block
+// (text/photo/voice note) doesn't erase it immediately - it moves here
+// first, recoverable for 30 days, before being gone for real. Synced
+// as part of the normal payload (see buildSyncPayload/applyCloudSnapshot)
+// so it follows your account across devices like everything else.
+let trashedItems = []; // { id, type: 'note'|'block', deletedAt, data, noteId?, noteTitle }
+const TRASH_RETENTION_DAYS = 30;
+
+function pushToTrash(entry) {
+    trashedItems.unshift({ id: genBlockId(), deletedAt: Date.now(), ...entry });
+}
+
+// Cleans out anything past the retention window, and only NOW actually
+// deletes the underlying Storage file for any photo/voice note among
+// them - deletion of the real file is deferred all the way until here,
+// specifically so it stays recoverable up to the last possible moment.
+function purgeExpiredTrash() {
+    const cutoff = Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    const expiring = trashedItems.filter(t => t.deletedAt < cutoff);
+    if (expiring.length === 0) return;
+    expiring.forEach(purgeTrashItemMedia);
+    trashedItems = trashedItems.filter(t => t.deletedAt >= cutoff);
+    saveNotesData();
+}
+
+function purgeTrashItemMedia(t) {
+    if (t.type === 'note' && t.data.blocks) {
+        t.data.blocks.forEach(b => { if (b.storagePath) deleteNoteMediaPath(b.storagePath); });
+    } else if (t.type === 'block' && t.data.storagePath) {
+        deleteNoteMediaPath(t.data.storagePath);
+    }
+}
+
+function daysLeftInTrash(deletedAt) {
+    const msLeft = (deletedAt + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000) - Date.now();
+    return Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+}
+
+function restoreTrashItem(trashId) {
+    const item = trashedItems.find(t => t.id === trashId);
+    if (!item) return;
+
+    if (item.type === 'note') {
+        // Reuse the original note id unless something else has taken it
+        // since (astronomically unlikely, but cheap to guard against).
+        const restored = JSON.parse(JSON.stringify(item.data));
+        if (notesData.some(n => n.id === restored.id)) restored.id = genBlockId();
+        notesData.unshift(restored);
+    } else if (item.type === 'block') {
+        let targetNote = notesData.find(n => n.id === item.noteId);
+        if (!targetNote) {
+            // The note it came from is gone too (maybe trashed and
+            // already purged, or never restored) - land it in a
+            // dedicated recovery note instead of silently failing.
+            targetNote = notesData.find(n => n.title === 'Recovered items' && n._isRecoveryNote);
+            if (!targetNote) {
+                targetNote = { id: genBlockId(), title: 'Recovered items', notebook: '', blocks: [], updatedAt: Date.now(), _isRecoveryNote: true };
+                notesData.unshift(targetNote);
+            }
+        }
+        ensureNoteBlocks(targetNote);
+        const restoredBlock = JSON.parse(JSON.stringify(item.data));
+        if (targetNote.blocks.some(b => b.id === restoredBlock.id)) restoredBlock.id = genBlockId();
+        targetNote.blocks.push(restoredBlock);
+        targetNote.updatedAt = Date.now();
+    }
+
+    trashedItems = trashedItems.filter(t => t.id !== trashId);
+    saveNotesData();
+    renderNotesList();
+    renderTrashModal();
+    if (currentNoteId && item.type === 'block' && notesData.find(n => n.id === currentNoteId)) {
+        selectNote(currentNoteId);
+    }
+    showSaveToast('Restored ✓', false);
+    setTimeout(() => showSaveToast('', false), 1500);
+}
+
+async function permanentlyDeleteTrashItem(trashId) {
+    const ok = await showConfirmDialog('Delete this permanently? This cannot be undone.');
+    if (!ok) return;
+    const item = trashedItems.find(t => t.id === trashId);
+    if (item) purgeTrashItemMedia(item);
+    trashedItems = trashedItems.filter(t => t.id !== trashId);
+    saveNotesData();
+    renderTrashModal();
+}
+
+async function emptyTrash() {
+    if (trashedItems.length === 0) return;
+    const ok = await showConfirmDialog(`Permanently delete all ${trashedItems.length} items in Trash? This cannot be undone.`);
+    if (!ok) return;
+    trashedItems.forEach(purgeTrashItemMedia);
+    trashedItems = [];
+    saveNotesData();
+    renderTrashModal();
+}
+
+function openTrashModal() {
+    renderTrashModal();
+    const modal = document.getElementById('trash-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeTrashModal() {
+    const modal = document.getElementById('trash-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderTrashModal() {
+    const list = document.getElementById('trash-modal-list');
+    const emptyBtn = document.getElementById('trash-empty-btn');
+    const badge = document.getElementById('trash-badge-count');
+    if (badge) {
+        badge.textContent = trashedItems.length;
+        badge.style.display = trashedItems.length > 0 ? 'flex' : 'none';
+    }
+    if (!list) return;
+
+    if (emptyBtn) emptyBtn.style.display = trashedItems.length ? 'inline-flex' : 'none';
+
+    if (trashedItems.length === 0) {
+        list.innerHTML = '<div class="trash-empty-state">Nothing in Trash.</div>';
+        return;
+    }
+
+    list.innerHTML = trashedItems.map(item => {
+        const icon = item.type === 'note' ? '📝' : item.data.type === 'image' ? '📷' : item.data.type === 'audio' ? '🎙️' : '📄';
+        const label = item.type === 'note'
+            ? (item.data.title || 'Untitled note')
+            : (item.data.type === 'text' ? (item.data.content || '').slice(0, 60) || 'Text block' : `${item.data.type === 'image' ? 'Photo' : 'Voice note'} from "${item.noteTitle}"`);
+        const daysLeft = daysLeftInTrash(item.deletedAt);
+        return `
+            <div class="trash-item-row">
+                <div class="trash-item-info">
+                    <span class="trash-item-icon">${icon}</span>
+                    <div>
+                        <div class="trash-item-label">${escapeHtml(label)}</div>
+                        <div class="trash-item-meta">${daysLeft} day${daysLeft === 1 ? '' : 's'} left</div>
+                    </div>
+                </div>
+                <div class="trash-item-actions">
+                    <button type="button" class="backup-btn" onclick="restoreTrashItem('${item.id}')">Restore</button>
+                    <button type="button" class="backup-btn" onclick="permanentlyDeleteTrashItem('${item.id}')">Delete forever</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
 async function deleteSelectedBlocks() {
     const note = notesData.find(n => n.id === currentNoteId);
     if (!note || selectedBlockIds.length === 0) return;
@@ -3780,11 +3936,11 @@ async function deleteSelectedBlocks() {
     let message;
     if (selectedBlockIds.length === 1) {
         const block = note.blocks.find(b => b.id === selectedBlockIds[0]);
-        message = block && block.type === 'audio' ? 'Delete this voice note?'
-            : block && block.type === 'image' ? 'Delete this photo?'
-            : 'Delete this?';
+        message = block && block.type === 'audio' ? 'Move this voice note to Trash?'
+            : block && block.type === 'image' ? 'Move this photo to Trash?'
+            : 'Move this to Trash?';
     } else {
-        message = `Delete these ${selectedBlockIds.length} items?`;
+        message = `Move these ${selectedBlockIds.length} items to Trash?`;
     }
 
     const ok = await showConfirmDialog(message);
@@ -3795,7 +3951,10 @@ async function deleteSelectedBlocks() {
         const block = note.blocks.find(b => b.id === id);
         if (!block) return;
         if (block.type === 'audio') releaseAudioObjectUrl(block.id);
-        if (block.storagePath) deleteNoteMediaPath(block.storagePath);
+        // Media is NOT deleted here anymore - it moves to Trash with the
+        // block and only actually gets removed from Storage if it's
+        // permanently deleted from Trash, or after the 30-day window.
+        pushToTrash({ type: 'block', data: JSON.parse(JSON.stringify(block)), noteId: note.id, noteTitle: note.title || 'Untitled note' });
     });
     note.blocks = note.blocks.filter(b => !selectedBlockIds.includes(b.id));
     if (note.blocks.length === 0) {
@@ -4801,17 +4960,18 @@ function scheduleNoteSave(note) {
 
 async function deleteCurrentNote() {
     if (!currentNoteId) return;
-    const ok = await showConfirmDialog('Delete this note?');
+    const ok = await showConfirmDialog('Move this note to Trash? You can restore it for 30 days.');
     if (!ok) return;
 
     stopNoteRecordingIfActive();
     pushNotesUndoSnapshot();
     const deletedNote = notesData.find(n => n.id === currentNoteId);
-    if (deletedNote && deletedNote.blocks) {
-        deletedNote.blocks.forEach(b => {
-            if (b.type === 'audio') releaseAudioObjectUrl(b.id);
-            if (b.storagePath) deleteNoteMediaPath(b.storagePath);
-        });
+    if (deletedNote) {
+        if (deletedNote.blocks) deletedNote.blocks.forEach(b => { if (b.type === 'audio') releaseAudioObjectUrl(b.id); });
+        // Media is NOT deleted here anymore - the whole note (and its
+        // photos/voice notes) moves to Trash intact, only actually
+        // removed from Storage on permanent delete or after 30 days.
+        pushToTrash({ type: 'note', data: JSON.parse(JSON.stringify(deletedNote)), noteTitle: deletedNote.title || 'Untitled note' });
     }
     notesData = notesData.filter(n => n.id !== currentNoteId);
     saveNotesData();
@@ -4843,7 +5003,7 @@ let realtimeChannel = null;
 
 // Bundles everything worth syncing into one payload for the `app_data` column.
 function buildSyncPayload() {
-    return { timeData, backlogItems, categoryGoals, customCategoryColors, notesData, notesNotebooks };
+    return { timeData, backlogItems, categoryGoals, customCategoryColors, notesData, notesNotebooks, trashedItems };
 }
 
 // Debounced cloud save — called from every existing local save function so
@@ -4851,7 +5011,7 @@ function buildSyncPayload() {
 // already happen. `immediate` skips the debounce (used for the one-time
 // "upload my existing device data" migration).
 function queueCloudSync(immediate) {
-    if (!currentUser || isLoadingCloudData) return;
+    if (!currentUser || isLoadingCloudData || sessionOverridden) return;
 
     if (immediate) {
         clearTimeout(cloudSyncTimer);
@@ -4907,7 +5067,7 @@ function emergencySaveOnExit() {
     // check was missing here (present in queueCloudSync, not here) and
     // is exactly the kind of bug that causes "I logged in and all my
     // data is gone."
-    if (!currentUser || !currentAccessToken || isLoadingCloudData) return;
+    if (!currentUser || !currentAccessToken || isLoadingCloudData || sessionOverridden) return;
     try {
         const body = JSON.stringify([{ user_id: currentUser.id, app_data: buildSyncPayload() }]);
         fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
@@ -4982,6 +5142,75 @@ async function handleAuthSession(session) {
 
     isLoadingCloudData = false;
     subscribeToRealtimeSync();
+    claimActiveSession();
+}
+
+// --- SINGLE ACTIVE SESSION (WhatsApp-Web style) ---
+// Without this, opening the account in two tabs/devices at once is
+// dangerous in a very specific way: an old/stale tab that hasn't pulled
+// recent changes can still save, and that save wins - silently
+// overwriting whatever the OTHER, more current tab had. This closes
+// that gap the same way WhatsApp Web does: only one tab is ever the
+// "active" one. Opening a new one takes over immediately, and the tab
+// that just got displaced is locked out of saving until it explicitly
+// says "use here" - so a stale tab can never silently clobber a
+// fresher one again.
+//
+// Piggybacks on the existing Realtime subscription already watching
+// this account's user_data row (see subscribeToRealtimeSync below)
+// rather than a second channel/table - active_session_id is just
+// another column on that same row, so an ordinary update to your real
+// data doesn't touch it, and claiming a session doesn't touch your real
+// data either.
+let mySessionId = null;
+let sessionOverridden = false; // true once another tab has taken over - blocks this tab from saving until "Use here instead" is clicked
+
+function generateSessionId() {
+    return (crypto.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2)));
+}
+
+// Claims this tab as the one active session for the account. Called on
+// every login/page load (last-opened tab always wins, same as WhatsApp
+// Web) and again if you click "Use here instead" after being displaced.
+//
+// REQUIRES this one-time SQL (Supabase dashboard -> SQL Editor):
+//   alter table user_data add column if not exists active_session_id text;
+async function claimActiveSession() {
+    if (!currentUser) return;
+    mySessionId = generateSessionId();
+    sessionOverridden = false;
+    hideSessionTakeoverOverlay();
+    lastLocalSaveAt = Date.now(); // reuses the existing "ignore the echo of our own write" window in the Realtime handler below, so claiming doesn't trigger a needless self-pull
+    try {
+        await supabaseClient.from('user_data').update({ active_session_id: mySessionId }).eq('user_id', currentUser.id);
+    } catch (err) {
+        // Almost certainly means the active_session_id column doesn't
+        // exist yet (see the SQL above) - fails safe: this tab just
+        // won't enforce single-session locking rather than breaking
+        // anything else.
+        console.error('Could not claim active session (non-fatal - is the active_session_id column set up?):', err);
+    }
+}
+
+function showSessionTakeoverOverlay() {
+    sessionOverridden = true;
+    const overlay = document.getElementById('session-takeover-overlay');
+    if (overlay) overlay.classList.add('visible');
+}
+
+function hideSessionTakeoverOverlay() {
+    const overlay = document.getElementById('session-takeover-overlay');
+    if (overlay) overlay.classList.remove('visible');
+}
+
+// "Use here instead" - reclaims the session (displacing whatever tab
+// currently holds it) and pulls the truly latest data first, since this
+// tab may have been sitting locked-out and stale for a while.
+async function useSessionHere() {
+    await claimActiveSession();
+    await pullLatestCloudData();
+    showSaveToast("You're active here now", false);
+    setTimeout(() => showSaveToast('', false), 2000);
 }
 
 // --- CROSS-DEVICE PUSH SYNC ---
@@ -5011,7 +5240,20 @@ function subscribeToRealtimeSync() {
             schema: 'public',
             table: 'user_data',
             filter: `user_id=eq.${currentUser.id}`
-        }, () => {
+        }, (payload) => {
+            const newRow = payload.new || {};
+
+            // Another tab/device just claimed the active session (opened
+            // fresh, or clicked "Use here instead") - this tab is now the
+            // stale one. Show the takeover overlay instead of pulling
+            // data normally; showSessionTakeoverOverlay() also sets
+            // sessionOverridden, which blocks this tab from saving until
+            // it explicitly reclaims via useSessionHere().
+            if (mySessionId && newRow.active_session_id && newRow.active_session_id !== mySessionId) {
+                showSessionTakeoverOverlay();
+                return;
+            }
+
             // Ignore the echo of our OWN save landing back through
             // Realtime a moment later - otherwise every save would
             // immediately re-trigger a redundant fetch of the data we
@@ -5039,6 +5281,7 @@ function applyCloudSnapshot(cloudData) {
     customCategoryColors = cloudData.customCategoryColors || {};
     notesData = cloudData.notesData || [];
     notesNotebooks = cloudData.notesNotebooks || [];
+    trashedItems = cloudData.trashedItems || [];
 
     localStorage.setItem('flexibleTimeData', JSON.stringify(timeData));
     localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
@@ -5046,6 +5289,9 @@ function applyCloudSnapshot(cloudData) {
     localStorage.setItem('customCategoryColors', JSON.stringify(customCategoryColors));
     localStorage.setItem('notesData', JSON.stringify(notesData));
     localStorage.setItem('notesNotebooks', JSON.stringify(notesNotebooks));
+    localStorage.setItem('trashedItems', JSON.stringify(trashedItems));
+
+    purgeExpiredTrash(); // quietly cleans out anything past the 30-day window, and its media, on every fresh load
 
     refreshApp();
     renderNotebookSelector();
@@ -5177,6 +5423,10 @@ async function logOutUser() {
     activeNotebookFilter = '';
     notesUndoStack = [];
     notesRedoStack = [];
+    trashedItems = [];
+    mySessionId = null;
+    sessionOverridden = false;
+    hideSessionTakeoverOverlay();
     currentNoteId = null;
 
     localStorage.removeItem('flexibleTimeData');
@@ -5333,6 +5583,17 @@ async function manualSave() {
         // blocks this button from even being clickable during this
         // window, but this guard matches queueCloudSync/emergencySaveOnExit
         // for safety regardless.
+        return;
+    }
+
+    if (sessionOverridden) {
+        // This tab has been displaced by a newer one elsewhere - saving
+        // from here would risk overwriting whatever that tab has done
+        // since. showSessionTakeoverOverlay() already put up the "active
+        // elsewhere" screen; this is just the save-button-specific echo
+        // of the same protection.
+        showSaveToast('This tab is no longer active - see the notice on screen', false);
+        setTimeout(() => showSaveToast('', false), 2500);
         return;
     }
 
@@ -5597,6 +5858,7 @@ async function bootAppWithSession(session) {
         renderNotebookSelector();
         initBacklogPanel();
         updateDropboxUI();
+        renderTrashModal(); // just to sync the header badge count - the modal itself stays hidden
         if (pendingFirstDropboxBackup) {
             // Real data has now actually loaded (we're past
             // handleAuthSession above) - safe to take the first backup
@@ -5785,6 +6047,25 @@ function updateMobileHeaderVisibility() {
     const isMobile = document.body.classList.contains('mobile-nav-mode');
     header.classList.toggle('mobile-header-hidden', isMobile && currentMobileSection !== 'timer');
 }
+
+// Fades out the header icon row's "swipe for more" edge hint once
+// you've scrolled close enough to the end that there's nothing left to
+// reveal - otherwise it would keep implying more content past the last
+// button forever. See .header-actions-wrap::after in the CSS.
+function updateHeaderActionsScrollHint() {
+    const wrap = document.getElementById('header-actions-wrap');
+    const row = document.getElementById('header-actions');
+    if (!wrap || !row) return;
+    const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4;
+    wrap.classList.toggle('at-scroll-end', atEnd);
+}
+(function setupHeaderActionsScrollHint() {
+    const row = document.getElementById('header-actions');
+    if (!row) return;
+    row.addEventListener('scroll', updateHeaderActionsScrollHint, { passive: true });
+    window.addEventListener('resize', updateHeaderActionsScrollHint);
+    updateHeaderActionsScrollHint();
+})();
 
 // Prevents the native <details> collapse behavior on tab-controlled
 // sections while in mobile-nav mode - otherwise tapping a section's

@@ -29,29 +29,31 @@
     <div class="header-container">
         <h1 class="header-title">Lodge Time Budgeter</h1>
         
-        <div class="header-actions">
-            <a href="index.html" class="theme-toggle-btn" style="text-decoration: none;">
+        <div class="header-actions-wrap" id="header-actions-wrap">
+        <div class="header-actions" id="header-actions">
+            <a href="index.html" class="theme-toggle-btn" title="Home" style="text-decoration: none;">
                 <span>🏠</span> <span>Home</span>
             </a>
             <button class="theme-toggle-btn" id="manual-save-btn" onclick="manualSave()" title="Save now (Ctrl+S)">
                 <span>💾</span> <span>Save</span>
             </button>
-            <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()">
+            <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()" title="Account">
                 <span>👤</span> <span id="auth-btn-label">Account</span>
             </button>
-            <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">
+            <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
                 <span id="theme-icon">☀️</span> <span id="theme-text">Light Theme</span>
             </button>
             <!-- Compact Dropbox status/link button, mirrors the one in the
                  Analytics/Export section (see updateDropboxUI() in JS,
                  which now updates both) - kept up here too since this
                  header row is the one place visible from every tab. -->
-            <button class="theme-toggle-btn" id="dropbox-header-link-btn" onclick="linkDropboxAccount()">
+            <button class="theme-toggle-btn" id="dropbox-header-link-btn" onclick="linkDropboxAccount()" title="Link Dropbox for automatic backups">
                 <span>📦</span> <span>Link Dropbox</span>
             </button>
             <button class="theme-toggle-btn" id="dropbox-header-status-btn" onclick="backupNowToDropbox()" title="Click to back up now" style="display:none;">
                 <span>📦</span> <span id="dropbox-header-status-text">Dropbox</span>
             </button>
+        </div>
         </div>
     </div>
 
@@ -372,6 +374,7 @@
                     <div class="notes-sidebar">
                         <div class="notes-sidebar-header">
                             <span class="notes-sidebar-title">Notes <span class="notes-count" id="notes-count-badge">0</span></span>
+                            <button class="notes-new-btn" onclick="openTrashModal()" title="Trash" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color); position:relative;">🗑️<span id="trash-badge-count" class="trash-header-badge">0</span></button>
                             <button class="notes-new-btn" onclick="exportAllNotes()" title="Export all notes as a backup file" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);">⬇️</button>
                             <button class="notes-new-btn" onclick="createNote()" title="New note">+ New</button>
                         </div>
@@ -710,6 +713,40 @@
                 <button type="button" class="btn-primary confirm-dialog-cancel-btn" onclick="closeNotebookPickerModal()">Cancel</button>
                 <button type="button" class="btn-primary" onclick="saveNotebookPickerModal()">Save</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Trash - deleted notes/photos/voice notes land here for 30 days
+         before actually being gone (see the trash-*() functions in JS).
+         This is what closes the one gap none of the backup layers can:
+         they all protect against DATA BREAKING, not against a mistaken
+         delete that syncs and gets backed up just as faithfully as
+         anything else. -->
+    <div id="trash-modal" class="modal-overlay">
+        <div class="modal-content trash-modal-content">
+            <button type="button" class="modal-close-btn" onclick="closeTrashModal()">✕</button>
+            <h4>🗑️ Trash</h4>
+            <p class="trash-modal-subtitle">Deleted items stay here for 30 days before being gone for good.</p>
+            <div id="trash-modal-list" class="trash-modal-list"></div>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn-primary confirm-dialog-cancel-btn" onclick="closeTrashModal()">Close</button>
+                <button type="button" id="trash-empty-btn" class="btn-primary confirm-dialog-confirm-btn danger" onclick="emptyTrash()" style="display:none;">Empty Trash</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shown when another tab/device claims the active session for this
+         account (see the SINGLE ACTIVE SESSION section in the JS) -
+         blocks this tab from saving until you explicitly reclaim it, so
+         a stale tab can never silently overwrite a fresher one. Sits
+         above literally everything, same z-index tier as the initial
+         load overlay. -->
+    <div id="session-takeover-overlay" class="session-takeover-overlay">
+        <div class="session-takeover-box">
+            <div class="session-takeover-icon">🔒</div>
+            <h3>Open in another window</h3>
+            <p>This account is active in another tab or device. To protect your data, this tab can't save until you take over.</p>
+            <button type="button" class="btn-primary" onclick="useSessionHere()">Use here instead</button>
         </div>
     </div>
 

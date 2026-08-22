@@ -1639,6 +1639,90 @@ summary.details-summary:hover {
     background: var(--danger) !important;
 }
 
+/* Trash modal */
+.trash-modal-content {
+    width: 480px;
+}
+.trash-modal-subtitle {
+    margin: -8px 0 14px 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+.trash-modal-list {
+    max-height: 360px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.trash-empty-state {
+    text-align: center;
+    padding: 30px 10px;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+}
+.trash-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+.trash-item-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.trash-item-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.trash-item-label {
+    font-size: 0.85rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+}
+.trash-item-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+.trash-item-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.trash-item-actions .backup-btn {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+}
+
+/* Small red badge on the header Trash button, only shown once there's
+   something in it - mirrors familiar "unread count" badge patterns. */
+.trash-header-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    min-width: 15px;
+    height: 15px;
+    border-radius: 999px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    display: none; /* toggled to 'flex' in JS (renderTrashModal) when count > 0 */
+}
+
 .modal-close-btn {
     position: absolute;
     top: 12px;
@@ -2455,6 +2539,45 @@ summary.details-summary:hover {
     align-items: center !important;
     text-align: center !important;
     gap: 12px !important;
+  }
+
+  /* The icon row (Home/Save/Account/Theme/Dropbox) at its normal desktop
+     size (78px-wide labeled buttons) simply doesn't fit most phone
+     screens - 5 of them add up to well over 400px. A scrolling row was
+     tried here first, but a left-aligned scrolling row with empty space
+     on the right just looks lopsided, not intentional. This is the
+     better fix: shrink to small icon-only circles on mobile specifically
+     (labels hidden, title="..." still gives the name on long-press/
+     hover) - small enough that all of them genuinely fit and can be
+     centered properly, the same way a normal toolbar looks, rather than
+     needing to scroll or peek at all. */
+  .header-actions-wrap {
+    width: 100%;
+  }
+  .header-actions {
+    display: flex !important;
+    gap: 10px !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    padding: 2px !important;
+    margin: 0 !important;
+  }
+  .header-actions .theme-toggle-btn {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+  /* Icon stays, the text label under it (span:last-child) is hidden -
+     the button's title="..." attribute still identifies it via a
+     long-press tooltip, same as any icon-only toolbar. */
+  .header-actions .theme-toggle-btn span:last-child {
+    display: none !important;
+  }
+  .header-actions .theme-toggle-btn span:first-child {
+    font-size: 1.3rem !important;
   }
 
   /* On phones, the title bar (Lodge Time Budgeter / Home / Account /
@@ -3840,6 +3963,61 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
 
 .boot-error-banner-close:hover {
     opacity: 1;
+}
+
+/* --- SESSION TAKEOVER OVERLAY --- */
+/* Shown when another tab/device claims the active session (see
+   showSessionTakeoverOverlay() in JS). Hidden by default; JS toggles
+   .visible. Sits at the same top tier as the initial load overlay -
+   deliberately above modals, since this needs to block interaction with
+   literally everything else on the page. */
+.session-takeover-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 99998;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.session-takeover-overlay.visible {
+    display: flex;
+}
+.session-takeover-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 32px 28px;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.session-takeover-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+}
+.session-takeover-box h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+    color: var(--text);
+}
+.session-takeover-box p {
+    margin: 0 0 20px 0;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.session-takeover-box .btn-primary {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.88rem;
 }
 
 /* --- INITIAL LOAD OVERLAY --- */
