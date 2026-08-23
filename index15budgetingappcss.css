@@ -145,6 +145,13 @@ button, input, select, textarea {
     justify-content: center;
 }
 
+/* Mobile-only hamburger button that reveals the icon row as a dropdown
+   (see the max-width:768px rules below). Hidden entirely on desktop/
+   tablet, where the icons already show inline as normal. */
+.mobile-header-menu-btn {
+    display: none;
+}
+
 .theme-toggle-btn {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -274,7 +281,14 @@ h2 {
     border: 1px solid var(--border-color);
     border-radius: 10px;
     overflow: hidden;
+    /* Desktop fallback only - on phones adjustTodayStripHeight() (JS)
+       measures the exact gap down to the floating bottom nav and sets
+       an inline max-height, so the strip's bottom edge always lands
+       right above the nav with no page-level scroll, only its own
+       internal one (overflow-y:auto below). flex-shrink:0 keeps it
+       from being squeezed by anything else in its flex column. */
     max-height: 520px;
+    flex-shrink: 0;
     overflow-y: auto;
 }
 
@@ -324,7 +338,7 @@ h2 {
 
 .controls {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
     gap: 14px;
@@ -333,6 +347,7 @@ h2 {
 .controls button {
     width: 72px;
     height: 72px;
+    flex-shrink: 0;
     border: none;
     border-radius: 50%;
     font-weight: bold;
@@ -2989,24 +3004,63 @@ summary.details-summary:hover {
   .header-container, 
   header {
     display: flex !important;
-    flex-direction: column !important;
+    flex-direction: row !important;
     align-items: center !important;
-    text-align: center !important;
+    justify-content: space-between !important;
+    text-align: left !important;
     gap: 12px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    position: relative !important;
   }
 
-  /* The icon row (Home/Save/Account/Theme/Dropbox) at its normal desktop
-     size (78px-wide labeled buttons) simply doesn't fit most phone
-     screens - 5 of them add up to well over 400px. A scrolling row was
-     tried here first, but a left-aligned scrolling row with empty space
-     on the right just looks lopsided, not intentional. This is the
-     better fix: shrink to small icon-only circles on mobile specifically
-     (labels hidden, title="..." still gives the name on long-press/
-     hover) - small enough that all of them genuinely fit and can be
-     centered properly, the same way a normal toolbar looks, rather than
-     needing to scroll or peek at all. */
+  .header-title {
+    font-size: 1.05rem !important;
+    margin: 0 !important;
+  }
+
+  /* Hamburger button: small, round, next to the title. Toggles
+     .header-actions-wrap's open state below. */
+  .mobile-header-menu-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    padding: 0;
+  }
+  .mobile-header-menu-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* The icon row (Home/Save/Account/Theme/Dropbox) no longer sits on
+     its own permanent line - it's tucked behind the hamburger button
+     above and only appears as a dropdown panel while open, so it costs
+     zero vertical space the rest of the time. That's the actual point:
+     the Chronometer/Today strip below get that space back. */
   .header-actions-wrap {
-    width: 100%;
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 500;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    margin-top: 6px;
+    padding: 10px;
+  }
+  .header-actions-wrap.mobile-menu-open {
+    display: block;
   }
   .header-actions {
     display: flex !important;
@@ -3124,6 +3178,63 @@ summary.details-summary:hover {
   details.details-section[data-mobile-section="timer"] {
     margin-top: -4px !important;
   }
+
+  /* Shrink the "Chronometer" heading and the Independent/Linked toggle
+     row - both were taking more vertical space than they need on a
+     phone, at the direct expense of the Today strip below. */
+  .card.stopwatch[data-mobile-section="timer"] h2 {
+    font-size: 0.95rem;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+  }
+  .card.stopwatch[data-mobile-section="timer"] .stopwatch-mode-row {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .card.stopwatch[data-mobile-section="timer"] .stopwatch-mode-label {
+    font-size: 0.68rem;
+  }
+  .card.stopwatch[data-mobile-section="timer"] .toggle-switch {
+    width: 34px;
+    height: 19px;
+  }
+  .card.stopwatch[data-mobile-section="timer"] .toggle-switch-slider::before {
+    height: 13px;
+    width: 13px;
+  }
+  .card.stopwatch[data-mobile-section="timer"] .toggle-switch input:checked + .toggle-switch-slider::before {
+    transform: translateX(15px);
+  }
+
+  /* Today strip header ("Today" + date) and the padding around the grid
+     itself - both trimmed down so the calendar starts almost right
+     under the heading instead of leaving a big empty band above it. */
+  details.details-section[data-mobile-section="timer"] summary.details-summary {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+  }
+  details.details-section[data-mobile-section="timer"] .details-content {
+    padding: 6px;
+  }
+
+  /* Start/Split/Stop/Reset: always one row of 4, never wrapping to a
+     second line (that's what was pushing Reset onto its own row below
+     the others). Shrinking the circles a bit on phones - together with
+     the tighter spacing above - frees up vertical room, which goes
+     toward a taller Today strip right below (see .today-strip-grid). */
+  .controls {
+    gap: 10px;
+  }
+  .controls button {
+    width: 60px;
+    height: 60px;
+    font-size: 0.65rem;
+  }
+
+  /* Taller Today strip on phones now that the Chronometer card and its
+     buttons take up less vertical space - handled dynamically by
+     adjustTodayStripHeight() in the JS rather than a fixed number here,
+     since it needs to measure the actual gap down to the nav bar. */
 
   /* Center Popups on Mobile Screens */
   .modal-content {

@@ -2304,7 +2304,26 @@ function adjustTodayStripHeight() {
         grid.style.maxHeight = `${available}px`;
     }
 }
-window.addEventListener('resize', () => { if (document.querySelector('.today-strip-grid')) adjustTodayStripHeight(); });
+window.addEventListener('resize', () => {
+    if (!document.querySelector('.today-strip-grid')) return;
+    // Skip recalculating while the on-screen keyboard is open. The
+    // keyboard shrinks the visual viewport (and can nudge the fixed
+    // bottom nav up with it), which used to make this measure a much
+    // smaller gap and shrink the strip - sometimes staying shrunk even
+    // after the keyboard closed again. Only real resizes (rotation,
+    // actual window resize) should trigger a recompute here; the
+    // visualViewport listener below handles putting it back once the
+    // keyboard closes.
+    const kbOpen = window.visualViewport && (window.innerHeight - window.visualViewport.height > 100);
+    if (kbOpen) return;
+    adjustTodayStripHeight();
+});
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+        const kbOpen = window.innerHeight - window.visualViewport.height > 100;
+        if (!kbOpen && document.querySelector('.today-strip-grid')) adjustTodayStripHeight();
+    });
+}
 
 // Positions the red "now" line at the correct height for the current
 // time (40px per hour, matching the calendar's own scale) and updates
@@ -2687,6 +2706,7 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     if (modal) {
         modal.style.display = 'block';
         positionModalNearClick(clickEvent);
+        lockBodyScrollForModal();
     }
 }
 
@@ -2726,6 +2746,7 @@ function openEditModal(dateKey, index, clickEvent) {
     if (modal) {
         modal.style.display = 'block';
         positionModalNearClick(clickEvent);
+        lockBodyScrollForModal();
     }
 }
 
@@ -2772,6 +2793,7 @@ function openBacklogEditModal(backlogId, clickEvent) {
     if (modal) {
         modal.style.display = 'block';
         positionModalNearClick(clickEvent);
+        lockBodyScrollForModal();
     }
 }
 
@@ -2787,11 +2809,43 @@ function deleteModalActivity() {
     closeQuickAddModal();
 }
 
+// --- SCROLL LOCK for the quick-add/edit modal (mobile "page jumps up"
+// fix) ---
+// The modal overlay is position:fixed and covers the full viewport, but
+// that alone doesn't stop the *page underneath* from being scrollable.
+// On phones, focusing an input inside a fixed overlay makes the browser
+// scroll the underlying document to "bring the field into view" - since
+// there's nothing to bring into view (the overlay is already full-screen
+// and fixed), all that happens visually is the whole page jerking
+// upward. Locking the body in place (freezing it at its current scroll
+// position via position:fixed) while the modal is open removes the
+// scrollable document entirely, so there's nothing for the keyboard/
+// focus behavior to scroll - then it's restored exactly where it was
+// once the modal closes.
+let _modalScrollLockY = 0;
+function lockBodyScrollForModal() {
+    _modalScrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${_modalScrollLockY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+}
+function unlockBodyScrollForModal() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, _modalScrollLockY);
+}
+
 function closeQuickAddModal() {
     const modal = document.getElementById('quick-add-modal');
     if (modal) modal.style.display = 'none';
     quickAddSlotInfo = null;
     hideModalError();
+    unlockBodyScrollForModal();
 }
 
 function hideModalError() {
@@ -6944,7 +6998,35 @@ function updateMobileHeaderVisibility() {
     if (!header) return;
     const isMobile = document.body.classList.contains('mobile-nav-mode');
     header.classList.toggle('mobile-header-hidden', isMobile && currentMobileSection !== 'timer');
+    closeMobileHeaderMenu();
 }
+
+// Opens/closes the dropdown that the Home/Save/Account/Theme/Dropbox
+// icons live behind on phones (see .mobile-header-menu-btn /
+// .header-actions-wrap in the CSS) - keeps that row from permanently
+// taking its own line above the Chronometer.
+function toggleMobileHeaderMenu() {
+    const wrap = document.getElementById('header-actions-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('mobile-menu-open');
+}
+function closeMobileHeaderMenu() {
+    const wrap = document.getElementById('header-actions-wrap');
+    if (wrap) wrap.classList.remove('mobile-menu-open');
+}
+// Close it after picking any action inside, and when tapping elsewhere.
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('header-actions-wrap');
+    const btn = document.getElementById('mobile-header-menu-btn');
+    if (!wrap || !wrap.classList.contains('mobile-menu-open')) return;
+    if (wrap.contains(e.target) && e.target.closest('.theme-toggle-btn')) {
+        closeMobileHeaderMenu(); // an actual action was tapped - close after it runs
+        return;
+    }
+    if (!wrap.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        closeMobileHeaderMenu(); // tapped outside the menu entirely
+    }
+});
 
 // Fades out the header icon row's "swipe for more" edge hint once
 // you've scrolled close enough to the end that there's nothing left to

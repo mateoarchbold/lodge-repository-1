@@ -30,7 +30,17 @@
 
     <div class="header-container">
         <h1 class="header-title"><img src="nabu-favicon.svg" alt="" class="header-logo-icon">NABU</h1>
-        
+
+        <!-- Mobile-only hamburger toggle for the icon row below (Home/
+             Save/Account/Theme/Dropbox). On phones that row is hidden
+             behind this single button instead of always taking its own
+             visible line, freeing vertical space for the Chronometer/
+             Today strip beneath it. Desktop is untouched - this button
+             is display:none there and the icons show inline as before. -->
+        <button class="mobile-header-menu-btn" id="mobile-header-menu-btn" onclick="toggleMobileHeaderMenu()" title="Menu" aria-label="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+
         <div class="header-actions-wrap" id="header-actions-wrap">
         <div class="header-actions" id="header-actions">
             <a href="index.html" class="theme-toggle-btn" title="Home" style="text-decoration: none;">
@@ -60,6 +70,7 @@
         </div>
         </div>
     </div>
+
 
     <div class="container">
         
