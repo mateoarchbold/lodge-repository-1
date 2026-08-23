@@ -66,6 +66,30 @@
         <!-- STOPWATCH CARD -->
         <div class="card stopwatch" data-mobile-section="timer">
             <h2>Chronometer</h2>
+
+            <!-- Switches what the Start/Stop/Reset buttons below actually
+                 do. OFF ("Independent"): a plain private stopwatch, exactly
+                 like before, nothing logged anywhere. ON ("Linked to
+                 Today"): pressing Start creates a real logged activity that
+                 starts right now on today's calendar (same mechanism as the
+                 Live Timer bars below) and stays in sync with them -
+                 starting/pausing/finishing from any of the three places
+                 updates all of them, since they all just read/drive the one
+                 shared active session. See the STOPWATCH <-> LIVE TIMER
+                 SYNC section in the JS. -->
+            <div class="stopwatch-mode-row">
+                <span class="stopwatch-mode-label">Independent</span>
+                <label class="toggle-switch" title="When on, the Start button below also starts a live activity on today's calendar">
+                    <input type="checkbox" id="stopwatch-link-toggle" onchange="toggleStopwatchLinkMode(this.checked)">
+                    <span class="toggle-switch-slider"></span>
+                </label>
+                <span class="stopwatch-mode-label">Linked to Today</span>
+            </div>
+            <div class="stopwatch-link-row stopwatch-link-active" id="stopwatch-link-active" style="display:none;">
+                <span class="stopwatch-link-pulse-dot"></span>
+                <span>Logging as <strong id="stopwatch-link-active-category"></strong></span>
+            </div>
+
             <div class="display" id="stopwatch-display">00:00:00.00</div>
             <div class="controls">
                 <button class="btn-start" id="start-btn">Start</button>
@@ -87,6 +111,63 @@
                 </table>
             </div>
         </div>
+
+        <!-- LIVE TIMER FIELDS (Today) - category + description only, no
+             Start button here on purpose: the Chronometer's own Start
+             button above is what actually starts it (see the startBtn
+             click handler in the JS, which reads these two fields once
+             the toggle is Linked, and refuses to start without a
+             category). Only shown while the toggle above is set to
+             "Linked to Today" - see updateStopwatchLinkUI() in the JS,
+             which shows/hides this whole bar. Once a session is running,
+             this switches to the same running display (Pause/Finish) as
+             the big calendar's Live Timer bar below, since they're the
+             exact same shared session, not two separate timers. -->
+        <div class="live-timer-bar" id="today-live-timer-bar" style="display:none;">
+            <div class="live-timer-idle">
+                <span class="live-timer-idle-icon">⏱️</span>
+                <input type="text" class="live-timer-category-input" placeholder="Category (e.g. coding)" list="category-list">
+                <input type="text" class="live-timer-notes-input" placeholder="Description (optional)">
+            </div>
+            <div class="live-timer-active" style="display:none;">
+                <span class="live-timer-pulse-dot"></span>
+                <span class="live-timer-active-category"></span>
+                <span class="live-timer-active-notes"></span>
+                <span class="live-timer-active-location"></span>
+                <span class="live-timer-active-elapsed">00:00:00</span>
+                <button type="button" class="live-timer-ctrl-btn live-timer-pause-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
+                <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
+            </div>
+        </div>
+
+        <!-- TODAY STRIP: a single-day mirror of the big calendar, sitting
+             right next to the Chronometer so starting a live timer has
+             somewhere immediate and visible to land - the exact problem
+             this was built to fix was "the chronometer feels like not
+             plugged into anything." Fully interactive (tap to add, drag
+             to move/resize, same context menu) since it reuses
+             buildDayColumnEl() directly - not a lighter read-only
+             preview, the real thing, just scoped to one day. This is
+             also deliberately a MIRROR, not a separate data source: it
+             reads/writes the exact same timeData[todayKey] the big
+             calendar uses, so nothing can drift out of sync between
+             them. Open by default (not collapsed) since it's meant to
+             teach new users what the big calendar does before they ever
+             see it - see renderTodayStrip() in the JS. -->
+        <details class="details-section" open data-mobile-section="timer">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Today</span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" id="today-strip-date-label">Click to expand / collapse</span>
+            </summary>
+            <div class="details-content">
+                <div class="today-strip-grid">
+                    <div class="matrix-time-col" id="today-strip-time-col"></div>
+                    <div class="today-strip-day-wrap" id="today-strip-day-wrap">
+                        <div class="today-now-line" id="today-now-line"><span class="today-now-line-label" id="today-now-line-label"></span></div>
+                    </div>
+                </div>
+            </div>
+        </details>
 
         <!-- MAIN 3-COLUMN GRID -->
         <div class="grid-3col" data-mobile-section="log">
@@ -291,18 +372,20 @@
              block that starts at zero elapsed time is a sliver a
              fraction of a pixel tall, which would be an impossible
              click target for Pause/Finish buttons. -->
-        <div id="live-timer-bar" class="live-timer-bar">
-            <div id="live-timer-idle" class="live-timer-idle">
+        <div class="live-timer-bar">
+            <div class="live-timer-idle">
                 <span class="live-timer-idle-icon">⏱️</span>
-                <input type="text" id="live-timer-category-input" placeholder="What are you working on?" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity();">
-                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity()">▶ Start</button>
+                <input type="text" class="live-timer-category-input" placeholder="Category (e.g. coding)" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this);">
+                <input type="text" class="live-timer-notes-input" placeholder="Description (optional)" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this);">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)">▶ Start</button>
             </div>
-            <div id="live-timer-active" class="live-timer-active" style="display:none;">
+            <div class="live-timer-active" style="display:none;">
                 <span class="live-timer-pulse-dot"></span>
-                <span id="live-timer-active-category" class="live-timer-active-category"></span>
-                <span id="live-timer-active-location" class="live-timer-active-location"></span>
-                <span id="live-timer-active-elapsed" class="live-timer-active-elapsed">00:00:00</span>
-                <button type="button" id="live-timer-pause-btn" class="live-timer-ctrl-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
+                <span class="live-timer-active-category"></span>
+                <span class="live-timer-active-notes"></span>
+                <span class="live-timer-active-location"></span>
+                <span class="live-timer-active-elapsed">00:00:00</span>
+                <button type="button" class="live-timer-ctrl-btn live-timer-pause-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
                 <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
             </div>
         </div>

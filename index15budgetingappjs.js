@@ -187,6 +187,7 @@ function refreshApp() {
     renderDayScheduleStack();
     renderAnalytics();
     renderVisualMatrix();
+    renderTodayStrip();
     renderBacklogList();
     renderGoals();
     renderMobileCategoryOptions();
@@ -195,6 +196,19 @@ function refreshApp() {
     refreshAllCategoryDropdowns();
     activeLiveTimerRef = findActiveLiveTimer();
     renderLiveTimerWidget();
+
+    // If a session survived a page reload (e.g. the tab was refreshed
+    // while it was running), flip the chronometer's switch back on for
+    // it too - otherwise the underlying data would keep working
+    // correctly, but the visual sync/connection to the original
+    // Start/Stop buttons would silently be lost on every refresh.
+    if (activeLiveTimerRef && !stopwatchLinkedToToday) {
+        stopwatchLinkedToToday = true;
+        const toggle = document.getElementById('stopwatch-link-toggle');
+        if (toggle) toggle.checked = true;
+    }
+    if (typeof updateStopwatchLinkUI === 'function') updateStopwatchLinkUI();
+    if (typeof syncStopwatchWithLiveTimer === 'function') syncStopwatchWithLiveTimer();
 }
 
 // --- BIG CALENDAR WEEK/MONTH NAV BAR ---
@@ -626,6 +640,88 @@ if (localStorage.getItem('themePreference') === 'light') {
     toggleTheme();
 }
 
+// --- STOPWATCH <-> LIVE TIMER SYNC ---
+// The original Chronometer (Start/Split/Stop/Reset) has a simple on/off
+// switch above it: Independent or Linked to Today. OFF, it behaves
+// exactly like a plain stopwatch always did - nothing logged anywhere.
+// ON, pressing its own Start button creates a real logged activity
+// starting right now on today's calendar, using the exact same
+// activity-logging system the Live Timer bars (further down, near the
+// calendar and above Today) already use - and all three stay in sync:
+// starting/pausing/finishing from any one of them updates the others,
+// because they're all just reading/driving the one shared
+// activeLiveTimerRef, not separate counters that happen to look similar.
+let stopwatchLinkedToToday = false; // driven by the Independent/Linked toggle switch
+
+function toggleStopwatchLinkMode(checked) {
+    stopwatchLinkedToToday = checked;
+    updateStopwatchLinkUI();
+    syncStopwatchWithLiveTimer();
+}
+
+function updateStopwatchLinkUI() {
+    const active = document.getElementById('stopwatch-link-active');
+    const activeCat = document.getElementById('stopwatch-link-active-category');
+    const toggle = document.getElementById('stopwatch-link-toggle');
+    const todayBar = document.getElementById('today-live-timer-bar');
+    // The category/description bar only makes sense once linked -
+    // hidden completely the rest of the time, not just emptied out.
+    if (todayBar) todayBar.style.display = stopwatchLinkedToToday ? 'flex' : 'none';
+    // Lock the switch while a linked session is actually running, so
+    // flipping it mid-session can't orphan the active activity.
+    if (toggle) toggle.disabled = stopwatchLinkedToToday && !!activeLiveTimerRef;
+    if (!active) return;
+    const showActive = stopwatchLinkedToToday && !!activeLiveTimerRef;
+    active.style.display = showActive ? 'flex' : 'none';
+    if (activeCat && showActive) {
+        const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+        activeCat.textContent = block ? block.category : '';
+    }
+}
+
+// Called from beginLiveTimer()/pauseResumeLiveTimer()/finishLiveTimer()
+// (see further down) - this is what makes the sync bidirectional:
+// regardless of whether a session was started/paused/finished via the
+// original chronometer's own buttons or either Live Timer bar's
+// buttons, this function afterward makes sure the original
+// chronometer's display and button states always end up matching
+// reality, not just "probably close".
+function syncStopwatchWithLiveTimer() {
+    if (!startBtn || !stopBtn || !splitBtn) return;
+
+    if (!activeLiveTimerRef) {
+        // No active session. If the switch is on, reset the chronometer
+        // back to a clean idle state. If it's off, leave it completely
+        // alone - this function has no business touching a plain
+        // stopwatch someone's using independently.
+        if (stopwatchLinkedToToday) {
+            clearInterval(timerInterval);
+            elapsedTime = 0;
+            if (stopwatchDisplay) stopwatchDisplay.innerHTML = "00:00:00.00";
+            startBtn.disabled = false; stopBtn.disabled = true; splitBtn.disabled = true;
+        }
+        return;
+    }
+
+    if (!stopwatchLinkedToToday) return; // switched off - a session may be running elsewhere, but this chronometer stays independent
+
+    const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+    if (!block || !block.liveTimer) return;
+
+    const isRunning = !!block.liveTimer.runningSince;
+    startBtn.disabled = isRunning;
+    stopBtn.disabled = !isRunning;
+    splitBtn.disabled = !isRunning;
+
+    // Keep the numeric display exact - driven by the live timer's own
+    // elapsed calculation every tick (see the shared setInterval below),
+    // not the stopwatch's own independent counter, so the two can never
+    // drift apart even by a fraction of a second.
+    elapsedTime = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
+    if (stopwatchDisplay) stopwatchDisplay.innerHTML = timeToString(elapsedTime);
+    updateStopwatchLinkUI();
+}
+
 // --- STOPWATCH LOGIC ---
 let startTime = 0, elapsedTime = 0, timerInterval;
 let lastSplitTime = 0, splitCount = 0;
@@ -644,6 +740,45 @@ function timeToString(time) {
 
 if (startBtn) {
     startBtn.addEventListener('click', () => {
+        // Switch is on and nothing's already running - reads the
+        // Category/Description fields in the Today bar just above (see
+        // #today-live-timer-bar in the HTML) and starts a real logged
+        // activity right now, using them. Won't start without a
+        // category - same rule as the other Live Timer bar's own Start
+        // button. beginLiveTimer() itself calls
+        // syncStopwatchWithLiveTimer() once the session exists, which
+        // sets elapsedTime/display/button-state correctly - no need to
+        // also start the plain internal interval below in this path.
+        if (stopwatchLinkedToToday && !activeLiveTimerRef) {
+            const catInput = document.querySelector('#today-live-timer-bar .live-timer-category-input');
+            const notesInput = document.querySelector('#today-live-timer-bar .live-timer-notes-input');
+            const category = (catInput && catInput.value.trim()) || '';
+            if (!category) {
+                showSaveToast('⚠️ Add a category first', false);
+                setTimeout(() => showSaveToast('', false), 2000);
+                if (catInput) catInput.focus();
+                return;
+            }
+            const name = (notesInput && notesInput.value.trim()) || '';
+            const now = new Date();
+            const started = beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, name);
+            if (started) {
+                if (catInput) catInput.value = '';
+                if (notesInput) notesInput.value = '';
+            }
+            return;
+        }
+        // Switch is on and a session is already running (e.g. started
+        // from the Live Timer bar above the big calendar) - resume it
+        // rather than starting a second, competing count.
+        if (stopwatchLinkedToToday && activeLiveTimerRef) {
+            const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+            if (block && block.liveTimer && !block.liveTimer.runningSince) pauseResumeLiveTimer();
+            return;
+        }
+
+        // Switch is off - behaves exactly like the original plain
+        // stopwatch always did, no activity logging involved.
         startTime = Date.now() - elapsedTime;
         timerInterval = setInterval(() => { 
             elapsedTime = Date.now() - startTime; 
@@ -657,6 +792,15 @@ if (stopBtn) {
     stopBtn.addEventListener('click', () => { 
         clearInterval(timerInterval); 
         startBtn.disabled = false; stopBtn.disabled = true; splitBtn.disabled = true;
+
+        // Switch is on and a session is actively running - Stop pauses
+        // it (not finishes it), same as the Live Timer bar's own Pause
+        // button, so it can still be resumed later rather than closed
+        // out for good.
+        if (stopwatchLinkedToToday && activeLiveTimerRef) {
+            const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+            if (block && block.liveTimer && block.liveTimer.runningSince) pauseResumeLiveTimer();
+        }
     });
 }
 
@@ -687,6 +831,14 @@ if (resetBtn) {
         if (splitLog) splitLog.innerHTML = '';
         if (splitContainer) splitContainer.style.display = 'none';
         startBtn.disabled = false; stopBtn.disabled = true; splitBtn.disabled = true;
+
+        // Switch is on and there's an active session (running or
+        // paused) - Reset means "I'm actually done", so this finalizes
+        // and logs the activity for real, same as pressing Finish on a
+        // Live Timer bar would.
+        if (stopwatchLinkedToToday && activeLiveTimerRef) {
+            finishLiveTimer();
+        }
     });
 }
 
@@ -1081,15 +1233,34 @@ function beginLiveTimer(dateKey, startHour, startMin, category, name) {
     saveData();
     refreshApp();
     renderLiveTimerWidget();
+    syncStopwatchWithLiveTimer();
     return true;
 }
 
-function startLiveTimerActivity() {
-    const input = document.getElementById('live-timer-category-input');
-    const category = (input && input.value.trim()) || 'General';
+// Used by the Live Timer bar's own Start button (above the big
+// calendar) - triggerEl is whichever input/button was actually
+// interacted with, used to find its own bar's category/description
+// fields. Won't start without a category, same rule as the
+// Chronometer's Start button when linked - see startBtn's click
+// handler further up.
+function startLiveTimerActivity(triggerEl) {
+    const bar = (triggerEl && triggerEl.closest) ? triggerEl.closest('.live-timer-bar') : document.querySelector('.live-timer-bar');
+    const catInput = bar ? bar.querySelector('.live-timer-category-input') : null;
+    const notesInput = bar ? bar.querySelector('.live-timer-notes-input') : null;
+    const category = (catInput && catInput.value.trim()) || '';
+    if (!category) {
+        showSaveToast('⚠️ Add a category first', false);
+        setTimeout(() => showSaveToast('', false), 2000);
+        if (catInput) catInput.focus();
+        return;
+    }
+    const name = (notesInput && notesInput.value.trim()) || '';
     const now = new Date();
-    const started = beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, '');
-    if (started && input) input.value = '';
+    const started = beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, name);
+    if (started) {
+        if (catInput) catInput.value = '';
+        if (notesInput) notesInput.value = '';
+    }
 }
 
 // Reads the same Category/Notes/Date/Start Time fields already filled
@@ -1126,6 +1297,7 @@ function pauseResumeLiveTimer() {
     saveData();
     refreshApp();
     renderLiveTimerWidget();
+    syncStopwatchWithLiveTimer();
 }
 
 function finishLiveTimer() {
@@ -1151,6 +1323,7 @@ function finishLiveTimer() {
     saveData();
     refreshApp();
     renderLiveTimerWidget();
+    syncStopwatchWithLiveTimer();
     showSaveToast(`Logged ${timeToString(totalMs).slice(0, 8)} to ${block.category} ✓`, false);
     setTimeout(() => showSaveToast('', false), 2500);
 }
@@ -1160,66 +1333,91 @@ function finishLiveTimer() {
 // long-term since there's at most one active timer at a time (only 1-2
 // DOM elements touched per tick, not a full calendar re-render).
 setInterval(() => {
+    updateTodayNowLine(); // ticks every second regardless of timer state - it's just a clock
+
     if (!activeLiveTimerRef) return;
     const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
     if (!block || !block.liveTimer || block.liveTimer.finished) { activeLiveTimerRef = null; return; }
 
     const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
 
-    const elapsedEl = document.getElementById('live-timer-active-elapsed');
-    if (elapsedEl) elapsedEl.textContent = timeToString(elapsedMs).slice(0, 8);
+    // querySelectorAll, not getElementById: both Live Timer bars (Today
+    // copy + the one above the big calendar) show the same session at
+    // once, so every ".live-timer-active-elapsed" on the page needs the
+    // tick, not just the first one found.
+    document.querySelectorAll('.live-timer-active-elapsed').forEach(el => { el.textContent = timeToString(elapsedMs).slice(0, 8); });
+    if (stopwatchLinkedToToday && typeof syncStopwatchWithLiveTimer === 'function') syncStopwatchWithLiveTimer();
 
     // Only actually grow the block's height while running - paused
     // means the number on screen keeps showing the frozen total, but
     // nothing moves, which is the visual cue for "paused" alongside the
     // dot animation stopping.
     if (block.liveTimer.runningSince) {
-        const el = document.querySelector(`.visual-block[data-timer-date="${activeLiveTimerRef.dateKey}"][data-timer-index="${activeLiveTimerRef.index}"]`);
-        if (el) el.style.height = `${Math.max((elapsedMs / 3600000) * 40, 4)}px`;
+        // querySelectorAll, not querySelector: if today is in the big
+        // calendar's currently-visible week, the SAME running block now
+        // renders in two places at once (the Today strip and the big
+        // calendar), since both build their columns with the same
+        // buildDayColumnEl(). Only updating the first match would leave
+        // whichever one isn't first looking frozen.
+        document.querySelectorAll(`.visual-block[data-timer-date="${activeLiveTimerRef.dateKey}"][data-timer-index="${activeLiveTimerRef.index}"]`)
+            .forEach(el => { el.style.height = `${Math.max((elapsedMs / 3600000) * 40, 4)}px`; });
     }
 }, 1000);
 
+// Updates EVERY Live Timer bar on the page (Today copy + the one above
+// the big calendar) together, since both are just two views onto the
+// one shared activeLiveTimerRef session - there's no separate "link"
+// step between them, starting/pausing/finishing from either one is
+// starting/pausing/finishing the only session that exists.
 function renderLiveTimerWidget() {
-    const idleEl = document.getElementById('live-timer-idle');
-    const activeEl = document.getElementById('live-timer-active');
-    if (!idleEl || !activeEl) return;
+    const bars = document.querySelectorAll('.live-timer-bar');
 
-    if (!activeLiveTimerRef) {
-        idleEl.style.display = 'flex';
-        activeEl.style.display = 'none';
-        return;
-    }
+    bars.forEach(bar => {
+        const idleEl = bar.querySelector('.live-timer-idle');
+        const activeEl = bar.querySelector('.live-timer-active');
+        if (!idleEl || !activeEl) return;
 
-    const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
-    if (!block || !block.liveTimer) {
-        activeLiveTimerRef = null;
-        idleEl.style.display = 'flex';
-        activeEl.style.display = 'none';
-        return;
-    }
+        if (!activeLiveTimerRef) {
+            idleEl.style.display = 'flex';
+            activeEl.style.display = 'none';
+            return;
+        }
 
-    idleEl.style.display = 'none';
-    activeEl.style.display = 'flex';
-    activeEl.classList.toggle('paused', !block.liveTimer.runningSince);
+        const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
+        if (!block || !block.liveTimer) {
+            idleEl.style.display = 'flex';
+            activeEl.style.display = 'none';
+            return;
+        }
 
-    const catEl = document.getElementById('live-timer-active-category');
-    if (catEl) catEl.textContent = block.category;
+        idleEl.style.display = 'none';
+        activeEl.style.display = 'flex';
+        activeEl.classList.toggle('paused', !block.liveTimer.runningSince);
 
-    const locEl = document.getElementById('live-timer-active-location');
-    if (locEl) {
-        const dateParts = activeLiveTimerRef.dateKey.split('-');
-        const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-        const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        const startLabel = `${String(block.liveTimer.startHour).padStart(2,'0')}:${String(block.liveTimer.startMin).padStart(2,'0')}`;
-        locEl.textContent = `· started ${startLabel}, ${monthNamesShort[d.getMonth()]} ${d.getDate()}`;
-    }
+        const catEl = activeEl.querySelector('.live-timer-active-category');
+        if (catEl) catEl.textContent = block.category;
 
-    const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
-    const elapsedEl = document.getElementById('live-timer-active-elapsed');
-    if (elapsedEl) elapsedEl.textContent = timeToString(elapsedMs).slice(0, 8);
+        const notesEl = activeEl.querySelector('.live-timer-active-notes');
+        if (notesEl) notesEl.textContent = block.name || '';
 
-    const pauseBtn = document.getElementById('live-timer-pause-btn');
-    if (pauseBtn) pauseBtn.textContent = block.liveTimer.runningSince ? '⏸ Pause' : '▶ Resume';
+        const locEl = activeEl.querySelector('.live-timer-active-location');
+        if (locEl) {
+            const dateParts = activeLiveTimerRef.dateKey.split('-');
+            const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            const startLabel = `${String(block.liveTimer.startHour).padStart(2,'0')}:${String(block.liveTimer.startMin).padStart(2,'0')}`;
+            locEl.textContent = `· started ${startLabel}, ${monthNamesShort[d.getMonth()]} ${d.getDate()}`;
+        }
+
+        const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
+        const elapsedEl = activeEl.querySelector('.live-timer-active-elapsed');
+        if (elapsedEl) elapsedEl.textContent = timeToString(elapsedMs).slice(0, 8);
+
+        const pauseBtn = activeEl.querySelector('.live-timer-pause-btn');
+        if (pauseBtn) pauseBtn.textContent = block.liveTimer.runningSince ? '⏸ Pause' : '▶ Resume';
+    });
+
+    if (typeof updateStopwatchLinkUI === 'function') updateStopwatchLinkUI();
 }
 
 // --- ANALYTICS ---
@@ -1633,72 +1831,15 @@ let draggedBlockInfo = null;
 // touch handlers never fight over the same gesture.
 let calendarBlockGestureActive = false;
 
-function renderVisualMatrix() {
-    const matrixGrid = document.getElementById('matrix-grid');
-    const legend = document.getElementById('category-legend');
-    if (!matrixGrid) return;
-
-    matrixGrid.innerHTML = '';
-    if (legend) legend.innerHTML = '';
-
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const parts = selectedDateStr.split('-');
-    const selDate = new Date(parts[0], parts[1] - 1, parts[2]);
-
-    const sunday = new Date(selDate);
-    sunday.setDate(selDate.getDate() - selDate.getDay());
-
-    // Week nav label (below the grid) - "Aug 16 - Aug 22, 2026" style range
-    // for whichever week is currently on screen.
-    const weekNavLabel = document.getElementById('week-nav-label');
-    if (weekNavLabel) {
-        const saturday = new Date(sunday);
-        saturday.setDate(sunday.getDate() + 6);
-        const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const startLabel = `${monthNamesShort[sunday.getMonth()]} ${sunday.getDate()}`;
-        const endLabel = sunday.getMonth() === saturday.getMonth()
-            ? `${saturday.getDate()}`
-            : `${monthNamesShort[saturday.getMonth()]} ${saturday.getDate()}`;
-        weekNavLabel.innerText = `${startLabel} – ${endLabel}, ${saturday.getFullYear()}`;
-    }
-
-    // Corner Header
-    const timeHeader = document.createElement('div');
-    timeHeader.className = 'matrix-header';
-    timeHeader.innerText = 'Time';
-    matrixGrid.appendChild(timeHeader);
-
-    // Day Headers
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(sunday);
-        d.setDate(sunday.getDate() + i);
-        const header = document.createElement('div');
-        header.className = 'matrix-header';
-        if (formatDateKey(d) === selectedDateStr) {
-            header.style.color = 'var(--accent)';
-            header.style.fontWeight = 'bold';
-        }
-        header.innerText = `${days[i]} ${d.getDate()}`;
-        matrixGrid.appendChild(header);
-    }
-
-    // Time Column
-    const timeCol = document.createElement('div');
-    timeCol.className = 'matrix-time-col';
-    for (let h = 0; h < 24; h++) {
-        const slot = document.createElement('div');
-        slot.className = 'time-slot-label';
-        slot.innerText = `${String(h).padStart(2, '0')}:00`;
-        timeCol.appendChild(slot);
-    }
-    matrixGrid.appendChild(timeCol);
-
-    // 7 Day Columns
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(sunday);
-        d.setDate(sunday.getDate() + i);
-        const dateKey = formatDateKey(d);
-
+// Builds one fully interactive day column (hourly slots + every
+// activity block for that date, with all its handlers: click to
+// select, double-tap/double-click to move-arm or edit, drag to move,
+// drag the resize handle to resize, long-press for the context menu,
+// live-timer growth). Extracted out of renderVisualMatrix() so the
+// exact same interactive column can be reused for the Today strip
+// (see renderTodayStrip) without duplicating this logic - both are
+// genuinely the same code, not two versions that could drift apart.
+function buildDayColumnEl(dateKey) {
         const dayCol = document.createElement('div');
         dayCol.className = 'matrix-day-col';
         dayCol.dataset.date = dateKey;
@@ -2087,7 +2228,166 @@ function renderVisualMatrix() {
             dayCol.appendChild(vBlock);
         });
 
-        matrixGrid.appendChild(dayCol);
+    return dayCol;
+}
+
+// Renders the Today strip - a single-day mirror of the big calendar,
+// sitting next to the Chronometer (see the HTML comment on that
+// section for the full reasoning). Rebuilds its one day column using
+// buildDayColumnEl(todayKey) - the exact same function the big weekly
+// calendar uses for each of its 7 columns - so this is never a
+// separate, could-drift-out-of-sync implementation; it's literally
+// reading and writing the same timeData[todayKey] the big calendar
+// does.
+function renderTodayStrip() {
+    const timeCol = document.getElementById('today-strip-time-col');
+    const dayWrap = document.getElementById('today-strip-day-wrap');
+    const dateLabel = document.getElementById('today-strip-date-label');
+    const nowLine = document.getElementById('today-now-line');
+    if (!timeCol || !dayWrap) return;
+
+    const now = new Date();
+    const todayKey = formatDateKey(now);
+
+    if (dateLabel) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        dateLabel.textContent = `${dayNames[now.getDay()]}, ${monthNamesShort[now.getMonth()]} ${now.getDate()}`;
+    }
+
+    if (timeCol.children.length !== 24) {
+        timeCol.innerHTML = '';
+        for (let h = 0; h < 24; h++) {
+            const slot = document.createElement('div');
+            slot.className = 'time-slot-label';
+            slot.innerText = `${String(h).padStart(2, '0')}:00`;
+            timeCol.appendChild(slot);
+        }
+    }
+
+    const existingDayCol = dayWrap.querySelector('.matrix-day-col');
+    if (existingDayCol) existingDayCol.remove();
+    const dayColEl = buildDayColumnEl(todayKey);
+    // Insert before the now-line element (which is always the last
+    // child of dayWrap) so the line visually sits on top of the column.
+    dayWrap.insertBefore(dayColEl, nowLine);
+
+    updateTodayNowLine();
+    adjustTodayStripHeight();
+}
+
+// Keeps the Today strip's own scroll box ending above the fixed mobile
+// bottom nav, instead of running behind it - a fixed CSS max-height
+// can't account for how much space is actually left once the header
+// and Chronometer card above it take their share, and that varies by
+// device. This measures the real gap between the strip and the nav
+// and sizes the box to fit exactly within it, so its own internal
+// scrollbar (not the page scroll) is what reaches hour 23:00, and the
+// box's bottom edge is never hidden behind the nav.
+function adjustTodayStripHeight() {
+    const grid = document.querySelector('.today-strip-grid');
+    if (!grid) return;
+
+    if (!isMobileNavViewport()) {
+        grid.style.maxHeight = ''; // desktop has no fixed nav to avoid - let the CSS default (520px) apply
+        return;
+    }
+
+    const nav = document.getElementById('mobile-bottom-nav');
+    if (!nav) return;
+
+    const gridRect = grid.getBoundingClientRect();
+    const navRect = nav.getBoundingClientRect();
+    const available = Math.floor(navRect.top - gridRect.top - 12); // 12px breathing room above the nav
+
+    if (available > 100) { // sanity floor - never shrink to something unusably small
+        grid.style.maxHeight = `${available}px`;
+    }
+}
+window.addEventListener('resize', () => { if (document.querySelector('.today-strip-grid')) adjustTodayStripHeight(); });
+
+// Positions the red "now" line at the correct height for the current
+// time (40px per hour, matching the calendar's own scale) and updates
+// its time label. Called on every full render, and also every tick of
+// the existing live-timer interval below, so it drifts by at most a
+// second or two even if you leave the tab open a long time.
+function updateTodayNowLine() {
+    const nowLine = document.getElementById('today-now-line');
+    const label = document.getElementById('today-now-line-label');
+    if (!nowLine) return;
+    const now = new Date();
+    const minutesSinceMidnight = (now.getHours() * 60) + now.getMinutes();
+    nowLine.style.top = `${(minutesSinceMidnight / 60) * 40}px`;
+    if (label) label.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderVisualMatrix() {
+    const matrixGrid = document.getElementById('matrix-grid');
+    const legend = document.getElementById('category-legend');
+    if (!matrixGrid) return;
+
+    matrixGrid.innerHTML = '';
+    if (legend) legend.innerHTML = '';
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const parts = selectedDateStr.split('-');
+    const selDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    const sunday = new Date(selDate);
+    sunday.setDate(selDate.getDate() - selDate.getDay());
+
+    // Week nav label (below the grid) - "Aug 16 - Aug 22, 2026" style range
+    // for whichever week is currently on screen.
+    const weekNavLabel = document.getElementById('week-nav-label');
+    if (weekNavLabel) {
+        const saturday = new Date(sunday);
+        saturday.setDate(sunday.getDate() + 6);
+        const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const startLabel = `${monthNamesShort[sunday.getMonth()]} ${sunday.getDate()}`;
+        const endLabel = sunday.getMonth() === saturday.getMonth()
+            ? `${saturday.getDate()}`
+            : `${monthNamesShort[saturday.getMonth()]} ${saturday.getDate()}`;
+        weekNavLabel.innerText = `${startLabel} – ${endLabel}, ${saturday.getFullYear()}`;
+    }
+
+    // Corner Header
+    const timeHeader = document.createElement('div');
+    timeHeader.className = 'matrix-header';
+    timeHeader.innerText = 'Time';
+    matrixGrid.appendChild(timeHeader);
+
+    // Day Headers
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(sunday);
+        d.setDate(sunday.getDate() + i);
+        const header = document.createElement('div');
+        header.className = 'matrix-header';
+        if (formatDateKey(d) === selectedDateStr) {
+            header.style.color = 'var(--accent)';
+            header.style.fontWeight = 'bold';
+        }
+        header.innerText = `${days[i]} ${d.getDate()}`;
+        matrixGrid.appendChild(header);
+    }
+
+    // Time Column
+    const timeCol = document.createElement('div');
+    timeCol.className = 'matrix-time-col';
+    for (let h = 0; h < 24; h++) {
+        const slot = document.createElement('div');
+        slot.className = 'time-slot-label';
+        slot.innerText = `${String(h).padStart(2, '0')}:00`;
+        timeCol.appendChild(slot);
+    }
+    matrixGrid.appendChild(timeCol);
+
+    // 7 Day Columns
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(sunday);
+        d.setDate(sunday.getDate() + i);
+        const dateKey = formatDateKey(d);
+
+        matrixGrid.appendChild(buildDayColumnEl(dateKey));
     }
 
     // Legend
@@ -6580,6 +6880,7 @@ function setMobileSection(section) {
 
     updateMobileHeaderVisibility();
     updateMobileNavGlassPosition();
+    if (document.querySelector('.today-strip-grid')) adjustTodayStripHeight();
 
     // Only jump to the top when the person actually tapped a different
     // tab - not on every call. Mobile browsers fire a `resize` event
