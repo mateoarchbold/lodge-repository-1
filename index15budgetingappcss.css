@@ -1,8 +1,8 @@
-/* BUILD MARKER: 2026-08-22 UTC (v4) (Nabu verdigris-bronze rebrand - white background per explicit request, overriding the source SVG's own cream tone; accent/title color pulled from the logo's verdigris, --danger and --success intentionally left untouched) */
+/* BUILD MARKER: 2026-08-22 UTC (v5) (light theme now truly neutral white - the previous card-bg had a subtle warm R>G>B bias that read as yellowish/cream; dark theme now pure neutral black, matching the reference screenshot, rather than verdigris-tinted) */
 /* --- THEME VARIABLES --- */
 :root {
-    --bg-color: #ffffff;         /* Pure white, per explicit request - NOT the logo SVG's own cream background */
-    --card-bg: #F7F6F3;          /* A whisper off-white, just enough to separate cards from the page */
+    --bg-color: #ffffff;         /* Pure white */
+    --card-bg: #ffffff;          /* Also pure white now - no tinted separation color, relying on the existing card border/shadow for definition instead */
     --primary: #000000;
     --primary-invert: #ffffff;
     --success: #10b981;          /* Deliberately NOT part of the re-theme - Start stays green */
@@ -12,31 +12,38 @@
     --accent: #3E5C54;           /* Verdigris from the logo - the same color as "NABU" in the logo's own wordmark */
     --icon-badge-bg: #57606A;    /* Neutral slate for badges - kept deliberately NOT verdigris, so the accent color stays meaningful as "this one is active/highlighted" rather than every icon looking the same as the active one */
     --border-color: #e5e7eb;
-    --input-bg: #f9fafb;
+    --input-bg: #fafafa;         /* Neutral (equal R/G/B), not the previous #f9fafb which had the same slight warm cast */
     --header-bg: #ffffff;
     --table-hover: rgba(0, 0, 0, 0.04);
     --table-even: rgba(0, 0, 0, 0.02);
 }
 
 /* --- LIGHT THEME OVERRIDES --- */
-/* Kept intentionally close to :root above (same white/verdigris look) so
-   the theme toggle doesn't jump to something jarring - the request this
-   round was specifically "make the background white", not "give me a
-   working dark mode too". */
+/* NOTE ON NAMING: this class is still called "light-theme" for backward
+   compatibility with the JS toggle logic, but as of this pass it's
+   actually the DARK variant - :root above (no class) is what's white/
+   verdigris and shows by default. See toggleTheme() in the JS, where
+   the icon logic was flipped to match: sun shows while this class is
+   OFF (meaning you're on the white view, click to go dark), moon shows
+   while it's ON (meaning you're on this dark view, click to go light).
+   Pure neutral black now (not verdigris-tinted like the previous pass) -
+   matching the specific reference screenshot this round. Bronze - the
+   other color in the logo's own gradient - is kept as the dark-mode
+   accent, since verdigris alone reads a little muted against black. */
 body.light-theme {
-    --bg-color: #ffffff;
-    --card-bg: #ffffff;
-    --primary: #000000;
-    --primary-invert: #ffffff;
-    --text: #1F2937;
-    --text-muted: #6b7280;
-    --accent: #3E5C54;
-    --icon-badge-bg: #57606A;
-    --border-color: #e5e7eb;
-    --input-bg: #f9fafb;
-    --header-bg: #ffffff;
-    --table-hover: rgba(0, 0, 0, 0.04);
-    --table-even: rgba(0, 0, 0, 0.02);
+    --bg-color: #000000;
+    --card-bg: #141414;
+    --primary: #ffffff;
+    --primary-invert: #000000;
+    --text: #F2EFE6;             /* The logo's own light cream tone, used as text here */
+    --text-muted: #9CA8A3;
+    --accent: #C49566;           /* Bronze from the logo, brightened slightly for contrast against the dark background */
+    --icon-badge-bg: #262626;
+    --border-color: #2A2A2A;
+    --input-bg: #141414;
+    --header-bg: #000000;
+    --table-hover: rgba(255, 255, 255, 0.04);
+    --table-even: rgba(255, 255, 255, 0.02);
 }
 
 *, *::before, *::after {
@@ -1352,6 +1359,20 @@ summary.details-summary:hover {
     z-index: 20;
 }
 
+/* A block armed for a two-tap move (see toggleArmedMoveBlock in the JS)
+   - pulses with the accent color so it's unmistakable that the NEXT tap
+   anywhere in a day column will move it there, not just that it's
+   "selected" in the ordinary sense. */
+.visual-block.move-armed {
+    outline: 2px dashed var(--accent);
+    z-index: 21;
+    animation: moveArmedPulse 1s ease-in-out infinite;
+}
+@keyframes moveArmedPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    50% { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.15); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 15%, transparent); }
+}
+
 .visual-block-title {
     font-weight: bold;
     text-transform: capitalize;
@@ -2510,6 +2531,14 @@ summary.details-summary:hover {
 }
 
 /* --- BOARD (To Do / Doing / Done) --- */
+/* The quick-add form itself now reuses .input-box.backlog-add-form's
+   own vertical (stacked) layout directly (see the HTML) rather than a
+   separate horizontal one - this just adds a little breathing room
+   below it before the columns start. */
+.board-quick-add {
+    margin-bottom: 16px;
+}
+
 .board-columns {
     display: flex;
     gap: 14px;
@@ -2525,7 +2554,7 @@ summary.details-summary:hover {
     padding: 10px;
     display: flex;
     flex-direction: column;
-    min-height: 120px;
+    min-height: 520px;
 }
 
 .board-column-header {
@@ -2561,7 +2590,7 @@ summary.details-summary:hover {
     flex-direction: column;
     gap: 8px;
     flex: 1;
-    min-height: 60px;
+    min-height: 260px;
 }
 
 .board-empty-msg {
@@ -2775,7 +2804,14 @@ summary.details-summary:hover {
 /* =================================================== */
 
 @media (max-width: 768px) {
-  html, body {
+  html {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: var(--bg-color); /* belt-and-suspenders: even if anything ever pokes through body's edges, html shows the correct theme color instead of the browser's own default */
+  }
+  body {
     width: 100% !important;
     max-width: 100vw !important;
     overflow-x: hidden !important;

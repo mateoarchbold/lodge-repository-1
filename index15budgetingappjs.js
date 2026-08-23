@@ -66,6 +66,30 @@ let quickAddSlotInfo = null;
 
 // Track active selected time block for single click / Supr key deletion
 let selectedBlockReference = null; // { dateKey: 'YYYY-MM-DD', index: 0 }
+
+// --- TOUCH: two-tap move (double-tap to arm, tap a destination to move) ---
+// A continuous press-and-drag gesture is genuinely hard to execute
+// reliably with one finger on a phone - easy to trigger a scroll by
+// accident, or lose the block mid-drag. This replaces that, for touch
+// specifically, with a more forgiving two-step version: double-tap a
+// block to arm it (see the pulse this adds via .move-armed), then tap
+// anywhere in a day's column to move it there - no continuous drag
+// required. Double-tapping the SAME armed block again cancels the move
+// without picking a destination. Long-press still opens the existing
+// context menu (color/delete/edit) exactly as before - only the
+// double-tap and move mechanics changed.
+let armedMoveBlockRef = null; // { dateKey, index } - which block (if any) is currently armed to move
+
+function toggleArmedMoveBlock(dateKey, index) {
+    if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
+        armedMoveBlockRef = null; // tapped the same armed block again - cancel
+    } else {
+        armedMoveBlockRef = { dateKey, index };
+        if (navigator.vibrate) navigator.vibrate(30);
+    }
+    renderVisualMatrix();
+}
+
 // Track active selected backlog item (same idea, for the backlog strip)
 let selectedBacklogId = null;
 
@@ -588,7 +612,12 @@ const THEME_ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 function toggleTheme() {
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
-    document.getElementById('theme-icon').innerHTML = isLight ? THEME_ICON_MOON : THEME_ICON_SUN;
+    // Inverted from what the class name suggests - see the CSS comment
+    // on body.light-theme for why. isLight here actually means "the
+    // dark view is showing", so the icon shown is what you'd get by
+    // clicking again: sun (go light) while dark is showing, moon (go
+    // dark) while light is showing.
+    document.getElementById('theme-icon').innerHTML = isLight ? THEME_ICON_SUN : THEME_ICON_MOON;
     document.getElementById('theme-text').innerText = 'Theme';
     localStorage.setItem('themePreference', isLight ? 'light' : 'dark');
 }
@@ -1706,6 +1735,21 @@ function renderVisualMatrix() {
             });
             addDoubleTapListener(slot, (e) => openQuickAddModal(dateKey, h, e));
 
+            // Completes an armed two-tap move (see toggleArmedMoveBlock)
+            // - a single tap here, only while something is actually
+            // armed. Does nothing otherwise, so the normal double-tap-
+            // to-add-activity behavior above is completely unaffected
+            // when nothing's armed.
+            slot.addEventListener('touchend', (e) => {
+                if (!armedMoveBlockRef) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const { dateKey: fromDate, index: fromIndex } = armedMoveBlockRef;
+                armedMoveBlockRef = null;
+                if (navigator.vibrate) navigator.vibrate(30);
+                moveTimeBlockAbsolute(fromDate, fromIndex, dateKey, h, 0);
+            });
+
             dayCol.appendChild(slot);
         }
 
@@ -1777,6 +1821,9 @@ function renderVisualMatrix() {
             if (selectedBlockReference && selectedBlockReference.dateKey === dateKey && selectedBlockReference.index === index) {
                 vBlock.classList.add('selected-block');
             }
+            if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
+                vBlock.classList.add('move-armed');
+            }
             vBlock.style.top = `${topPx}px`;
             vBlock.style.height = `${heightPx}px`;
             vBlock.style.backgroundColor = color;
@@ -1791,13 +1838,18 @@ function renderVisualMatrix() {
                 setSelectedBlock(dateKey, index);
             });
 
-            // Double-click/tap still works too (harmless if it re-opens the
-            // same modal that the single click above already opened).
+            // Desktop double-click still opens the editor - unchanged,
+            // since mouse drag-and-drop already handles moving fine on
+            // desktop. Touch double-tap is different now: it arms the
+            // block for a two-tap move instead (see toggleArmedMoveBlock
+            // and the touchend handler on each hour slot further down) -
+            // editing on touch now happens through the long-press context
+            // menu's Edit option instead.
             vBlock.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 openEditModal(dateKey, index, e);
             });
-            addDoubleTapListener(vBlock, (e) => openEditModal(dateKey, index, e));
+            addDoubleTapListener(vBlock, () => toggleArmedMoveBlock(dateKey, index));
 
             // Right-click context menu
             vBlock.addEventListener('contextmenu', (e) => {
@@ -2232,6 +2284,13 @@ function closeBlockContextMenu() {
     const menu = document.getElementById('block-context-menu');
     if (menu) menu.style.display = 'none';
     contextBlockInfo = null;
+}
+
+function editContextBlock() {
+    if (!contextBlockInfo) return;
+    const { dateKey, index } = contextBlockInfo;
+    closeBlockContextMenu();
+    openEditModal(dateKey, index, null);
 }
 
 function toggleContextBlockPlane() {
@@ -3081,6 +3140,35 @@ function addBacklogItem() {
     renderBacklogList();
 }
 
+// Same idea as addBacklogItem() above (backlog items and Kanban cards
+// are the exact same underlying objects, see the BOARD section further
+// down) - just reading from the Kanban section's own fields instead of
+// the drawer's, so you can create a card directly from here too, not
+// only by dragging an existing backlog item in. Lands in To Do by
+// default, same starting point a plain backlog item gets.
+function addBoardItem() {
+    const catInput = document.getElementById('board-add-category');
+    const nameInput = document.getElementById('board-add-name');
+    if (!catInput) return;
+
+    const category = catInput.value.trim() || 'general';
+    const name = nameInput.value.trim();
+
+    backlogItems.push({
+        id: 'bl_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        category,
+        name,
+        hours: 1, // a task created from Kanban has no duration up front (Kanban is about tasks, not scheduled time) - this is just an internal placeholder used only if/when it's later dragged onto the calendar, and can be resized there like any other block
+        type: 'actual',
+        status: 'todo'
+    });
+
+    saveBacklogItems();
+    catInput.value = '';
+    nameInput.value = '';
+    renderBacklogList(); // also re-renders the Board (see renderBacklogList)
+}
+
 function deleteBacklogItem(id) {
     backlogItems = backlogItems.filter(i => i.id !== id);
     if (selectedBacklogId === id) selectedBacklogId = null;
@@ -3114,13 +3202,17 @@ function reorderBacklogItem(draggedId, targetId) {
 // second undo. Fix: take exactly one undo snapshot before either mutation,
 // then persist both keys and sync once.
 function placeBacklogItemOnCalendar(backlogId, targetDate, startHour, startMinutes) {
-    const idx = backlogItems.findIndex(i => i.id === backlogId);
-    if (idx === -1) return;
+    const item = backlogItems.find(i => i.id === backlogId);
+    if (!item) return;
 
     pushUndoSnapshot();
 
-    const [item] = backlogItems.splice(idx, 1);
-
+    // Deliberately NOT removed from backlogItems - a backlog/Kanban
+    // entry represents a TASK, which can take multiple scheduled
+    // sessions across several days to finish. Dragging it onto the
+    // calendar creates one such session (a scheduled block) without
+    // consuming the task itself; the task only leaves Backlog/Doing/
+    // Done when someone drags its card there directly, or deletes it.
     const duration = item.hours || 1;
     const totalStartMins = (startHour * 60) + startMinutes;
     const totalEndMins = Math.min(24 * 60 - 1, totalStartMins + Math.round(duration * 60));
@@ -3136,7 +3228,6 @@ function placeBacklogItemOnCalendar(backlogId, targetDate, startHour, startMinut
     if (!timeData[targetDate]) timeData[targetDate] = [];
     timeData[targetDate].push(newBlock);
 
-    localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
     localStorage.setItem('flexibleTimeData', JSON.stringify(timeData));
     queueCloudSync();
 
@@ -3192,7 +3283,14 @@ function resizeBacklogItem(id, newHours) {
 function renderBacklogList() {
     const list = document.getElementById('backlog-block-list');
     const badge = document.getElementById('backlog-badge-count');
-    if (badge) badge.innerText = backlogItems.length;
+    // The drawer only ever shows things that might still need scheduling
+    // - once a task is moved to Done on the Kanban board, it's finished,
+    // so it drops out of this list automatically. It's still fully
+    // visible in Kanban's own Done column (that reads status directly,
+    // unaffected by this filter) - this only controls what shows up
+    // here, next to the calendar.
+    const drawerItems = backlogItems.filter(i => (i.status || 'todo') !== 'done');
+    if (badge) badge.innerText = drawerItems.length;
     renderBoardSection();
     if (!list) return;
 
@@ -3205,7 +3303,7 @@ function renderBacklogList() {
         list.appendChild(slot);
     }
 
-    if (backlogItems.length === 0) {
+    if (drawerItems.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'backlog-empty-msg';
         empty.innerHTML = 'No backlog items yet.<br>Add one above, drag an activity in, or paste (Ctrl+V) here.';
@@ -3216,7 +3314,7 @@ function renderBacklogList() {
 
     let cursorTop = 0;
 
-    backlogItems.forEach(item => {
+    drawerItems.forEach(item => {
         const color = getCategoryColor(item.category);
         const durationHrs = item.hours || 1;
         const heightPx = Math.max(durationHrs * 40, 18);
@@ -3490,7 +3588,6 @@ function buildBoardCardEl(item, status) {
             <button type="button" class="board-card-del" title="Delete">✕</button>
         </div>
         ${item.name ? `<div class="board-card-name">${escapeHtml(item.name)}</div>` : ''}
-        <div class="board-card-hours">${item.hours} hr${item.hours == 1 ? '' : 's'}</div>
     `;
 
     card.querySelector('.board-card-del').addEventListener('click', (e) => {
