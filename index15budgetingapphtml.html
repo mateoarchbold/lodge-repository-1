@@ -179,6 +179,126 @@
         </div>
         </div>
 
+    <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
+<details class="details-section" open style="position: relative;" data-mobile-section="plan">
+    <summary class="details-summary">
+        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Visual Weekly Time-Block Planner</span>
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <!-- Backlog Toggle Button -->
+            <button type="button" class="backlog-toggle-btn" onclick="toggleBacklogDrawer(event)">
+                <svg class="section-icon" style="margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Backlog <span id="backlog-badge-count" class="backlog-count-badge">0</span>
+            </button>
+            <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+        </div>
+    </summary>
+    
+    <div class="details-content" style="position: relative;">
+        <!-- LIVE TIMER - starts a real-time-growing activity block on
+             today's calendar column (see startLiveTimerActivity() /
+             tickLiveTimers() in the JS). Controls live here, in a
+             persistent bar, rather than inside the block itself - a
+             block that starts at zero elapsed time is a sliver a
+             fraction of a pixel tall, which would be an impossible
+             click target for Pause/Finish buttons. -->
+        <div id="live-timer-bar" class="live-timer-bar">
+            <div class="live-timer-idle" data-role="idle">
+                <span class="live-timer-idle-icon">⏱️</span>
+                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)">▶ Start</button>
+            </div>
+            <div class="live-timer-active" data-role="active" style="display:none;">
+                <span class="live-timer-pulse-dot"></span>
+                <span class="live-timer-active-category"></span>
+                <span class="live-timer-active-notes"></span>
+                <span class="live-timer-active-location"></span>
+                <span class="live-timer-active-elapsed">00:00:00</span>
+                <button type="button" class="live-timer-ctrl-btn live-timer-pause-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
+                <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
+            </div>
+        </div>
+
+        <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default so the
+             planner doesn't feel crowded; tap to reveal the View Plane
+             filter and the category color legend. -->
+        <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
+            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg>Filters &amp; Categories</span>
+            <span class="planner-header-toggle-arrow">▾</span>
+        </button>
+
+        <div class="planner-header-collapsible" id="planner-header-collapsible">
+            <!-- VIEW PLANE FILTER TOGGLE BAR -->
+            <div class="plane-toggle-bar">
+                <span class="plane-label">View Plane:</span>
+                <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')">🌐 All</button>
+                <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')">🌫️ Planned</button>
+                <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
+            </div>
+
+            <!-- Category color legend -->
+            <div class="category-legend" id="category-legend"></div>
+        </div>
+        
+        <div class="planner-body-row">
+            <div class="visual-matrix-column">
+                <div class="visual-matrix-container">
+                    <div class="matrix-grid" id="matrix-grid"></div>
+                </div>
+
+                <!-- WEEK / MONTH NAV BAR: sits right under the calendar grid
+                     (below the 23:00 row), outside the horizontally-scrolling
+                     calendar itself, so it stays put and visible even when
+                     the grid is scrolled sideways - and you can flip weeks
+                     or jump months without leaving this section or
+                     scrolling back up to the small calendar. -->
+                <div class="calendar-week-nav-bar">
+                    <div class="week-nav-group">
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(-1)" title="Previous week">◀ Week</button>
+                        <span class="week-nav-label" id="week-nav-label"></span>
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(1)" title="Next week">Week ▶</button>
+                    </div>
+                    <div class="week-nav-group">
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(-1)" title="Previous month">◀ Month</button>
+                        <button type="button" class="week-nav-btn week-nav-today-btn" onclick="jumpPlannerToToday()" title="Jump to today">Today</button>
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(1)" title="Next month">Month ▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backdrop for the mobile floating backlog panel - tapping
+                 it closes the drawer, same as the ✕ button. Purely a
+                 phone-width thing; CSS keeps it invisible/inert otherwise. -->
+            <div id="backlog-drawer-backdrop" class="backlog-drawer-backdrop" onclick="toggleBacklogDrawer()" style="display:none;"></div>
+
+            <!-- BACKLOG SLIDE-OUT PANEL: items rendered exactly like calendar activities -->
+            <div id="backlog-drawer" class="backlog-drawer">
+                <div class="matrix-header backlog-drawer-header">
+                    <span>📋 Backlog</span>
+                    <button class="backlog-drawer-close" onclick="toggleBacklogDrawer()" title="Close">✕</button>
+                </div>
+
+                <div class="input-box backlog-add-form">
+                    <div class="category-select-row">
+                        <div class="category-combo-wrap">
+                            <input type="text" id="backlog-category" class="category-combo-input" placeholder="Category (e.g. coding)" autocomplete="off" oninput="showCategoryCombo('backlog-category')" onfocus="showCategoryCombo('backlog-category')">
+                            <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('backlog-category')" title="Show all categories">▾</button>
+                            <div id="backlog-category-combo-list" class="category-combo-list"></div>
+                        </div>
+                        <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                    </div>
+                    <input type="text" id="backlog-name" placeholder="Notes / topic (optional)">
+                    <input type="number" id="backlog-hours" min="0.25" step="0.25" value="1" placeholder="Hours">
+                    <button class="btn-add" onclick="addBacklogItem()">+ Add to Backlog</button>
+                </div>
+
+                <div class="backlog-scroll-wrap">
+                    <div id="backlog-block-list" class="matrix-day-col backlog-day-col"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</details>
+
         <!-- MAIN 3-COLUMN GRID -->
         <div class="grid-3col" data-mobile-section="log">
             
@@ -360,126 +480,6 @@
                 <div class="goals-grid" id="goals-grid"></div>
             </div>
         </details>
-
-    <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
-<details class="details-section" open style="position: relative;" data-mobile-section="plan">
-    <summary class="details-summary">
-        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Visual Weekly Time-Block Planner</span>
-        <div style="display: flex; align-items: center; gap: 14px;">
-            <!-- Backlog Toggle Button -->
-            <button type="button" class="backlog-toggle-btn" onclick="toggleBacklogDrawer(event)">
-                <svg class="section-icon" style="margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Backlog <span id="backlog-badge-count" class="backlog-count-badge">0</span>
-            </button>
-            <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
-        </div>
-    </summary>
-    
-    <div class="details-content" style="position: relative;">
-        <!-- LIVE TIMER - starts a real-time-growing activity block on
-             today's calendar column (see startLiveTimerActivity() /
-             tickLiveTimers() in the JS). Controls live here, in a
-             persistent bar, rather than inside the block itself - a
-             block that starts at zero elapsed time is a sliver a
-             fraction of a pixel tall, which would be an impossible
-             click target for Pause/Finish buttons. -->
-        <div id="live-timer-bar" class="live-timer-bar">
-            <div class="live-timer-idle" data-role="idle">
-                <span class="live-timer-idle-icon">⏱️</span>
-                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
-                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
-                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)">▶ Start</button>
-            </div>
-            <div class="live-timer-active" data-role="active" style="display:none;">
-                <span class="live-timer-pulse-dot"></span>
-                <span class="live-timer-active-category"></span>
-                <span class="live-timer-active-notes"></span>
-                <span class="live-timer-active-location"></span>
-                <span class="live-timer-active-elapsed">00:00:00</span>
-                <button type="button" class="live-timer-ctrl-btn live-timer-pause-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
-                <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
-            </div>
-        </div>
-
-        <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default so the
-             planner doesn't feel crowded; tap to reveal the View Plane
-             filter and the category color legend. -->
-        <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
-            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg>Filters &amp; Categories</span>
-            <span class="planner-header-toggle-arrow">▾</span>
-        </button>
-
-        <div class="planner-header-collapsible" id="planner-header-collapsible">
-            <!-- VIEW PLANE FILTER TOGGLE BAR -->
-            <div class="plane-toggle-bar">
-                <span class="plane-label">View Plane:</span>
-                <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')">🌐 All</button>
-                <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')">🌫️ Planned</button>
-                <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
-            </div>
-
-            <!-- Category color legend -->
-            <div class="category-legend" id="category-legend"></div>
-        </div>
-        
-        <div class="planner-body-row">
-            <div class="visual-matrix-column">
-                <div class="visual-matrix-container">
-                    <div class="matrix-grid" id="matrix-grid"></div>
-                </div>
-
-                <!-- WEEK / MONTH NAV BAR: sits right under the calendar grid
-                     (below the 23:00 row), outside the horizontally-scrolling
-                     calendar itself, so it stays put and visible even when
-                     the grid is scrolled sideways - and you can flip weeks
-                     or jump months without leaving this section or
-                     scrolling back up to the small calendar. -->
-                <div class="calendar-week-nav-bar">
-                    <div class="week-nav-group">
-                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(-1)" title="Previous week">◀ Week</button>
-                        <span class="week-nav-label" id="week-nav-label"></span>
-                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(1)" title="Next week">Week ▶</button>
-                    </div>
-                    <div class="week-nav-group">
-                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(-1)" title="Previous month">◀ Month</button>
-                        <button type="button" class="week-nav-btn week-nav-today-btn" onclick="jumpPlannerToToday()" title="Jump to today">Today</button>
-                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(1)" title="Next month">Month ▶</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Backdrop for the mobile floating backlog panel - tapping
-                 it closes the drawer, same as the ✕ button. Purely a
-                 phone-width thing; CSS keeps it invisible/inert otherwise. -->
-            <div id="backlog-drawer-backdrop" class="backlog-drawer-backdrop" onclick="toggleBacklogDrawer()" style="display:none;"></div>
-
-            <!-- BACKLOG SLIDE-OUT PANEL: items rendered exactly like calendar activities -->
-            <div id="backlog-drawer" class="backlog-drawer">
-                <div class="matrix-header backlog-drawer-header">
-                    <span>📋 Backlog</span>
-                    <button class="backlog-drawer-close" onclick="toggleBacklogDrawer()" title="Close">✕</button>
-                </div>
-
-                <div class="input-box backlog-add-form">
-                    <div class="category-select-row">
-                        <div class="category-combo-wrap">
-                            <input type="text" id="backlog-category" class="category-combo-input" placeholder="Category (e.g. coding)" autocomplete="off" oninput="showCategoryCombo('backlog-category')" onfocus="showCategoryCombo('backlog-category')">
-                            <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('backlog-category')" title="Show all categories">▾</button>
-                            <div id="backlog-category-combo-list" class="category-combo-list"></div>
-                        </div>
-                        <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
-                    </div>
-                    <input type="text" id="backlog-name" placeholder="Notes / topic (optional)">
-                    <input type="number" id="backlog-hours" min="0.25" step="0.25" value="1" placeholder="Hours">
-                    <button class="btn-add" onclick="addBacklogItem()">+ Add to Backlog</button>
-                </div>
-
-                <div class="backlog-scroll-wrap">
-                    <div id="backlog-block-list" class="matrix-day-col backlog-day-col"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</details>
 
         <!-- SECTION: BOARD (To Do / Doing / Done) -->
         <!-- A fuller, three-column view of the exact same backlogItems
@@ -855,17 +855,17 @@
                 </span>
                 <span class="mobile-tab-label">Timer</span>
             </button>
-            <button type="button" class="mobile-tab-btn" data-section="log" onclick="setMobileSection('log')">
-                <span class="mobile-tab-icon icon-badge icon-badge-log">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                </span>
-                <span class="mobile-tab-label">Log</span>
-            </button>
             <button type="button" class="mobile-tab-btn" data-section="plan" onclick="setMobileSection('plan')">
                 <span class="mobile-tab-icon icon-badge icon-badge-plan">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>
                 </span>
                 <span class="mobile-tab-label">Plan</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="log" onclick="setMobileSection('log')">
+                <span class="mobile-tab-icon icon-badge icon-badge-log">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                </span>
+                <span class="mobile-tab-label">Log</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="stats" onclick="setMobileSection('stats')">
                 <span class="mobile-tab-icon icon-badge icon-badge-stats">
@@ -873,17 +873,17 @@
                 </span>
                 <span class="mobile-tab-label">Stats</span>
             </button>
-            <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
-                <span class="mobile-tab-icon icon-badge icon-badge-notes">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
-                </span>
-                <span class="mobile-tab-label">Notes</span>
-            </button>
             <button type="button" class="mobile-tab-btn" data-section="board" onclick="setMobileSection('board')">
                 <span class="mobile-tab-icon icon-badge icon-badge-board">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
                 </span>
                 <span class="mobile-tab-label">Kanban</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
+                <span class="mobile-tab-icon icon-badge icon-badge-notes">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                </span>
+                <span class="mobile-tab-label">Notes</span>
             </button>
         </nav>
 

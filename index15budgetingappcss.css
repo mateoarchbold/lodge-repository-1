@@ -320,25 +320,35 @@ h2 {
         justify-content: center;
     }
     #timer-page-top .card.stopwatch h2 {
-        margin: 0 0 6px 0;
-        padding-bottom: 4px;
-        font-size: 1rem;
+        margin: 0 0 4px 0;
+        padding-bottom: 2px;
+        font-size: 0.85rem;
+        flex-shrink: 1;
     }
     #timer-page-top .stopwatch-link-toggle-row {
-        margin-bottom: 6px;
+        margin-bottom: 4px;
+        flex-shrink: 1;
+    }
+    #timer-page-top .stopwatch-link-toggle-label {
+        font-size: 0.68rem;
     }
     #timer-page-top .display {
-        font-size: clamp(1.3rem, 7vw, 1.8rem);
-        padding: 8px;
-        margin: 4px 0;
+        font-size: clamp(1.1rem, 6vw, 1.8rem);
+        padding: 4px 8px;
+        margin: 3px 0;
+        flex-shrink: 0; /* never squeeze below what the digits actually need - this is the one element that must always stay legible, everything else here has more visual "give" */
+        min-height: 38px;
+        line-height: 1.3;
     }
     #timer-page-top .controls {
-        gap: 8px;
+        gap: 6px;
+        flex-shrink: 1;
     }
     #timer-page-top .controls button {
-        width: 52px;
-        height: 52px;
-        font-size: 0.62rem;
+        width: 44px;
+        height: 44px;
+        font-size: 0.56rem;
+        flex-shrink: 1;
     }
     #timer-page-bottom {
         flex: 2 1 0;
