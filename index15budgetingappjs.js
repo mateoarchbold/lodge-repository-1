@@ -198,16 +198,15 @@ function refreshApp() {
     renderLiveTimerWidget();
 
     // If a session survived a page reload (e.g. the tab was refreshed
-    // while it was running), flip the chronometer's switch back on for
-    // it too - otherwise the underlying data would keep working
-    // correctly, but the visual sync/connection to the original
-    // Start/Stop buttons would silently be lost on every refresh.
+    // while it was running), re-flip the toggle too - otherwise the
+    // underlying data would keep working correctly, but the visual
+    // sync/connection to the original Start/Stop buttons would silently
+    // be lost on every refresh.
     if (activeLiveTimerRef && !stopwatchLinkedToToday) {
         stopwatchLinkedToToday = true;
         const toggle = document.getElementById('stopwatch-link-toggle');
         if (toggle) toggle.checked = true;
     }
-    if (typeof updateStopwatchLinkUI === 'function') updateStopwatchLinkUI();
     if (typeof syncStopwatchWithLiveTimer === 'function') syncStopwatchWithLiveTimer();
 }
 
@@ -624,6 +623,7 @@ const THEME_ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 const THEME_ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
 
 function toggleTheme() {
+    document.documentElement.classList.toggle('light-theme');
     document.body.classList.toggle('light-theme');
     const isLight = document.body.classList.contains('light-theme');
     // Inverted from what the class name suggests - see the CSS comment
@@ -641,59 +641,37 @@ if (localStorage.getItem('themePreference') === 'light') {
 }
 
 // --- STOPWATCH <-> LIVE TIMER SYNC ---
-// The original Chronometer (Start/Split/Stop/Reset) has a simple on/off
-// switch above it: Independent or Linked to Today. OFF, it behaves
-// exactly like a plain stopwatch always did - nothing logged anywhere.
-// ON, pressing its own Start button creates a real logged activity
-// starting right now on today's calendar, using the exact same
-// activity-logging system the Live Timer bars (further down, near the
-// calendar and above Today) already use - and all three stay in sync:
-// starting/pausing/finishing from any one of them updates the others,
-// because they're all just reading/driving the one shared
-// activeLiveTimerRef, not separate counters that happen to look similar.
-let stopwatchLinkedToToday = false; // driven by the Independent/Linked toggle switch
+// The original Chronometer (Start/Split/Stop/Reset) used to be
+// completely disconnected from the rest of the app - pressing Start
+// counted time with nothing to show for it once you stopped. The
+// toggle switch above it links it to the same real activity-logging
+// system the Live Timer bars (see the two copies of .live-timer-bar -
+// one here, one above the Today strip) already use. Every one of these
+// three controls just reflects the one shared activeLiveTimerRef - not
+// three independent counters that happen to look similar - so starting
+// any of them starts all of them, pausing any pauses all of them.
+let stopwatchLinkedToToday = false;
 
-function toggleStopwatchLinkMode(checked) {
-    stopwatchLinkedToToday = checked;
-    updateStopwatchLinkUI();
-    syncStopwatchWithLiveTimer();
-}
-
-function updateStopwatchLinkUI() {
-    const active = document.getElementById('stopwatch-link-active');
-    const activeCat = document.getElementById('stopwatch-link-active-category');
-    const toggle = document.getElementById('stopwatch-link-toggle');
-    const todayBar = document.getElementById('today-live-timer-bar');
-    // The category/description bar only makes sense once linked -
-    // hidden completely the rest of the time, not just emptied out.
-    if (todayBar) todayBar.style.display = stopwatchLinkedToToday ? 'flex' : 'none';
-    // Lock the switch while a linked session is actually running, so
-    // flipping it mid-session can't orphan the active activity.
-    if (toggle) toggle.disabled = stopwatchLinkedToToday && !!activeLiveTimerRef;
-    if (!active) return;
-    const showActive = stopwatchLinkedToToday && !!activeLiveTimerRef;
-    active.style.display = showActive ? 'flex' : 'none';
-    if (activeCat && showActive) {
-        const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
-        activeCat.textContent = block ? block.category : '';
-    }
+function setStopwatchLinkedToToday(isChecked) {
+    stopwatchLinkedToToday = isChecked;
+    renderLiveTimerWidget();
+    if (typeof layoutTimerPageForMobile === 'function') layoutTimerPageForMobile();
 }
 
 // Called from beginLiveTimer()/pauseResumeLiveTimer()/finishLiveTimer()
-// (see further down) - this is what makes the sync bidirectional:
-// regardless of whether a session was started/paused/finished via the
-// original chronometer's own buttons or either Live Timer bar's
-// buttons, this function afterward makes sure the original
-// chronometer's display and button states always end up matching
-// reality, not just "probably close".
+// - this is what makes the sync bidirectional: regardless of whether a
+// session was started/paused/finished via the original chronometer's
+// own buttons or either Live Timer bar's own buttons, all three of
+// those functions call this afterward, so the original chronometer's
+// display and button states always end up matching reality.
 function syncStopwatchWithLiveTimer() {
     if (!startBtn || !stopBtn || !splitBtn) return;
 
     if (!activeLiveTimerRef) {
-        // No active session. If the switch is on, reset the chronometer
-        // back to a clean idle state. If it's off, leave it completely
+        // No active session. If the toggle is on, reset back to a
+        // clean idle state. If it's off, leave the display completely
         // alone - this function has no business touching a plain
-        // stopwatch someone's using independently.
+        // stopwatch someone's using on its own with the toggle off.
         if (stopwatchLinkedToToday) {
             clearInterval(timerInterval);
             elapsedTime = 0;
@@ -702,8 +680,6 @@ function syncStopwatchWithLiveTimer() {
         }
         return;
     }
-
-    if (!stopwatchLinkedToToday) return; // switched off - a session may be running elsewhere, but this chronometer stays independent
 
     const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
     if (!block || !block.liveTimer) return;
@@ -719,7 +695,6 @@ function syncStopwatchWithLiveTimer() {
     // drift apart even by a fraction of a second.
     elapsedTime = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
     if (stopwatchDisplay) stopwatchDisplay.innerHTML = timeToString(elapsedTime);
-    updateStopwatchLinkUI();
 }
 
 // --- STOPWATCH LOGIC ---
@@ -740,44 +715,36 @@ function timeToString(time) {
 
 if (startBtn) {
     startBtn.addEventListener('click', () => {
-        // Switch is on and nothing's already running - reads the
-        // Category/Description fields in the Today bar just above (see
-        // #today-live-timer-bar in the HTML) and starts a real logged
-        // activity right now, using them. Won't start without a
-        // category - same rule as the other Live Timer bar's own Start
-        // button. beginLiveTimer() itself calls
-        // syncStopwatchWithLiveTimer() once the session exists, which
-        // sets elapsedTime/display/button-state correctly - no need to
-        // also start the plain internal interval below in this path.
+        // Toggle is on and nothing's already running - this press
+        // creates a real logged activity, not just a plain count.
+        // Category/notes come from whichever Live Timer bar has
+        // something typed in it (there are two, one here and one above
+        // the Today strip) - "General" if neither does, so this is
+        // never blocked on filling in a field first. beginLiveTimer()
+        // itself calls syncStopwatchWithLiveTimer() once the session
+        // exists, which sets elapsedTime/display/button-state correctly
+        // - no need to also start the plain internal interval below in
+        // this path.
         if (stopwatchLinkedToToday && !activeLiveTimerRef) {
-            const catInput = document.querySelector('#today-live-timer-bar .live-timer-category-input');
-            const notesInput = document.querySelector('#today-live-timer-bar .live-timer-notes-input');
-            const category = (catInput && catInput.value.trim()) || '';
-            if (!category) {
-                showSaveToast('⚠️ Add a category first', false);
-                setTimeout(() => showSaveToast('', false), 2000);
-                if (catInput) catInput.focus();
-                return;
-            }
+            const catInput = [...document.querySelectorAll('.live-timer-category-input-el')].find(el => el.value.trim());
+            const notesInput = [...document.querySelectorAll('.live-timer-notes-input-el')].find(el => el.value.trim());
+            const category = (catInput && catInput.value.trim()) || 'General';
             const name = (notesInput && notesInput.value.trim()) || '';
             const now = new Date();
-            const started = beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, name);
-            if (started) {
-                if (catInput) catInput.value = '';
-                if (notesInput) notesInput.value = '';
-            }
+            beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, name);
+            document.querySelectorAll('.live-timer-category-input-el, .live-timer-notes-input-el').forEach(el => el.value = '');
             return;
         }
-        // Switch is on and a session is already running (e.g. started
-        // from the Live Timer bar above the big calendar) - resume it
-        // rather than starting a second, competing count.
+        // Toggle is on and a session is already running (e.g. started
+        // from one of the Live Timer bars) - resume it rather than
+        // starting a second, competing count.
         if (stopwatchLinkedToToday && activeLiveTimerRef) {
             const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
             if (block && block.liveTimer && !block.liveTimer.runningSince) pauseResumeLiveTimer();
             return;
         }
 
-        // Switch is off - behaves exactly like the original plain
+        // Toggle is off - behaves exactly like the original plain
         // stopwatch always did, no activity logging involved.
         startTime = Date.now() - elapsedTime;
         timerInterval = setInterval(() => { 
@@ -793,8 +760,8 @@ if (stopBtn) {
         clearInterval(timerInterval); 
         startBtn.disabled = false; stopBtn.disabled = true; splitBtn.disabled = true;
 
-        // Switch is on and a session is actively running - Stop pauses
-        // it (not finishes it), same as the Live Timer bar's own Pause
+        // Linked and a session is actively running - Stop pauses it
+        // (not finishes it), same as the Live Timer bar's own Pause
         // button, so it can still be resumed later rather than closed
         // out for good.
         if (stopwatchLinkedToToday && activeLiveTimerRef) {
@@ -832,10 +799,10 @@ if (resetBtn) {
         if (splitContainer) splitContainer.style.display = 'none';
         startBtn.disabled = false; stopBtn.disabled = true; splitBtn.disabled = true;
 
-        // Switch is on and there's an active session (running or
-        // paused) - Reset means "I'm actually done", so this finalizes
-        // and logs the activity for real, same as pressing Finish on a
-        // Live Timer bar would.
+        // Linked and there's an active session (running or paused) -
+        // Reset means "I'm actually done", so this finalizes and logs
+        // the activity for real, same as pressing Finish on the Live
+        // Timer bar would.
         if (stopwatchLinkedToToday && activeLiveTimerRef) {
             finishLiveTimer();
         }
@@ -1237,29 +1204,20 @@ function beginLiveTimer(dateKey, startHour, startMin, category, name) {
     return true;
 }
 
-// Used by the Live Timer bar's own Start button (above the big
-// calendar) - triggerEl is whichever input/button was actually
-// interacted with, used to find its own bar's category/description
-// fields. Won't start without a category, same rule as the
-// Chronometer's Start button when linked - see startBtn's click
-// handler further up.
 function startLiveTimerActivity(triggerEl) {
-    const bar = (triggerEl && triggerEl.closest) ? triggerEl.closest('.live-timer-bar') : document.querySelector('.live-timer-bar');
-    const catInput = bar ? bar.querySelector('.live-timer-category-input') : null;
-    const notesInput = bar ? bar.querySelector('.live-timer-notes-input') : null;
-    const category = (catInput && catInput.value.trim()) || '';
-    if (!category) {
-        showSaveToast('⚠️ Add a category first', false);
-        setTimeout(() => showSaveToast('', false), 2000);
-        if (catInput) catInput.focus();
-        return;
-    }
+    const bar = triggerEl ? triggerEl.closest('.live-timer-bar') : document.querySelector('.live-timer-bar');
+    const catInput = bar ? bar.querySelector('.live-timer-category-input-el') : null;
+    const notesInput = bar ? bar.querySelector('.live-timer-notes-input-el') : null;
+    const category = (catInput && catInput.value.trim()) || 'General';
     const name = (notesInput && notesInput.value.trim()) || '';
     const now = new Date();
     const started = beginLiveTimer(formatDateKey(now), now.getHours(), now.getMinutes(), category, name);
     if (started) {
-        if (catInput) catInput.value = '';
-        if (notesInput) notesInput.value = '';
+        // Clear both bars' inputs, not just the one that was used - now
+        // that a session is active, every bar switches to showing its
+        // active state anyway, so this just keeps things tidy for
+        // whenever the next one starts.
+        document.querySelectorAll('.live-timer-category-input-el, .live-timer-notes-input-el').forEach(el => el.value = '');
     }
 }
 
@@ -1341,11 +1299,8 @@ setInterval(() => {
 
     const elapsedMs = block.liveTimer.accumulatedMs + (block.liveTimer.runningSince ? Date.now() - block.liveTimer.runningSince : 0);
 
-    // querySelectorAll, not getElementById: both Live Timer bars (Today
-    // copy + the one above the big calendar) show the same session at
-    // once, so every ".live-timer-active-elapsed" on the page needs the
-    // tick, not just the first one found.
-    document.querySelectorAll('.live-timer-active-elapsed').forEach(el => { el.textContent = timeToString(elapsedMs).slice(0, 8); });
+    const elapsedEl = document.getElementById('live-timer-active-elapsed');
+    if (elapsedEl) elapsedEl.textContent = timeToString(elapsedMs).slice(0, 8);
     if (stopwatchLinkedToToday && typeof syncStopwatchWithLiveTimer === 'function') syncStopwatchWithLiveTimer();
 
     // Only actually grow the block's height while running - paused
@@ -1364,18 +1319,25 @@ setInterval(() => {
     }
 }, 1000);
 
-// Updates EVERY Live Timer bar on the page (Today copy + the one above
-// the big calendar) together, since both are just two views onto the
-// one shared activeLiveTimerRef session - there's no separate "link"
-// step between them, starting/pausing/finishing from either one is
-// starting/pausing/finishing the only session that exists.
 function renderLiveTimerWidget() {
     const bars = document.querySelectorAll('.live-timer-bar');
+    if (bars.length === 0) return;
 
     bars.forEach(bar => {
-        const idleEl = bar.querySelector('.live-timer-idle');
-        const activeEl = bar.querySelector('.live-timer-active');
+        const idleEl = bar.querySelector('[data-role="idle"]');
+        const activeEl = bar.querySelector('[data-role="active"]');
         if (!idleEl || !activeEl) return;
+
+        // The bar only shows at all once "Linked to Today" is on - or
+        // if there's actually a session running/paused right now
+        // (keeps it visible/controllable even if the toggle gets
+        // flipped back off mid-session, rather than stranding an
+        // active session with no way to see or finish it).
+        if (!stopwatchLinkedToToday && !activeLiveTimerRef) {
+            bar.style.display = 'none';
+            return;
+        }
+        bar.style.display = '';
 
         if (!activeLiveTimerRef) {
             idleEl.style.display = 'flex';
@@ -1385,6 +1347,7 @@ function renderLiveTimerWidget() {
 
         const block = timeData[activeLiveTimerRef.dateKey] && timeData[activeLiveTimerRef.dateKey][activeLiveTimerRef.index];
         if (!block || !block.liveTimer) {
+            activeLiveTimerRef = null;
             idleEl.style.display = 'flex';
             activeEl.style.display = 'none';
             return;
@@ -1416,8 +1379,6 @@ function renderLiveTimerWidget() {
         const pauseBtn = activeEl.querySelector('.live-timer-pause-btn');
         if (pauseBtn) pauseBtn.textContent = block.liveTimer.runningSince ? '⏸ Pause' : '▶ Resume';
     });
-
-    if (typeof updateStopwatchLinkUI === 'function') updateStopwatchLinkUI();
 }
 
 // --- ANALYTICS ---
@@ -2273,56 +2234,6 @@ function renderTodayStrip() {
     dayWrap.insertBefore(dayColEl, nowLine);
 
     updateTodayNowLine();
-    adjustTodayStripHeight();
-}
-
-// Keeps the Today strip's own scroll box ending above the fixed mobile
-// bottom nav, instead of running behind it - a fixed CSS max-height
-// can't account for how much space is actually left once the header
-// and Chronometer card above it take their share, and that varies by
-// device. This measures the real gap between the strip and the nav
-// and sizes the box to fit exactly within it, so its own internal
-// scrollbar (not the page scroll) is what reaches hour 23:00, and the
-// box's bottom edge is never hidden behind the nav.
-function adjustTodayStripHeight() {
-    const grid = document.querySelector('.today-strip-grid');
-    if (!grid) return;
-
-    if (!isMobileNavViewport()) {
-        grid.style.maxHeight = ''; // desktop has no fixed nav to avoid - let the CSS default (520px) apply
-        return;
-    }
-
-    const nav = document.getElementById('mobile-bottom-nav');
-    if (!nav) return;
-
-    const gridRect = grid.getBoundingClientRect();
-    const navRect = nav.getBoundingClientRect();
-    const available = Math.floor(navRect.top - gridRect.top - 12); // 12px breathing room above the nav
-
-    if (available > 100) { // sanity floor - never shrink to something unusably small
-        grid.style.maxHeight = `${available}px`;
-    }
-}
-window.addEventListener('resize', () => {
-    if (!document.querySelector('.today-strip-grid')) return;
-    // Skip recalculating while the on-screen keyboard is open. The
-    // keyboard shrinks the visual viewport (and can nudge the fixed
-    // bottom nav up with it), which used to make this measure a much
-    // smaller gap and shrink the strip - sometimes staying shrunk even
-    // after the keyboard closed again. Only real resizes (rotation,
-    // actual window resize) should trigger a recompute here; the
-    // visualViewport listener below handles putting it back once the
-    // keyboard closes.
-    const kbOpen = window.visualViewport && (window.innerHeight - window.visualViewport.height > 100);
-    if (kbOpen) return;
-    adjustTodayStripHeight();
-});
-if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => {
-        const kbOpen = window.innerHeight - window.visualViewport.height > 100;
-        if (!kbOpen && document.querySelector('.today-strip-grid')) adjustTodayStripHeight();
-    });
 }
 
 // Positions the red "now" line at the correct height for the current
@@ -2706,7 +2617,6 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     if (modal) {
         modal.style.display = 'block';
         positionModalNearClick(clickEvent);
-        lockBodyScrollForModal();
     }
 }
 
@@ -2746,7 +2656,6 @@ function openEditModal(dateKey, index, clickEvent) {
     if (modal) {
         modal.style.display = 'block';
         positionModalNearClick(clickEvent);
-        lockBodyScrollForModal();
     }
 }
 
@@ -2793,7 +2702,6 @@ function openBacklogEditModal(backlogId, clickEvent) {
     if (modal) {
         modal.style.display = 'block';
         positionModalNearClick(clickEvent);
-        lockBodyScrollForModal();
     }
 }
 
@@ -2809,43 +2717,11 @@ function deleteModalActivity() {
     closeQuickAddModal();
 }
 
-// --- SCROLL LOCK for the quick-add/edit modal (mobile "page jumps up"
-// fix) ---
-// The modal overlay is position:fixed and covers the full viewport, but
-// that alone doesn't stop the *page underneath* from being scrollable.
-// On phones, focusing an input inside a fixed overlay makes the browser
-// scroll the underlying document to "bring the field into view" - since
-// there's nothing to bring into view (the overlay is already full-screen
-// and fixed), all that happens visually is the whole page jerking
-// upward. Locking the body in place (freezing it at its current scroll
-// position via position:fixed) while the modal is open removes the
-// scrollable document entirely, so there's nothing for the keyboard/
-// focus behavior to scroll - then it's restored exactly where it was
-// once the modal closes.
-let _modalScrollLockY = 0;
-function lockBodyScrollForModal() {
-    _modalScrollLockY = window.scrollY || window.pageYOffset || 0;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${_modalScrollLockY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-}
-function unlockBodyScrollForModal() {
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, _modalScrollLockY);
-}
-
 function closeQuickAddModal() {
     const modal = document.getElementById('quick-add-modal');
     if (modal) modal.style.display = 'none';
     quickAddSlotInfo = null;
     hideModalError();
-    unlockBodyScrollForModal();
 }
 
 function hideModalError() {
@@ -6934,7 +6810,7 @@ function setMobileSection(section) {
 
     updateMobileHeaderVisibility();
     updateMobileNavGlassPosition();
-    if (document.querySelector('.today-strip-grid')) adjustTodayStripHeight();
+    layoutTimerPageForMobile();
 
     // Only jump to the top when the person actually tapped a different
     // tab - not on every call. Mobile browsers fire a `resize` event
@@ -6943,6 +6819,62 @@ function setMobileSection(section) {
     // to the top before it could settle at the bottom.
     if (isTabSwitch) window.scrollTo(0, 0);
 }
+
+// Locks the Timer page to exactly the remaining viewport space (screen
+// height minus header minus bottom nav) with no page-level scroll -
+// only .today-strip-grid inside it scrolls. Deliberately based on
+// window.innerHeight (the actual viewport size) rather than any
+// scroll-position-relative measurement like getBoundingClientRect,
+// which is what made an earlier version of this kind of calculation
+// unstable - viewport size only changes on a real resize/orientation
+// change/address-bar collapse, not on every scroll.
+function layoutTimerPageForMobile() {
+    const wrap = document.getElementById('timer-page-flex-wrap');
+    if (!wrap) return;
+
+    const onTimerMobile = isMobileNavViewport() && currentMobileSection === 'timer';
+    document.body.classList.toggle('timer-page-locked', onTimerMobile);
+
+    if (!onTimerMobile) {
+        wrap.style.height = '';
+        return;
+    }
+
+    const header = document.querySelector('.header-container');
+    const nav = document.getElementById('mobile-bottom-nav');
+    const headerHeight = (header && !header.classList.contains('mobile-header-hidden')) ? header.getBoundingClientRect().height : 0;
+    const navHeight = nav ? nav.getBoundingClientRect().height : 0;
+    const bodyStyles = getComputedStyle(document.body);
+    const bodyPadding = parseFloat(bodyStyles.paddingTop) + parseFloat(bodyStyles.paddingBottom);
+
+    const available = Math.floor(window.innerHeight - headerHeight - navHeight - bodyPadding - 16); // 16px breathing room
+    if (available > 200) { // sanity floor
+        wrap.style.height = `${available}px`;
+    }
+
+    // <details> elements are unreliable at propagating a flex-shrink
+    // constraint down to their own content in some browser engines - so
+    // rather than depend on that cascade working correctly, measure the
+    // real remaining space directly and set the grid's height
+    // explicitly. This is what actually makes "only the grid scrolls"
+    // work reliably, regardless of how any given browser handles
+    // <details> internally.
+    const bottom = document.getElementById('timer-page-bottom');
+    const grid = document.querySelector('#timer-page-bottom .today-strip-grid');
+    const summary = document.querySelector('#timer-page-bottom .details-summary');
+    const visibleLiveBar = [...document.querySelectorAll('#timer-page-bottom .live-timer-bar')].find(b => getComputedStyle(b).display !== 'none');
+    if (bottom && grid) {
+        const bottomRect = bottom.getBoundingClientRect();
+        const summaryHeight = summary ? summary.getBoundingClientRect().height : 0;
+        const liveBarHeight = visibleLiveBar ? visibleLiveBar.getBoundingClientRect().height + 10 : 0; // +10 for its own margin-bottom
+        const contentPadding = 40; // .details-content's own top+bottom padding
+        const gridAvailable = Math.floor(bottomRect.height - summaryHeight - liveBarHeight - contentPadding);
+        if (gridAvailable > 100) {
+            grid.style.height = `${gridAvailable}px`;
+        }
+    }
+}
+window.addEventListener('resize', () => { if (currentMobileSection === 'timer') layoutTimerPageForMobile(); });
 
 // Slides the frosted-glass highlight (.mobile-nav-glass) to sit exactly
 // behind whichever tab is currently active, by measuring that button's
@@ -6998,35 +6930,7 @@ function updateMobileHeaderVisibility() {
     if (!header) return;
     const isMobile = document.body.classList.contains('mobile-nav-mode');
     header.classList.toggle('mobile-header-hidden', isMobile && currentMobileSection !== 'timer');
-    closeMobileHeaderMenu();
 }
-
-// Opens/closes the dropdown that the Home/Save/Account/Theme/Dropbox
-// icons live behind on phones (see .mobile-header-menu-btn /
-// .header-actions-wrap in the CSS) - keeps that row from permanently
-// taking its own line above the Chronometer.
-function toggleMobileHeaderMenu() {
-    const wrap = document.getElementById('header-actions-wrap');
-    if (!wrap) return;
-    wrap.classList.toggle('mobile-menu-open');
-}
-function closeMobileHeaderMenu() {
-    const wrap = document.getElementById('header-actions-wrap');
-    if (wrap) wrap.classList.remove('mobile-menu-open');
-}
-// Close it after picking any action inside, and when tapping elsewhere.
-document.addEventListener('click', (e) => {
-    const wrap = document.getElementById('header-actions-wrap');
-    const btn = document.getElementById('mobile-header-menu-btn');
-    if (!wrap || !wrap.classList.contains('mobile-menu-open')) return;
-    if (wrap.contains(e.target) && e.target.closest('.theme-toggle-btn')) {
-        closeMobileHeaderMenu(); // an actual action was tapped - close after it runs
-        return;
-    }
-    if (!wrap.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-        closeMobileHeaderMenu(); // tapped outside the menu entirely
-    }
-});
 
 // Fades out the header icon row's "swipe for more" edge hint once
 // you've scrolled close enough to the end that there's nothing left to

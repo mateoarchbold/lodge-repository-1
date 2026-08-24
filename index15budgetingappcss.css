@@ -30,7 +30,7 @@
    matching the specific reference screenshot this round. Bronze - the
    other color in the logo's own gradient - is kept as the dark-mode
    accent, since verdigris alone reads a little muted against black. */
-body.light-theme {
+html.light-theme {
     --bg-color: #000000;
     --card-bg: #141414;
     --primary: #ffffff;
@@ -53,6 +53,15 @@ body.light-theme {
 html, body {
     width: 100%;
     overflow-x: hidden;
+}
+
+/* Applies on every viewport, not just mobile - html.light-theme (see
+   the theme variable overrides near the top of this file) is what
+   actually changes what --bg-color resolves to here; this rule just
+   makes sure html always paints itself with whatever that currently
+   is, on desktop as much as mobile. */
+html {
+    background-color: var(--bg-color);
 }
 
 body {
@@ -143,13 +152,6 @@ button, input, select, textarea {
     display: flex;
     gap: 10px;
     justify-content: center;
-}
-
-/* Mobile-only hamburger button that reveals the icon row as a dropdown
-   (see the max-width:768px rules below). Hidden entirely on desktop/
-   tablet, where the icons already show inline as normal. */
-.mobile-header-menu-btn {
-    display: none;
 }
 
 .theme-toggle-btn {
@@ -278,18 +280,94 @@ h2 {
 .today-strip-grid {
     display: flex;
     width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
     border: 1px solid var(--border-color);
     border-radius: 10px;
     overflow: hidden;
-    /* Desktop fallback only - on phones adjustTodayStripHeight() (JS)
-       measures the exact gap down to the floating bottom nav and sets
-       an inline max-height, so the strip's bottom edge always lands
-       right above the nav with no page-level scroll, only its own
-       internal one (overflow-y:auto below). flex-shrink:0 keeps it
-       from being squeezed by anything else in its flex column. */
-    max-height: 520px;
-    flex-shrink: 0;
-    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    /* Fixed-height, no-page-scroll layout for the Timer page - the
+       wrapper's own height is set in JS (layoutTimerPageForMobile) to
+       exactly the remaining space after the header and bottom nav, and
+       everything inside it splits that fixed space via flex-grow
+       ratios (1 for Chronometer, 2 for Today) rather than each taking
+       its own natural height and pushing the page taller than the
+       screen. Only .today-strip-grid actually scrolls - everything
+       above it is sized to just fit. */
+    #timer-page-flex-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow: hidden;
+    }
+    #timer-page-top {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #timer-page-top .card.stopwatch {
+        flex: 1;
+        min-height: 0;
+        margin-bottom: 0;
+        padding: 10px 16px;
+        overflow-y: auto; /* safety valve if content genuinely doesn't fit, rather than breaking the layout - normally shouldn't be needed */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    #timer-page-top .card.stopwatch h2 {
+        margin: 0 0 6px 0;
+        padding-bottom: 4px;
+        font-size: 1rem;
+    }
+    #timer-page-top .stopwatch-link-toggle-row {
+        margin-bottom: 6px;
+    }
+    #timer-page-top .display {
+        font-size: clamp(1.3rem, 7vw, 1.8rem);
+        padding: 8px;
+        margin: 4px 0;
+    }
+    #timer-page-top .controls {
+        gap: 8px;
+    }
+    #timer-page-top .controls button {
+        width: 52px;
+        height: 52px;
+        font-size: 0.62rem;
+    }
+    #timer-page-bottom {
+        flex: 2 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #timer-page-bottom .details-section {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        margin-bottom: 0;
+    }
+    #timer-page-bottom .details-content {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding-bottom: 0;
+    }
+    #timer-page-bottom .today-strip-grid {
+        flex: none;
+        max-width: none;
+        overflow-y: auto; /* the one place actual scrolling happens */
+    }
 }
 
 .today-strip-day-wrap {
@@ -338,7 +416,7 @@ h2 {
 
 .controls {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: center;
     align-items: center;
     gap: 14px;
@@ -347,7 +425,6 @@ h2 {
 .controls button {
     width: 72px;
     height: 72px;
-    flex-shrink: 0;
     border: none;
     border-radius: 50%;
     font-weight: bold;
@@ -364,7 +441,7 @@ h2 {
     padding: 4px;
 }
 
-.btn-start { background: var(--success); color: white; }
+.btn-start { background: var(--accent); color: white; }
 .btn-stop { background: var(--danger); color: white; }
 .btn-split { background: #3f3f46; color: white; }
 .btn-reset { background: transparent; color: var(--text-muted); border: 1px solid var(--border-color) !important; }
@@ -1454,92 +1531,59 @@ summary.details-summary:hover {
 }
 
 /* --- LIVE TIMER BAR --- */
-/* --- CHRONOMETER MODE SWITCH (Independent / Linked to Today) --- */
-.stopwatch-mode-row {
+/* --- CHRONOMETER <-> TODAY TOGGLE --- */
+.stopwatch-link-toggle-row {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
     margin-bottom: 14px;
-    flex-wrap: wrap;
 }
-.stopwatch-mode-label {
-    font-size: 0.78rem;
-    font-weight: 700;
+.stopwatch-link-toggle-label {
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--text-muted);
 }
-.toggle-switch {
+.stopwatch-toggle-switch {
     position: relative;
     display: inline-block;
     width: 42px;
     height: 24px;
     flex-shrink: 0;
 }
-.toggle-switch input {
+.stopwatch-toggle-switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
-.toggle-switch-slider {
+.stopwatch-toggle-slider {
     position: absolute;
     cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
+    inset: 0;
     background: var(--border-color);
-    border-radius: 24px;
-    transition: background 0.2s ease;
+    border-radius: 999px;
+    transition: background-color 0.2s ease;
 }
-.toggle-switch-slider::before {
-    content: "";
+.stopwatch-toggle-slider::before {
+    content: '';
     position: absolute;
     height: 18px;
     width: 18px;
     left: 3px;
-    bottom: 3px;
+    top: 3px;
     background: #fff;
     border-radius: 50%;
     transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
-.toggle-switch input:checked + .toggle-switch-slider {
+.stopwatch-toggle-switch input:checked + .stopwatch-toggle-slider {
     background: var(--accent);
 }
-.toggle-switch input:checked + .toggle-switch-slider::before {
+.stopwatch-toggle-switch input:checked + .stopwatch-toggle-slider::before {
     transform: translateX(18px);
-}
-.toggle-switch input:disabled + .toggle-switch-slider {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-.stopwatch-link-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
-    padding: 8px 10px;
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-.stopwatch-link-active {
-    border-color: var(--accent);
-}
-.stopwatch-link-pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #ef4444;
-    flex-shrink: 0;
-    animation: liveTimerPulse 1.4s ease-in-out infinite;
-}
-.stopwatch-link-active span {
-    font-size: 0.82rem;
-    color: var(--text);
 }
 
 .live-timer-bar {
-    width: 100%;
-    box-sizing: border-box;
     margin-bottom: 10px;
 }
 .live-timer-idle,
@@ -1547,8 +1591,6 @@ summary.details-summary:hover {
     display: flex;
     align-items: center;
     gap: 8px;
-    width: 100%;
-    box-sizing: border-box;
     background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-radius: 10px;
@@ -1559,10 +1601,10 @@ summary.details-summary:hover {
     font-size: 1.1rem;
     flex-shrink: 0;
 }
-.live-timer-category-input,
-.live-timer-notes-input {
+.live-timer-category-input-el,
+.live-timer-notes-input-el {
     flex: 1;
-    min-width: 120px;
+    min-width: 110px;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -1583,6 +1625,14 @@ summary.details-summary:hover {
 }
 .live-timer-active {
     border-color: var(--accent);
+}
+.live-timer-active-notes {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
 }
 .live-timer-pulse-dot {
     width: 9px;
@@ -1610,14 +1660,6 @@ summary.details-summary:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-.live-timer-active-notes {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 160px;
 }
 .live-timer-active-location {
     font-size: 0.75rem;
@@ -3004,63 +3046,24 @@ summary.details-summary:hover {
   .header-container, 
   header {
     display: flex !important;
-    flex-direction: row !important;
+    flex-direction: column !important;
     align-items: center !important;
-    justify-content: space-between !important;
-    text-align: left !important;
+    text-align: center !important;
     gap: 12px !important;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
-    position: relative !important;
   }
 
-  .header-title {
-    font-size: 1.05rem !important;
-    margin: 0 !important;
-  }
-
-  /* Hamburger button: small, round, next to the title. Toggles
-     .header-actions-wrap's open state below. */
-  .mobile-header-menu-btn {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    color: var(--text);
-    cursor: pointer;
-    padding: 0;
-  }
-  .mobile-header-menu-btn svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* The icon row (Home/Save/Account/Theme/Dropbox) no longer sits on
-     its own permanent line - it's tucked behind the hamburger button
-     above and only appears as a dropdown panel while open, so it costs
-     zero vertical space the rest of the time. That's the actual point:
-     the Chronometer/Today strip below get that space back. */
+  /* The icon row (Home/Save/Account/Theme/Dropbox) at its normal desktop
+     size (78px-wide labeled buttons) simply doesn't fit most phone
+     screens - 5 of them add up to well over 400px. A scrolling row was
+     tried here first, but a left-aligned scrolling row with empty space
+     on the right just looks lopsided, not intentional. This is the
+     better fix: shrink to small icon-only circles on mobile specifically
+     (labels hidden, title="..." still gives the name on long-press/
+     hover) - small enough that all of them genuinely fit and can be
+     centered properly, the same way a normal toolbar looks, rather than
+     needing to scroll or peek at all. */
   .header-actions-wrap {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    left: 0;
-    z-index: 500;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    margin-top: 6px;
-    padding: 10px;
-  }
-  .header-actions-wrap.mobile-menu-open {
-    display: block;
+    width: 100%;
   }
   .header-actions {
     display: flex !important;
@@ -3158,83 +3161,6 @@ summary.details-summary:hover {
   .big-calendar-inner {
     min-width: 700px !important;
   }
-
-  /* Tighten the vertical gap between the Chronometer card, the
-     Category/Description bar (shown only while "Linked to Today" is
-     on), and the Today calendar strip right under it. These three
-     read as one connected block, so on phones they shouldn't have the
-     full 20px section gap the rest of the stacked cards use - this
-     pulls them closer together (about 8-12px apart instead of ~40px),
-     without letting them touch. Scoped to data-mobile-section="timer"
-     / the live-timer-bar's own id so nothing else on the page (Notes,
-     Analytics, etc.) is affected. */
-  .card.stopwatch[data-mobile-section="timer"] {
-    margin-bottom: -8px !important;
-  }
-  #today-live-timer-bar {
-    margin-top: 0 !important;
-    margin-bottom: -4px !important;
-  }
-  details.details-section[data-mobile-section="timer"] {
-    margin-top: -4px !important;
-  }
-
-  /* Shrink the "Chronometer" heading and the Independent/Linked toggle
-     row - both were taking more vertical space than they need on a
-     phone, at the direct expense of the Today strip below. */
-  .card.stopwatch[data-mobile-section="timer"] h2 {
-    font-size: 0.95rem;
-    padding-bottom: 6px;
-    margin-bottom: 8px;
-  }
-  .card.stopwatch[data-mobile-section="timer"] .stopwatch-mode-row {
-    gap: 6px;
-    margin-bottom: 6px;
-  }
-  .card.stopwatch[data-mobile-section="timer"] .stopwatch-mode-label {
-    font-size: 0.68rem;
-  }
-  .card.stopwatch[data-mobile-section="timer"] .toggle-switch {
-    width: 34px;
-    height: 19px;
-  }
-  .card.stopwatch[data-mobile-section="timer"] .toggle-switch-slider::before {
-    height: 13px;
-    width: 13px;
-  }
-  .card.stopwatch[data-mobile-section="timer"] .toggle-switch input:checked + .toggle-switch-slider::before {
-    transform: translateX(15px);
-  }
-
-  /* Today strip header ("Today" + date) and the padding around the grid
-     itself - both trimmed down so the calendar starts almost right
-     under the heading instead of leaving a big empty band above it. */
-  details.details-section[data-mobile-section="timer"] summary.details-summary {
-    padding: 8px 12px;
-    font-size: 0.95rem;
-  }
-  details.details-section[data-mobile-section="timer"] .details-content {
-    padding: 6px;
-  }
-
-  /* Start/Split/Stop/Reset: always one row of 4, never wrapping to a
-     second line (that's what was pushing Reset onto its own row below
-     the others). Shrinking the circles a bit on phones - together with
-     the tighter spacing above - frees up vertical room, which goes
-     toward a taller Today strip right below (see .today-strip-grid). */
-  .controls {
-    gap: 10px;
-  }
-  .controls button {
-    width: 60px;
-    height: 60px;
-    font-size: 0.65rem;
-  }
-
-  /* Taller Today strip on phones now that the Chronometer card and its
-     buttons take up less vertical space - handled dynamically by
-     adjustTodayStripHeight() in the JS rather than a fixed number here,
-     since it needs to measure the actual gap down to the nav bar. */
 
   /* Center Popups on Mobile Screens */
   .modal-content {
@@ -4345,6 +4271,15 @@ body.light-theme .mobile-nav-glass {
    below it). */
 body.mobile-nav-mode {
     padding-bottom: 96px;
+}
+
+/* Locks page-level scrolling while the Timer page is active on mobile -
+   only .today-strip-grid inside #timer-page-flex-wrap scrolls. Toggled
+   in layoutTimerPageForMobile(). */
+body.timer-page-locked {
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
 }
 
 /* Tab-controlled sections are plain <details open> elements under the
