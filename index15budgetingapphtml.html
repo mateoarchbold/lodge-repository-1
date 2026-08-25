@@ -367,6 +367,13 @@
             <div class="card" id="day-schedule-card">
                 <h2>Day Activities</h2>
                 <div class="hours-summary" id="hours-summary">Logged Today: 0 hrs</div>
+                <!-- Auto-summed totals per category for this day (e.g.
+                     three separate Coding sessions adding up to one
+                     "Coding: 4h" line) - see renderDayScheduleStack in
+                     the JS. Sits above the individual entries below,
+                     which still show each session separately for
+                     editing/deleting. -->
+                <div class="category-day-totals" id="category-day-totals"></div>
                 <div class="timeline-container" id="timeline-container"></div>
             </div>
 
@@ -385,6 +392,7 @@
                      session log, backup/restore, search) is one tap away
                      in "More" below instead of stacked on top of this. -->
                 <div class="range-bar" style="margin-bottom:16px;">
+                    <button class="range-btn" id="stats-period-day" onclick="setStatsPeriod('day')">Day</button>
                     <button class="range-btn active" id="stats-period-week" onclick="setStatsPeriod('week')">Week</button>
                     <button class="range-btn" id="stats-period-month" onclick="setStatsPeriod('month')">Month</button>
                 </div>
@@ -713,6 +721,7 @@
                     </button>
 
                     <div class="hours-summary" id="mobile-hours-summary">Logged Today: 0 hrs</div>
+                    <div class="category-day-totals" id="mobile-category-day-totals"></div>
                     <div class="timeline-container" id="mobile-timeline-container"></div>
                 </div>
             </div>

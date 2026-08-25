@@ -256,7 +256,16 @@ function togglePlannerHeader() {
 // Sums logged "actual" hours per category within the current week/month —
 // powers the Category Stats donut + legend.
 function getCategoryTotalsForPeriod(rangeType) {
-    const { start, end } = rangeType === 'month' ? getMonthRangeOffset(0) : getWeekRangeOffset(0);
+    let start, end;
+    if (rangeType === 'day') {
+        const today = new Date();
+        start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+    } else if (rangeType === 'month') {
+        ({ start, end } = getMonthRangeOffset(0));
+    } else {
+        ({ start, end } = getWeekRangeOffset(0));
+    }
     const totals = {};
 
     Object.keys(timeData).forEach(dateStr => {
@@ -281,6 +290,7 @@ let statsPeriod = 'week';
 
 function setStatsPeriod(period) {
     statsPeriod = period;
+    document.getElementById('stats-period-day')?.classList.toggle('active', period === 'day');
     document.getElementById('stats-period-week')?.classList.toggle('active', period === 'week');
     document.getElementById('stats-period-month')?.classList.toggle('active', period === 'month');
     renderCategoryStats();
@@ -293,7 +303,7 @@ function renderCategoryStats() {
 
     const data = getCategoryTotalsForPeriod(statsPeriod);
     const totalHours = data.reduce((sum, d) => sum + d.hours, 0);
-    const periodLabel = statsPeriod === 'week' ? 'this week' : 'this month';
+    const periodLabel = statsPeriod === 'day' ? 'today' : statsPeriod === 'week' ? 'this week' : 'this month';
 
     if (totalHours === 0) {
         donut.style.background = 'var(--input-bg)';
@@ -1069,6 +1079,30 @@ function renderDayScheduleStack() {
     const summaryText = `Logged Today: ${totalHrs.toFixed(2)} hrs`;
     if (desktopSummary) desktopSummary.innerText = summaryText;
     if (mobileSummary) mobileSummary.innerText = summaryText;
+
+    // Auto-summed per-category totals for the day - e.g. three separate
+    // Coding sessions of 1.5h each show up here as one "Coding 4.5h"
+    // line, computed automatically rather than the person needing to
+    // add up scattered entries themselves. Only counts real completed
+    // time (skips projected/planned blocks), same as everywhere else
+    // "actual hours" is calculated in this app.
+    const categoryTotals = {};
+    blocks.forEach(block => {
+        if ((block.type || 'actual') !== 'actual') return;
+        const cat = block.category || 'General';
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + (parseFloat(block.hours) || 0);
+    });
+    const sortedTotals = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+    const totalsHtml = sortedTotals.length === 0 ? '' : sortedTotals.map(([cat, hrs]) => {
+        const color = getCategoryColor(cat);
+        const hoursLabel = hrs.toFixed(hrs % 1 === 0 ? 0 : 1);
+        return `<div class="category-day-total-pill" style="border-color:${color};"><span style="color:${color};">${escapeHtml(cat)}</span> · ${hoursLabel}h</div>`;
+    }).join('');
+
+    const desktopTotals = document.getElementById('category-day-totals');
+    const mobileTotals = document.getElementById('mobile-category-day-totals');
+    if (desktopTotals) desktopTotals.innerHTML = totalsHtml;
+    if (mobileTotals) mobileTotals.innerHTML = totalsHtml;
 
     const sheetSub = document.getElementById('mobile-sheet-subtitle');
     if (sheetSub) sheetSub.innerText = `${totalHrs.toFixed(2)} / 24 Hours`;
@@ -2189,6 +2223,17 @@ function buildDayColumnEl(dateKey) {
             dayCol.appendChild(vBlock);
         });
 
+    // Live "now" line, only on today's own column - same visual/update
+    // mechanism as the Today strip's line (see updateAllNowLines below),
+    // since both the big calendar and the Today strip build their day
+    // columns through this same shared function.
+    if (dateKey === formatDateKey(new Date())) {
+        const nowLine = document.createElement('div');
+        nowLine.className = 'calendar-now-line';
+        nowLine.innerHTML = '<span class="calendar-now-line-label"></span>';
+        dayCol.appendChild(nowLine);
+    }
+
     return dayCol;
 }
 
@@ -2242,13 +2287,26 @@ function renderTodayStrip() {
 // the existing live-timer interval below, so it drifts by at most a
 // second or two even if you leave the tab open a long time.
 function updateTodayNowLine() {
-    const nowLine = document.getElementById('today-now-line');
-    const label = document.getElementById('today-now-line-label');
-    if (!nowLine) return;
     const now = new Date();
     const minutesSinceMidnight = (now.getHours() * 60) + now.getMinutes();
-    nowLine.style.top = `${(minutesSinceMidnight / 60) * 40}px`;
-    if (label) label.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const topPx = (minutesSinceMidnight / 60) * 40;
+    const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const nowLine = document.getElementById('today-now-line');
+    const label = document.getElementById('today-now-line-label');
+    if (nowLine) {
+        nowLine.style.top = `${topPx}px`;
+        if (label) label.textContent = timeLabel;
+    }
+
+    // The big calendar's own now-line (see buildDayColumnEl) - only
+    // exists on today's column, but querySelectorAll handles it
+    // generically without needing to know which day that is here.
+    document.querySelectorAll('.calendar-now-line').forEach(line => {
+        line.style.top = `${topPx}px`;
+        const lineLabel = line.querySelector('.calendar-now-line-label');
+        if (lineLabel) lineLabel.textContent = timeLabel;
+    });
 }
 
 function renderVisualMatrix() {
@@ -4427,7 +4485,7 @@ async function handleNoteRecordingStop() {
 
     try {
         const uploaded = await uploadNoteMediaBlob(blob, ext);
-        if (uploaded) {
+        if (uploaded.url) {
             insertAudioBlockAfterFocus(note, uploaded.url, durationSec, uploaded.path);
             setVoiceStatus('Voice note saved.');
             setTimeout(() => setVoiceStatus(''), 1500);
@@ -4438,11 +4496,12 @@ async function handleNoteRecordingStop() {
             const dataUrl = await blobToDataUrl(blob);
             insertAudioBlockAfterFocus(note, dataUrl, durationSec, null);
             if (currentUser) {
-                // Logged in but the upload still failed - almost always
-                // means the 'note-media' Storage bucket doesn't exist
-                // yet or its RLS policies aren't set up.
-                setVoiceStatus('⚠️ Saved on this device only - cloud storage upload failed (check the note-media bucket setup).');
-                setTimeout(() => setVoiceStatus(''), 4000);
+                // Logged in but the upload still failed - shows the
+                // actual reason (uploaded.error) now, not just a
+                // generic guess, so a repeat of this is immediately
+                // diagnosable instead of needing a full re-investigation.
+                setVoiceStatus(`⚠️ Saved on this device only - ${uploaded.error || 'cloud upload failed'}`);
+                setTimeout(() => setVoiceStatus(''), 5000);
             } else {
                 setVoiceStatus('Voice note saved.');
                 setTimeout(() => setVoiceStatus(''), 1500);
@@ -5103,30 +5162,31 @@ async function addPhotoFilesToCurrentNote(files) {
     if (!note) { if (btn) { btn.classList.remove('uploading'); btn.disabled = false; } return; }
 
     let usedFallback = false;
+    let lastUploadError = null;
     try {
         for (const file of files) {
             const blob = await compressImageFile(file);
             const uploaded = await uploadNoteMediaBlob(blob, 'jpg');
-            if (uploaded) {
+            if (uploaded.url) {
                 insertImageBlockAfterFocus(note, uploaded.url, uploaded.path);
             } else {
                 // Guest (no account) or the upload failed - fall back to
                 // storing it locally exactly like before, rather than
                 // losing the photo outright.
                 usedFallback = true;
+                if (uploaded.error) lastUploadError = uploaded.error;
                 const dataUrl = await blobToDataUrl(blob);
                 insertImageBlockAfterFocus(note, dataUrl, null);
             }
         }
         if (usedFallback && currentUser) {
-            // Logged in but the upload still failed - almost always
-            // means the 'note-media' Storage bucket doesn't exist yet or
-            // its RLS policies aren't set up. Flagging this clearly (not
-            // just "Photo added.") is what turns a mystery "storage
-            // full" message weeks from now into something fixable
-            // today. This photo will still auto-migrate to Storage next
-            // time the bucket does work (see migrateBase64MediaToStorage).
-            setVoiceStatus('⚠️ Saved on this device only - cloud storage upload failed (check the note-media bucket setup).');
+            // Logged in but the upload still failed - shows the actual
+            // reason now (lastUploadError), not just a generic guess, so
+            // this is immediately diagnosable if it happens again rather
+            // than needing a full re-investigation. This photo will
+            // still auto-migrate to Storage next time uploads do work
+            // (see migrateBase64MediaToStorage).
+            setVoiceStatus(`⚠️ Saved on this device only - ${lastUploadError || 'cloud upload failed'}`);
         } else {
             setVoiceStatus(files.length > 1 ? 'Photos added.' : 'Photo added.');
         }
@@ -6303,7 +6363,7 @@ function canUseCloudMediaStorage() {
 // missing/misconfigured), so callers can fall back to storing the photo
 // or recording locally instead of losing it outright.
 async function uploadNoteMediaBlob(blob, ext) {
-    if (!canUseCloudMediaStorage()) return null;
+    if (!canUseCloudMediaStorage()) return { url: null, path: null, error: null }; // guest - not an error, just nowhere to upload to
     const path = `${currentUser.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
     try {
         const { error } = await supabaseClient.storage
@@ -6311,10 +6371,11 @@ async function uploadNoteMediaBlob(blob, ext) {
             .upload(path, blob, { contentType: blob.type || undefined, upsert: false });
         if (error) throw error;
         const { data } = supabaseClient.storage.from(NOTE_MEDIA_BUCKET).getPublicUrl(path);
-        return { url: data.publicUrl, path };
+        return { url: data.publicUrl, path, error: null };
     } catch (err) {
-        console.error('Media upload failed, falling back to local storage for this item:', err.message || err);
-        return null;
+        const message = err?.message || err?.error_description || String(err);
+        console.error('Media upload failed, falling back to local storage for this item:', message);
+        return { url: null, path: null, error: message };
     }
 }
 
@@ -6598,7 +6659,7 @@ async function migrateBase64MediaToStorage() {
                 ? 'jpg'
                 : (blob.type.indexOf('mp4') !== -1 ? 'm4a' : 'webm');
             const uploaded = await uploadNoteMediaBlob(blob, ext);
-            if (uploaded) {
+            if (uploaded.url) {
                 block[field] = uploaded.url;
                 block.storagePath = uploaded.path;
                 migratedCount++;

@@ -409,6 +409,29 @@ h2 {
     white-space: nowrap;
 }
 
+.calendar-now-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 2px solid var(--danger);
+    z-index: 15;
+    pointer-events: none;
+}
+
+.calendar-now-line-label {
+    position: absolute;
+    left: 2px;
+    top: -8px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
 .display {
     font-size: clamp(1.7rem, 9vw, 2.8rem);
     font-family: monospace; 
@@ -810,6 +833,27 @@ input:focus {
     margin-bottom: 15px; 
     color: var(--accent); 
     border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.category-day-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+.category-day-totals:empty {
+    display: none;
+    margin-bottom: 0;
+}
+.category-day-total-pill {
+    background: var(--input-bg);
+    border: 1.5px solid;
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
 }
 
 /* --- COLLAPSIBLE SECTION WRAPPERS --- */
