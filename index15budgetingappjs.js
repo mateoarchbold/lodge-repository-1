@@ -83,12 +83,120 @@ let armedMoveBlockRef = null; // { dateKey, index } - which block (if any) is cu
 function toggleArmedMoveBlock(dateKey, index) {
     if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
         armedMoveBlockRef = null; // tapped the same armed block again - cancel
+        hideDragGhost();
     } else {
         armedMoveBlockRef = { dateKey, index };
         if (navigator.vibrate) navigator.vibrate(30);
     }
     renderVisualMatrix();
 }
+
+// --- LIVE DRAG GHOST (touch) ---
+// Once a block is armed (see toggleArmedMoveBlock), dragging a finger
+// anywhere over the calendar shows a live preview of exactly where it
+// would land if released right now - snapped to the same 15-minute
+// grid the drop itself uses. This replaced an earlier version where
+// you had to arm, then make a completely separate blind tap elsewhere
+// with no visual feedback about where you were about to drop it.
+let dragGhostEl = null;
+let dragGhostTarget = null; // { dateKey, hour, mins } - wherever the ghost currently sits
+
+function ensureDragGhost() {
+    if (dragGhostEl) return dragGhostEl;
+    dragGhostEl = document.createElement('div');
+    dragGhostEl.className = 'touch-drag-ghost';
+    document.body.appendChild(dragGhostEl);
+    return dragGhostEl;
+}
+
+function hideDragGhost() {
+    dragGhostTarget = null;
+    if (dragGhostEl) dragGhostEl.style.display = 'none';
+}
+
+function updateDragGhost(clientX, clientY) {
+    const el = document.elementFromPoint(clientX, clientY);
+    const dayCol = el ? el.closest('.matrix-day-col') : null;
+    if (!dayCol) { hideDragGhost(); return false; }
+
+    const rect = dayCol.getBoundingClientRect();
+    const relY = clientY - rect.top;
+    const rawMinutes = (relY / 40) * 60;
+    const snappedMinutes = Math.max(0, Math.min(23 * 60 + 45, Math.round(rawMinutes / 15) * 15));
+    const hour = Math.floor(snappedMinutes / 60);
+    const mins = snappedMinutes % 60;
+    dragGhostTarget = { dateKey: dayCol.dataset.date, hour, mins };
+
+    const block = armedMoveBlockRef && timeData[armedMoveBlockRef.dateKey] && timeData[armedMoveBlockRef.dateKey][armedMoveBlockRef.index];
+    const durationHrs = block ? (block.hours || 1) : 1;
+
+    const ghost = ensureDragGhost();
+    ghost.style.display = 'flex';
+    ghost.style.left = `${rect.left}px`;
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.top = `${rect.top + (snappedMinutes / 60) * 40}px`;
+    ghost.style.height = `${Math.max(durationHrs * 40, 18)}px`;
+    ghost.textContent = `${String(hour).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    return true;
+}
+
+let dragStartPoint = null; // { x, y } - where the touch was when the block was armed, used to detect a genuine drag vs a stray tap
+let hasDraggedPastThreshold = false;
+
+document.addEventListener('touchstart', (e) => {
+    if (!armedMoveBlockRef) return;
+    const touch = e.touches[0];
+    if (touch) dragStartPoint = { x: touch.clientX, y: touch.clientY };
+    hasDraggedPastThreshold = false;
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+    if (!armedMoveBlockRef) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    // Claim this gesture immediately, from the very first touchmove -
+    // mobile browsers generally decide whether a touch sequence will be
+    // handled as native scroll or as a custom gesture based on whether
+    // preventDefault() was called on that first event. Only calling it
+    // later (once a drag was confirmed past the threshold, or only when
+    // directly over a valid drop target) let the browser already commit
+    // to scrolling during the first few pixels of movement, which is
+    // exactly what was making the background calendar move along with
+    // the finger instead of staying still.
+    e.preventDefault();
+
+    if (dragStartPoint) {
+        const dx = touch.clientX - dragStartPoint.x, dy = touch.clientY - dragStartPoint.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 12) hasDraggedPastThreshold = true; // ~12px of real movement before this counts as a drag, not just finger tremor on a tap
+    }
+    if (!hasDraggedPastThreshold) return; // not a real drag yet - don't show the ghost for what might just be a tap, but scroll is already suppressed above
+
+    updateDragGhost(touch.clientX, touch.clientY);
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+    if (!armedMoveBlockRef) return;
+    // No genuine drag happened - this touchend is just a tap (possibly
+    // the first half of double-tapping the same armed block again to
+    // cancel it). Completing a move here would be exactly the bug this
+    // replaced: a tap with no visible feedback silently moving the
+    // block to wherever it happened to land. Leave the block armed and
+    // let the block's own double-tap handler decide what a second tap
+    // on it means instead.
+    if (!hasDraggedPastThreshold) { hideDragGhost(); return; }
+
+    const touch = e.changedTouches[0];
+    if (touch) updateDragGhost(touch.clientX, touch.clientY);
+
+    if (!dragGhostTarget) { armedMoveBlockRef = null; hideDragGhost(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
+    const { dateKey: fromDate, index: fromIndex } = armedMoveBlockRef;
+    const { dateKey: toDate, hour, mins } = dragGhostTarget;
+    armedMoveBlockRef = null;
+    hideDragGhost();
+    if (navigator.vibrate) navigator.vibrate(30);
+    moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
+});
 
 // Same "double-tap to arm, tap a destination to complete" pattern as
 // the calendar's touch-move (see toggleArmedMoveBlock above) - reused
@@ -126,6 +234,13 @@ let categoryGoals = {};
 const colorPalette = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 const categoryColorMap = {};
 let customCategoryColors = {};
+
+// Categories currently hidden from the big calendar (see
+// buildDayColumnEl) - a view-only filter, never touches the
+// underlying block data, so hiding is always safely reversible. This
+// is genuinely new (no pre-existing equivalent) - unlike the "add a
+// category" side of things below, which turned out to already exist.
+let hiddenCategories = [];
 
 // Escapes user-typed text (category names, notes) before it's dropped into
 // innerHTML, so someone typing something like "<img src=x onerror=...>" as
@@ -194,6 +309,188 @@ function getCategoryColor(cat) {
         categoryColorMap[key] = colorPalette[index];
     }
     return categoryColorMap[key];
+}
+
+// --- CATEGORY MANAGER (dropdown replacing the old always-on legend row) ---
+// This shares the exact same underlying category list
+// (manualCategories/getAllKnownCategories, defined further down) that
+// the Add Activity modal's autocomplete already reads from - so a
+// category added here shows up there immediately, and vice versa.
+function getAllManagedCategories() {
+    return getAllKnownCategories();
+}
+
+function addKnownCategory(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    const key = trimmed.toLowerCase();
+    if (getAllKnownCategories().includes(key)) return false; // already exists, nothing to add
+    manualCategories.push(key);
+    saveManualCategories();
+    refreshAllCategoryDropdowns();
+    return true;
+}
+
+// Renames a category everywhere it's actually used - every block
+// across every date, plus its custom color and goal entries - so the
+// calendar, analytics, and everything else stay consistent under the
+// new name rather than splitting into two separate categories.
+function renameCategoryEverywhere(oldName, newName) {
+    const oldKey = oldName.trim().toLowerCase();
+    const newTrimmed = newName.trim();
+    const newKey = newTrimmed.toLowerCase();
+    if (!newTrimmed || oldKey === newKey) return false;
+
+    Object.values(timeData).flat().forEach(b => {
+        if (b.category && b.category.toLowerCase() === oldKey) b.category = newTrimmed;
+    });
+    backlogItems.forEach(item => {
+        if (item.category && item.category.toLowerCase() === oldKey) item.category = newTrimmed;
+    });
+    if (customCategoryColors[oldKey]) {
+        customCategoryColors[newKey] = customCategoryColors[oldKey];
+        delete customCategoryColors[oldKey];
+    }
+    if (categoryGoals[oldKey]) {
+        categoryGoals[newKey] = categoryGoals[oldKey];
+        delete categoryGoals[oldKey];
+    }
+    manualCategories = manualCategories.filter(c => c !== oldKey);
+    if (!getAllKnownCategories().includes(newKey)) manualCategories.push(newKey);
+    hiddenCategories = hiddenCategories.map(c => c.toLowerCase() === oldKey ? newTrimmed : c);
+
+    localStorage.setItem('customCategoryColors', JSON.stringify(customCategoryColors));
+    localStorage.setItem('categoryGoals', JSON.stringify(categoryGoals));
+    saveManualCategories();
+    saveHiddenCategories();
+    saveData();
+    refreshAllCategoryDropdowns();
+    refreshApp();
+    return true;
+}
+
+// Follows the same safety rule as the existing category-manage modal:
+// a category that's actually in use (a block, backlog item, or goal
+// references it) can't be deleted outright, since that would silently
+// orphan that data - only genuinely unused categories can be removed
+// from the list. Hiding (see toggleCategoryVisibility) is the
+// reversible alternative for a category that's in use but you don't
+// want cluttering the calendar right now.
+function deleteKnownCategory(name) {
+    const key = name.trim().toLowerCase();
+    if (isCategoryInUse(key)) return false;
+    manualCategories = manualCategories.filter(c => c !== key);
+    hiddenCategories = hiddenCategories.filter(c => c.toLowerCase() !== key);
+    saveManualCategories();
+    saveHiddenCategories();
+    refreshAllCategoryDropdowns();
+    renderCategoryManagerDropdown();
+    return true;
+}
+
+function saveHiddenCategories() {
+    localStorage.setItem('hiddenCategories', JSON.stringify(hiddenCategories));
+    queueCloudSync();
+}
+
+function toggleCategoryVisibility(name) {
+    const key = name.trim().toLowerCase();
+    const idx = hiddenCategories.findIndex(c => c.toLowerCase() === key);
+    if (idx === -1) hiddenCategories.push(name);
+    else hiddenCategories.splice(idx, 1);
+    saveHiddenCategories();
+    renderVisualMatrix();
+    renderTodayStrip();
+}
+
+function toggleCategoryManagerDropdown() {
+    const panel = document.getElementById('category-manager-panel');
+    const trigger = document.querySelector('.category-manager-trigger');
+    if (!panel) return;
+    const opening = !panel.classList.contains('open');
+    panel.classList.toggle('open', opening);
+    if (trigger) trigger.classList.toggle('open', opening);
+    if (opening) renderCategoryManagerDropdown();
+}
+document.addEventListener('click', (e) => {
+    const manager = document.getElementById('category-manager');
+    const panel = document.getElementById('category-manager-panel');
+    if (!manager || !panel || !panel.classList.contains('open')) return;
+    if (!manager.contains(e.target)) {
+        panel.classList.remove('open');
+        document.querySelector('.category-manager-trigger')?.classList.remove('open');
+    }
+});
+
+function submitAddKnownCategory() {
+    const input = document.getElementById('category-manager-add-input');
+    if (!input) return;
+    if (addKnownCategory(input.value)) {
+        input.value = '';
+        renderCategoryManagerDropdown();
+    } else {
+        input.value = '';
+        input.placeholder = 'Already exists or empty';
+        setTimeout(() => { input.placeholder = 'Add a category...'; }, 1500);
+    }
+}
+
+function startRenameCategoryInline(name, rowEl) {
+    const nameEl = rowEl.querySelector('.category-manager-name');
+    if (!nameEl) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'category-manager-rename-input';
+    input.value = name;
+    const commit = () => {
+        const newName = input.value.trim();
+        if (newName && newName.toLowerCase() !== name.toLowerCase()) {
+            renameCategoryEverywhere(name, newName);
+        }
+        renderCategoryManagerDropdown();
+    };
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') renderCategoryManagerDropdown();
+    });
+    input.addEventListener('blur', commit);
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+}
+
+// Renders the full category list inside the dropdown panel - each row:
+// a visibility checkbox (checked = shown on the big calendar), the
+// color swatch, the name (click to rename inline), and a delete
+// button. Rebuilt fresh each time the panel opens or the underlying
+// category list changes.
+function renderCategoryManagerDropdown() {
+    const list = document.getElementById('category-manager-list');
+    if (!list) return;
+    const categories = getAllManagedCategories();
+
+    if (categories.length === 0) {
+        list.innerHTML = '<div class="category-manager-empty">No categories yet - add one above.</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+    categories.forEach(cat => {
+        const isHidden = hiddenCategories.some(c => c.toLowerCase() === cat);
+        const color = getCategoryColor(cat);
+        const row = document.createElement('div');
+        row.className = 'category-manager-row';
+        row.innerHTML = `
+            <input type="checkbox" class="category-manager-visibility-cb" ${isHidden ? '' : 'checked'} title="Show on big calendar">
+            <span class="category-manager-swatch" style="background:${color};"></span>
+            <span class="category-manager-name">${escapeHtml(cat)}</span>
+            <button type="button" class="category-manager-del-btn" title="Delete">🗑</button>
+        `;
+        row.querySelector('.category-manager-visibility-cb').addEventListener('change', () => toggleCategoryVisibility(cat));
+        row.querySelector('.category-manager-name').addEventListener('click', () => startRenameCategoryInline(cat, row));
+        row.querySelector('.category-manager-del-btn').addEventListener('click', () => deleteKnownCategory(cat));
+        list.appendChild(row);
+    });
 }
 
 function refreshApp() {
@@ -1064,9 +1361,11 @@ function renderDayScheduleStack() {
     const desktopContainer = document.getElementById('timeline-container');
     const desktopSummary = document.getElementById('hours-summary');
     const desktopTitle = document.getElementById('selected-date-title');
+    const desktopFilterInput = document.getElementById('day-category-filter');
 
     const mobileContainer = document.getElementById('mobile-timeline-container');
     const mobileSummary = document.getElementById('mobile-hours-summary');
+    const mobileFilterInput = document.getElementById('mobile-day-category-filter');
 
     if (desktopTitle) desktopTitle.innerText = `Add Activity - ${selectedDateStr}`;
     
@@ -1074,88 +1373,115 @@ function renderDayScheduleStack() {
     if (mobileContainer) mobileContainer.innerHTML = '';
 
     const blocks = timeData[selectedDateStr] || [];
-    let totalHrs = 0;
 
-    blocks.forEach((block, index) => {
-        totalHrs += parseFloat(block.hours || 0);
-        const color = getCategoryColor(block.category);
-        const isProjected = block.type === 'projected';
+    // Renders one surface (desktop or mobile) against its own filter -
+    // desktop and mobile are separate views (you're generally using one
+    // or the other, not both at once), so each gets its own independent
+    // filter text rather than being forced to match.
+    function renderSurface(container, summaryEl, totalsEl, filterInput) {
+        if (!container) return;
+        const filterText = (filterInput && filterInput.value.trim().toLowerCase()) || '';
+        // Keep each block's ORIGINAL index into timeData[selectedDateStr]
+        // even after filtering, so edit/delete still target the right
+        // underlying entry regardless of how the filtered list re-orders
+        // or shortens things.
+        const filtered = blocks
+            .map((block, index) => ({ block, index }))
+            .filter(({ block }) => !filterText || (block.category || 'General').toLowerCase().includes(filterText));
 
-        const card = document.createElement('div');
-        card.className = 'time-block';
-        if (selectedBlockReference && selectedBlockReference.dateKey === selectedDateStr && selectedBlockReference.index === index) {
-            card.classList.add('selected-block');
-        }
-        card.style.borderLeftColor = color;
-        if (isProjected) card.style.opacity = '0.65';
+        let filteredTotalHrs = 0;
+        filtered.forEach(({ block, index }) => {
+            filteredTotalHrs += parseFloat(block.hours || 0);
+            const color = getCategoryColor(block.category);
+            const isProjected = block.type === 'projected';
 
-        card.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openEditModal(selectedDateStr, index, e);
+            const card = document.createElement('div');
+            card.className = 'time-block';
+            if (selectedBlockReference && selectedBlockReference.dateKey === selectedDateStr && selectedBlockReference.index === index) {
+                card.classList.add('selected-block');
+            }
+            card.style.borderLeftColor = color;
+            if (isProjected) card.style.opacity = '0.65';
+
+            card.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openEditModal(selectedDateStr, index, e);
+            });
+
+            const hoursLabel = Number(block.hours || 0).toFixed(Number(block.hours || 0) % 1 === 0 ? 0 : 1);
+            card.innerHTML = `
+                <div class="time-block-pill" style="background:${color};">${hoursLabel}h</div>
+                <div class="time-block-info">
+                    <div class="time-block-top">
+                        <strong class="time-block-cat" style="color:${color}">${escapeHtml(block.category || 'General')}</strong>
+                        ${isProjected ? '<span title="Planned">🌫️</span>' : ''}
+                    </div>
+                    <div class="time-block-desc">${escapeHtml(block.name || 'No description')}</div>
+                </div>
+                <div class="time-block-side">
+                    <span class="time-block-time">${block.timeRange || ''}</span>
+                    <span class="time-block-edit-hint" title="Tap to edit">✎</span>
+                    <div class="block-actions">
+                        ${isProjected ? `<button class="done-btn" onclick="event.stopPropagation(); toggleBlockPlane('${selectedDateStr}', ${index})" title="Mark as Done">✅</button>` : ''}
+                        <button class="del-btn" onclick="event.stopPropagation(); deleteBlock('${selectedDateStr}', ${index})" title="Delete">✕</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
         });
 
-        const hoursLabel = Number(block.hours || 0).toFixed(Number(block.hours || 0) % 1 === 0 ? 0 : 1);
-        card.innerHTML = `
-            <div class="time-block-pill" style="background:${color};">${hoursLabel}h</div>
-            <div class="time-block-info">
-                <div class="time-block-top">
-                    <strong class="time-block-cat" style="color:${color}">${escapeHtml(block.category || 'General')}</strong>
-                    ${isProjected ? '<span title="Planned">🌫️</span>' : ''}
-                </div>
-                <div class="time-block-desc">${escapeHtml(block.name || 'No description')}</div>
-            </div>
-            <div class="time-block-side">
-                <span class="time-block-time">${block.timeRange || ''}</span>
-                <span class="time-block-edit-hint" title="Tap to edit">✎</span>
-                <div class="block-actions">
-                    ${isProjected ? `<button class="done-btn" onclick="event.stopPropagation(); toggleBlockPlane('${selectedDateStr}', ${index})" title="Mark as Done">✅</button>` : ''}
-                    <button class="del-btn" onclick="event.stopPropagation(); deleteBlock('${selectedDateStr}', ${index})" title="Delete">✕</button>
-                </div>
-            </div>
-        `;
-
-        if (desktopContainer) desktopContainer.appendChild(card.cloneNode(true));
-        if (mobileContainer) mobileContainer.appendChild(card);
-    });
-
-    if (blocks.length === 0) {
-        if (desktopContainer) desktopContainer.appendChild(buildExampleActivityCard());
-        if (mobileContainer) {
-            mobileContainer.innerHTML = '<div class="mobile-day-empty">No activities logged yet.</div>';
-            mobileContainer.appendChild(buildExampleActivityCard());
+        if (filtered.length === 0) {
+            if (filterText) {
+                container.innerHTML = `<div class="mobile-day-empty">No "${escapeHtml(filterText)}" activities today.</div>`;
+            } else {
+                if (container === desktopContainer) container.appendChild(buildExampleActivityCard());
+                else {
+                    container.innerHTML = '<div class="mobile-day-empty">No activities logged yet.</div>';
+                    container.appendChild(buildExampleActivityCard());
+                }
+            }
         }
+
+        if (summaryEl) {
+            summaryEl.innerText = filterText
+                ? `${filterInput.value.trim()}: ${filteredTotalHrs.toFixed(2)} hrs`
+                : `Logged Today: ${filteredTotalHrs.toFixed(2)} hrs`;
+        }
+
+        // Category pills only make sense for the unfiltered ("show
+        // everything") view - once you've filtered down to one
+        // category, the single summary line above already says
+        // everything the pills would.
+        if (totalsEl) {
+            if (filterText) {
+                totalsEl.innerHTML = '';
+            } else {
+                const categoryTotals = {};
+                blocks.forEach(block => {
+                    if ((block.type || 'actual') !== 'actual') return;
+                    const cat = block.category || 'General';
+                    categoryTotals[cat] = (categoryTotals[cat] || 0) + (parseFloat(block.hours) || 0);
+                });
+                const sortedTotals = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+                totalsEl.innerHTML = sortedTotals.map(([cat, hrs]) => {
+                    const color = getCategoryColor(cat);
+                    const hoursLabel = hrs.toFixed(hrs % 1 === 0 ? 0 : 1);
+                    return `<div class="category-day-total-pill" style="border-color:${color};"><span style="color:${color};">${escapeHtml(cat)}</span> · ${hoursLabel}h</div>`;
+                }).join('');
+            }
+        }
+
+        return filteredTotalHrs;
     }
 
-    const summaryText = `Logged Today: ${totalHrs.toFixed(2)} hrs`;
-    if (desktopSummary) desktopSummary.innerText = summaryText;
-    if (mobileSummary) mobileSummary.innerText = summaryText;
-
-    // Auto-summed per-category totals for the day - e.g. three separate
-    // Coding sessions of 1.5h each show up here as one "Coding 4.5h"
-    // line, computed automatically rather than the person needing to
-    // add up scattered entries themselves. Only counts real completed
-    // time (skips projected/planned blocks), same as everywhere else
-    // "actual hours" is calculated in this app.
-    const categoryTotals = {};
-    blocks.forEach(block => {
-        if ((block.type || 'actual') !== 'actual') return;
-        const cat = block.category || 'General';
-        categoryTotals[cat] = (categoryTotals[cat] || 0) + (parseFloat(block.hours) || 0);
-    });
-    const sortedTotals = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
-    const totalsHtml = sortedTotals.length === 0 ? '' : sortedTotals.map(([cat, hrs]) => {
-        const color = getCategoryColor(cat);
-        const hoursLabel = hrs.toFixed(hrs % 1 === 0 ? 0 : 1);
-        return `<div class="category-day-total-pill" style="border-color:${color};"><span style="color:${color};">${escapeHtml(cat)}</span> · ${hoursLabel}h</div>`;
-    }).join('');
-
-    const desktopTotals = document.getElementById('category-day-totals');
-    const mobileTotals = document.getElementById('mobile-category-day-totals');
-    if (desktopTotals) desktopTotals.innerHTML = totalsHtml;
-    if (mobileTotals) mobileTotals.innerHTML = totalsHtml;
+    renderSurface(desktopContainer, desktopSummary, document.getElementById('category-day-totals'), desktopFilterInput);
+    const mobileFilteredTotal = renderSurface(mobileContainer, mobileSummary, document.getElementById('mobile-category-day-totals'), mobileFilterInput);
 
     const sheetSub = document.getElementById('mobile-sheet-subtitle');
-    if (sheetSub) sheetSub.innerText = `${totalHrs.toFixed(2)} / 24 Hours`;
+    if (sheetSub) {
+        const fullDayTotal = blocks.reduce((s, b) => s + parseFloat(b.hours || 0), 0);
+        sheetSub.innerText = `${fullDayTotal.toFixed(2)} / 24 Hours`;
+    }
 }
 
 // --- MOBILE DAILY MODAL CONTROLS ---
@@ -1921,21 +2247,6 @@ function buildDayColumnEl(dateKey) {
             });
             addDoubleTapListener(slot, (e) => openQuickAddModal(dateKey, h, e));
 
-            // Completes an armed two-tap move (see toggleArmedMoveBlock)
-            // - a single tap here, only while something is actually
-            // armed. Does nothing otherwise, so the normal double-tap-
-            // to-add-activity behavior above is completely unaffected
-            // when nothing's armed.
-            slot.addEventListener('touchend', (e) => {
-                if (!armedMoveBlockRef) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const { dateKey: fromDate, index: fromIndex } = armedMoveBlockRef;
-                armedMoveBlockRef = null;
-                if (navigator.vibrate) navigator.vibrate(30);
-                moveTimeBlockAbsolute(fromDate, fromIndex, dateKey, h, 0);
-            });
-
             dayCol.appendChild(slot);
         }
 
@@ -1946,6 +2257,10 @@ function buildDayColumnEl(dateKey) {
             const blockType = block.type || 'actual';
 
             if (activePlaneFilter !== 'all' && blockType !== activePlaneFilter) {
+                return;
+            }
+
+            if (hiddenCategories.some(c => c.toLowerCase() === (block.category || 'general').toLowerCase())) {
                 return;
             }
 
@@ -2024,18 +2339,18 @@ function buildDayColumnEl(dateKey) {
                 setSelectedBlock(dateKey, index);
             });
 
-            // Desktop double-click still opens the editor - unchanged,
-            // since mouse drag-and-drop already handles moving fine on
-            // desktop. Touch double-tap is different now: it arms the
-            // block for a two-tap move instead (see toggleArmedMoveBlock
-            // and the touchend handler on each hour slot further down) -
-            // editing on touch now happens through the long-press context
-            // menu's Edit option instead.
+            // Double-tap on an existing activity now opens the same
+            // quick-action menu long-press does (Move/Resize/Delete
+            // first, Edit Details last - see the menu's own reordering)
+            // rather than jumping straight to the edit-details form.
+            // Double-tapping EMPTY space is unaffected - that's a
+            // different listener entirely (on the hour slot, further
+            // down) and still opens the create-new-activity modal.
             vBlock.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                openEditModal(dateKey, index, e);
+                openBlockContextMenu(e, dateKey, index, block.category, blockType);
             });
-            addDoubleTapListener(vBlock, () => toggleArmedMoveBlock(dateKey, index));
+            addDoubleTapListener(vBlock, (e) => openBlockContextMenu(e, dateKey, index, block.category, blockType));
 
             // Right-click context menu
             vBlock.addEventListener('contextmenu', (e) => {
@@ -2305,31 +2620,22 @@ function buildDayColumnEl(dateKey) {
             const gapLabel = gapMinutes >= 60 ? `${(gapMinutes / 60).toFixed(1)}h` : `${gapMinutes}m`;
             gapBtn.title = `Fill gap (${gapLabel})`;
             gapBtn.innerHTML = '<span>+</span>';
-            gapBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // On mobile, the first tap only reveals the icon (see
-                // the long-press handler below) - this click handler
-                // still fires on that same tap, so only actually
-                // complete the action if the icon was already visible
-                // BEFORE this tap (i.e. revealed by an earlier
-                // long-press, or hovering on desktop).
-                if (isMobileNavViewport() && !gapZone.classList.contains('revealed')) return;
-                openGapFillModal(dateKey, lastEndMinutes, nowMinutes);
-            });
-            gapZone.appendChild(gapBtn);
 
-            // Mobile: a brief hold reveals the icon (no "hover" exists
-            // on touch) - a separate subsequent tap on it then
-            // completes the action, handled by the click listener above.
-            let holdTimer = null;
-            gapZone.addEventListener('touchstart', () => {
-                holdTimer = setTimeout(() => {
-                    gapZone.classList.add('revealed');
-                    if (navigator.vibrate) navigator.vibrate(20);
-                }, 400);
-            }, { passive: true });
-            gapZone.addEventListener('touchend', () => clearTimeout(holdTimer));
-            gapZone.addEventListener('touchmove', () => clearTimeout(holdTimer));
+            // A single, direct tap/click always works now - the earlier
+            // two-step "hold to reveal, then tap to confirm" was proving
+            // unreliable on real devices, so this trades a little of the
+            // original "completely invisible until hovered" look (see
+            // .calendar-fill-gap-btn in the CSS - it now stays faintly
+            // visible by default on touch) for something that just
+            // works on the first try every time.
+            const activate = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openGapFillModal(dateKey, lastEndMinutes, nowMinutes);
+            };
+            gapBtn.addEventListener('click', activate);
+            gapBtn.addEventListener('touchend', activate);
+            gapZone.appendChild(gapBtn);
 
             dayCol.appendChild(gapZone);
         }
@@ -2456,11 +2762,9 @@ function updateTodayNowLine() {
 
 function renderVisualMatrix() {
     const matrixGrid = document.getElementById('matrix-grid');
-    const legend = document.getElementById('category-legend');
     if (!matrixGrid) return;
 
     matrixGrid.innerHTML = '';
-    if (legend) legend.innerHTML = '';
 
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const parts = selectedDateStr.split('-');
@@ -2521,20 +2825,6 @@ function renderVisualMatrix() {
         const dateKey = formatDateKey(d);
 
         matrixGrid.appendChild(buildDayColumnEl(dateKey));
-    }
-
-    // Legend
-    if (legend) {
-        const usedCategories = new Set();
-        Object.values(timeData).flat().forEach(b => {
-            if (b.category) usedCategories.add(b.category.toLowerCase());
-        });
-        usedCategories.forEach(cat => {
-            const item = document.createElement('div');
-            item.className = 'legend-item';
-            item.innerHTML = `<div class="legend-color" style="background:${getCategoryColor(cat)}"></div><span>${cat}</span>`;
-            legend.appendChild(item);
-        });
     }
 }
 
@@ -2724,6 +3014,33 @@ function editContextBlock() {
     const { dateKey, index } = contextBlockInfo;
     closeBlockContextMenu();
     openEditModal(dateKey, index, null);
+}
+
+// Arms the block for moving, same as before - just started explicitly
+// from the menu now instead of a double-tap gesture that could
+// conflict with double-tapping the same block again to cancel it. The
+// actual move still shows the live drag preview (see updateDragGhost).
+function moveContextBlock() {
+    if (!contextBlockInfo) return;
+    const { dateKey, index } = contextBlockInfo;
+    closeBlockContextMenu();
+    toggleArmedMoveBlock(dateKey, index);
+}
+
+// Opens the same reliable edit modal used everywhere else, focused on
+// the End Time field specifically - deliberately not a drag gesture,
+// since the whole point is that a small (e.g. 15-minute) block doesn't
+// give a finger enough room to grab a resize handle precisely. Typing
+// an end time works regardless of how visually small the block is.
+function resizeContextBlock() {
+    if (!contextBlockInfo) return;
+    const { dateKey, index } = contextBlockInfo;
+    closeBlockContextMenu();
+    openEditModal(dateKey, index, null);
+    setTimeout(() => {
+        const endInput = document.getElementById('modal-end-time');
+        if (endInput) { endInput.focus(); endInput.select(); }
+    }, 50);
 }
 
 function toggleContextBlockPlane() {
@@ -6017,7 +6334,7 @@ let realtimeChannel = null;
 
 // Bundles everything worth syncing into one payload for the `app_data` column.
 function buildSyncPayload() {
-    return { timeData, backlogItems, categoryGoals, customCategoryColors, notesData, notesNotebooks, trashedItems };
+    return { timeData, backlogItems, categoryGoals, customCategoryColors, notesData, notesNotebooks, trashedItems, manualCategories, hiddenCategories };
 }
 
 // Debounced cloud save — called from every existing local save function so
@@ -6296,6 +6613,14 @@ function applyCloudSnapshot(cloudData) {
     notesData = cloudData.notesData || [];
     notesNotebooks = cloudData.notesNotebooks || [];
     trashedItems = cloudData.trashedItems || [];
+    // manualCategories previously only lived in localStorage (this is
+    // the first version that syncs it to the cloud too) - merge rather
+    // than overwrite, so anyone who already added categories locally
+    // before this update doesn't lose them the moment cloud data (which
+    // won't have them yet) loads in.
+    const localManualCategories = JSON.parse(localStorage.getItem('manualCategories') || '[]');
+    manualCategories = [...new Set([...localManualCategories, ...(cloudData.manualCategories || [])])];
+    hiddenCategories = cloudData.hiddenCategories || [];
 
     localStorage.setItem('flexibleTimeData', JSON.stringify(timeData));
     localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
@@ -6304,6 +6629,8 @@ function applyCloudSnapshot(cloudData) {
     localStorage.setItem('notesData', JSON.stringify(notesData));
     localStorage.setItem('notesNotebooks', JSON.stringify(notesNotebooks));
     localStorage.setItem('trashedItems', JSON.stringify(trashedItems));
+    localStorage.setItem('manualCategories', JSON.stringify(manualCategories));
+    localStorage.setItem('hiddenCategories', JSON.stringify(hiddenCategories));
 
     purgeExpiredTrash(); // quietly cleans out anything past the 30-day window, and its media, on every fresh load
 

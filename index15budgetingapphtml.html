@@ -239,8 +239,24 @@
                 <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
             </div>
 
-            <!-- Category color legend -->
-            <div class="category-legend" id="category-legend"></div>
+            <!-- Category manager - a dropdown instead of an always-on
+                 row, since a long-used app can accumulate a lot of
+                 categories and a flat row of all of them just gets
+                 messy. See renderCategoryManagerDropdown() in the JS. -->
+            <div class="category-manager" id="category-manager">
+                <button type="button" class="category-manager-trigger" onclick="toggleCategoryManagerDropdown()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+                    Categories
+                    <span class="category-manager-arrow">▾</span>
+                </button>
+                <div class="category-manager-panel" id="category-manager-panel">
+                    <div class="category-manager-add-row">
+                        <input type="text" id="category-manager-add-input" placeholder="Add a category..." onkeydown="if(event.key==='Enter') submitAddKnownCategory();">
+                        <button type="button" onclick="submitAddKnownCategory()">+</button>
+                    </div>
+                    <div class="category-manager-list" id="category-manager-list"></div>
+                </div>
+            </div>
         </div>
         
         <div class="planner-body-row">
@@ -370,6 +386,7 @@
             <!-- DAILY SCHEDULE STACK -->
             <div class="card" id="day-schedule-card">
                 <h2>Day Activities</h2>
+                <input type="text" id="day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." list="category-list" oninput="renderDayScheduleStack()">
                 <div class="hours-summary" id="hours-summary">Logged Today: 0 hrs</div>
                 <!-- Auto-summed totals per category for this day (e.g.
                      three separate Coding sessions adding up to one
@@ -652,9 +669,19 @@
         <!-- RIGHT-CLICK CONTEXT MENU -->
         <div id="block-context-menu" class="context-menu-overlay" style="display: none;">
             <div class="context-menu-content">
-                <button class="context-menu-item" onclick="editContextBlock()">
-                    <span style="font-size: 1rem;">✏️</span>
-                    <span>Edit Details</span>
+                <button class="context-menu-item" onclick="moveContextBlock()">
+                    <span style="font-size: 1rem;">📦</span>
+                    <span>Move</span>
+                </button>
+
+                <button class="context-menu-item" onclick="resizeContextBlock()">
+                    <span style="font-size: 1rem;">↕️</span>
+                    <span>Resize</span>
+                </button>
+
+                <button class="context-menu-item delete-item" onclick="deleteContextBlock()">
+                    <span style="font-size: 1rem;">🗑️</span>
+                    <span>Delete (Supr)</span>
                 </button>
 
                 <hr class="context-divider">
@@ -666,9 +693,9 @@
 
                 <hr class="context-divider">
 
-                <button class="context-menu-item delete-item" onclick="deleteContextBlock()">
-                    <span style="font-size: 1rem;">🗑️</span>
-                    <span>Delete (Supr)</span>
+                <button class="context-menu-item" onclick="editContextBlock()">
+                    <span style="font-size: 1rem;">✏️</span>
+                    <span>Edit Details</span>
                 </button>
                 
                 <hr class="context-divider">
@@ -723,6 +750,12 @@
                     <button type="button" class="mobile-add-activity-btn" onclick="openMobileAddModal()">
                         <span>＋</span> <span>Add Activity</span>
                     </button>
+
+                    <!-- Typing a category here filters everything below to
+                         just that category, with its own total - clearing
+                         it goes back to showing everything and the full-day
+                         total. See renderDayScheduleStack() in the JS. -->
+                    <input type="text" id="mobile-day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." list="category-list" oninput="renderDayScheduleStack()">
 
                     <div class="hours-summary" id="mobile-hours-summary">Logged Today: 0 hrs</div>
                     <div class="category-day-totals" id="mobile-category-day-totals"></div>

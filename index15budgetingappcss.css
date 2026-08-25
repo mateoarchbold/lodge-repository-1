@@ -467,15 +467,21 @@ h2 {
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 /* Desktop: hovering anywhere in the gap zone reveals the icon - plain
-   CSS, no JS needed for this half. */
+   CSS, no JS needed for this half, and mouse hover has never been the
+   unreliable part. */
 .calendar-fill-gap-zone:hover .calendar-fill-gap-btn {
     opacity: 1;
 }
-/* Mobile: a brief hold on the zone adds this class (see the
-   touchstart timer in buildDayColumnEl) instead of relying on hover,
-   which doesn't exist on touch. */
-.calendar-fill-gap-zone.revealed .calendar-fill-gap-btn {
-    opacity: 1;
+
+/* Mobile: no "hover" exists on touch, and the earlier two-step
+   "hold to reveal, then tap to confirm" proved unreliable in practice -
+   so instead the icon just stays faintly visible by default (not
+   fully invisible, but not loud either) and a single direct tap always
+   works immediately, no reveal step required. */
+@media (max-width: 768px) {
+    .calendar-fill-gap-btn {
+        opacity: 0.55;
+    }
 }
 
 .display {
@@ -867,6 +873,18 @@ input:focus {
 .block-actions .del-btn:hover { 
     background: rgba(239, 68, 68, 0.1); 
     color: var(--danger); 
+}
+
+.day-category-filter-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
 }
 
 .hours-summary {
@@ -1609,6 +1627,29 @@ summary.details-summary:hover {
     50% { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.15); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 15%, transparent); }
 }
 
+/* Live preview that follows the finger while a block is armed and
+   being dragged (see updateDragGhost) - shows exactly where it would
+   land if released right now. Fixed position + appended to document.body
+   so it floats correctly above everything regardless of which
+   scrollable container it's currently over. */
+.touch-drag-ghost {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    background: var(--accent);
+    color: #fff;
+    border: 2px dashed #fff;
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: monospace;
+    pointer-events: none;
+    opacity: 0.9;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+
 .visual-block-title {
     font-weight: bold;
     text-transform: capitalize;
@@ -1869,6 +1910,21 @@ summary.details-summary:hover {
     cursor: ns-resize;
     background: transparent;
     touch-action: none;
+}
+/* Touch-only enlarged hit area - a 15-minute block is only ~10px
+   tall, making the handle itself far too small to reliably grab with
+   a finger (well under any reasonable touch-target minimum). This
+   extends the actual touchable region well beyond the handle's own
+   tiny visual bounds without changing how it looks or affecting mouse
+   precision on desktop - touches anywhere in this larger invisible
+   area still register on .resize-handle itself. */
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    bottom: -8px;
 }
 
 /* --- WEEK / MONTH NAV BAR (below the big calendar grid) --- */
@@ -2314,6 +2370,139 @@ summary.details-summary:hover {
 }
 
 /* --- TWO-PLANE FILTER TOGGLE BAR --- */
+/* --- CATEGORY MANAGER DROPDOWN --- */
+.category-manager {
+    position: relative;
+    margin-top: 10px;
+}
+.category-manager-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.category-manager-arrow {
+    margin-left: auto;
+    transition: transform 0.15s ease;
+}
+.category-manager-trigger.open .category-manager-arrow {
+    transform: rotate(180deg);
+}
+.category-manager-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 50;
+    width: 260px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+}
+.category-manager-panel.open {
+    max-height: 400px;
+    overflow-y: auto;
+    opacity: 1;
+    pointer-events: auto;
+}
+.category-manager-add-row {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+}
+.category-manager-add-row input {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: var(--text);
+    font-size: 0.8rem;
+}
+.category-manager-add-row button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    width: 28px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.category-manager-list {
+    padding: 4px;
+}
+.category-manager-empty {
+    padding: 14px 10px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+.category-manager-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 6px;
+    border-radius: 6px;
+}
+.category-manager-row:hover {
+    background: var(--input-bg);
+}
+.category-manager-visibility-cb {
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.category-manager-swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.category-manager-name {
+    flex: 1;
+    font-size: 0.82rem;
+    color: var(--text);
+    cursor: text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.category-manager-rename-input {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: var(--text);
+    font-size: 0.82rem;
+}
+.category-manager-del-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.78rem;
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+.category-manager-del-btn:hover {
+    opacity: 1;
+}
+
 .plane-toggle-bar {
     display: flex;
     align-items: center;
