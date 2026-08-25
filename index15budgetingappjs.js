@@ -90,6 +90,20 @@ function toggleArmedMoveBlock(dateKey, index) {
     renderVisualMatrix();
 }
 
+// Same "double-tap to arm, tap a destination to complete" pattern as
+// the calendar's touch-move (see toggleArmedMoveBlock above) - reused
+// here for Kanban cards, since native HTML5 drag-and-drop (what the
+// mouse path uses) doesn't fire on touch at all, and this keeps the
+// touch interaction language consistent with how moving already works
+// everywhere else in the app rather than inventing a different gesture.
+let armedMoveBoardCardId = null;
+
+function toggleArmedMoveBoardCard(itemId) {
+    armedMoveBoardCardId = (armedMoveBoardCardId === itemId) ? null : itemId;
+    if (armedMoveBoardCardId && navigator.vibrate) navigator.vibrate(30);
+    renderBoardSection();
+}
+
 // Track active selected backlog item (same idea, for the backlog strip)
 let selectedBacklogId = null;
 
@@ -631,6 +645,42 @@ function setPlaneFilter(plane) {
 // --- THEME SWITCHER LOGIC ---
 const THEME_ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>';
 const THEME_ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
+
+// --- HEADER HAMBURGER MENU (mobile) ---
+// On phones, the row of action buttons (Home/Save/Account/Theme/
+// Dropbox) collapses behind a single hamburger button instead of
+// always taking up its own strip of vertical space - freeing that
+// space up for the Chronometer and Today strip below it. Desktop is
+// unaffected (the button itself is hidden there via CSS, and the row
+// stays visible as it always has).
+function toggleHeaderMenu() {
+    const wrap = document.getElementById('header-actions-wrap');
+    const backdrop = document.getElementById('header-menu-backdrop');
+    const btn = document.getElementById('header-menu-btn');
+    if (!wrap) return;
+    const opening = !wrap.classList.contains('open');
+    wrap.classList.toggle('open', opening);
+    if (backdrop) backdrop.classList.toggle('visible', opening);
+    if (btn) btn.classList.toggle('open', opening);
+}
+
+function closeHeaderMenu() {
+    const wrap = document.getElementById('header-actions-wrap');
+    const backdrop = document.getElementById('header-menu-backdrop');
+    const btn = document.getElementById('header-menu-btn');
+    if (wrap) wrap.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('visible');
+    if (btn) btn.classList.remove('open');
+}
+(function setupHeaderMenuAutoClose() {
+    const wrap = document.getElementById('header-actions-wrap');
+    if (!wrap) return;
+    wrap.addEventListener('click', (e) => {
+        if (e.target.closest('.theme-toggle-btn') && isMobileNavViewport()) {
+            setTimeout(closeHeaderMenu, 150); // small delay so the actual click (e.g. theme swap) visibly registers first
+        }
+    });
+})();
 
 function toggleTheme() {
     document.documentElement.classList.toggle('light-theme');
@@ -2232,9 +2282,100 @@ function buildDayColumnEl(dateKey) {
         nowLine.className = 'calendar-now-line';
         nowLine.innerHTML = '<span class="calendar-now-line-label"></span>';
         dayCol.appendChild(nowLine);
+
+        // "Fill Gap" - if there's unlogged time between whatever was
+        // last entered and right now (e.g. logged 3-4, it's now 7, and
+        // you know you've just been doing one thing that whole time),
+        // this is the one-button way to say so - opens the normal Add
+        // Activity modal already pre-filled with that exact gap's start
+        // and end time, so only category/notes are left to type in.
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const lastEndMinutes = getLatestActualBlockEndMinutes(dateKey);
+        const gapMinutes = nowMinutes - lastEndMinutes;
+        if (gapMinutes >= 10) { // ignore tiny/noise gaps under 10 min - not worth a button for those
+            const gapZone = document.createElement('div');
+            gapZone.className = 'calendar-fill-gap-zone';
+            gapZone.style.top = `${(lastEndMinutes / 60) * 40}px`;
+            gapZone.style.height = `${Math.max((gapMinutes / 60) * 40, 20)}px`;
+
+            const gapBtn = document.createElement('button');
+            gapBtn.type = 'button';
+            gapBtn.className = 'calendar-fill-gap-btn';
+            const gapLabel = gapMinutes >= 60 ? `${(gapMinutes / 60).toFixed(1)}h` : `${gapMinutes}m`;
+            gapBtn.title = `Fill gap (${gapLabel})`;
+            gapBtn.innerHTML = '<span>+</span>';
+            gapBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // On mobile, the first tap only reveals the icon (see
+                // the long-press handler below) - this click handler
+                // still fires on that same tap, so only actually
+                // complete the action if the icon was already visible
+                // BEFORE this tap (i.e. revealed by an earlier
+                // long-press, or hovering on desktop).
+                if (isMobileNavViewport() && !gapZone.classList.contains('revealed')) return;
+                openGapFillModal(dateKey, lastEndMinutes, nowMinutes);
+            });
+            gapZone.appendChild(gapBtn);
+
+            // Mobile: a brief hold reveals the icon (no "hover" exists
+            // on touch) - a separate subsequent tap on it then
+            // completes the action, handled by the click listener above.
+            let holdTimer = null;
+            gapZone.addEventListener('touchstart', () => {
+                holdTimer = setTimeout(() => {
+                    gapZone.classList.add('revealed');
+                    if (navigator.vibrate) navigator.vibrate(20);
+                }, 400);
+            }, { passive: true });
+            gapZone.addEventListener('touchend', () => clearTimeout(holdTimer));
+            gapZone.addEventListener('touchmove', () => clearTimeout(holdTimer));
+
+            dayCol.appendChild(gapZone);
+        }
     }
 
     return dayCol;
+}
+
+// The latest end time (in minutes since midnight) among today's real,
+// completed activities - planned/projected blocks don't count, since
+// the whole point is "what have I ACTUALLY been doing since then".
+// Returns 0 (midnight) if nothing's logged yet today.
+function getLatestActualBlockEndMinutes(dateKey) {
+    const blocks = timeData[dateKey] || [];
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    let latest = 0;
+    blocks.forEach(block => {
+        if ((block.type || 'actual') !== 'actual' || !block.timeRange) return;
+        const parts = block.timeRange.split(' to ');
+        if (parts.length !== 2) return;
+        const [endH, endM] = parts[1].split(':').map(Number);
+        const endMinutes = endH * 60 + endM;
+        // Only counts blocks that have ALREADY ended by now - a block
+        // later than the current time (e.g. something logged ahead of
+        // time) must never count as "the last thing that happened", or
+        // the gap calculation goes negative and silently produces no
+        // button anywhere on the page.
+        if (endMinutes > latest && endMinutes <= nowMinutes) latest = endMinutes;
+    });
+    return latest;
+}
+
+// Opens the normal Add Activity modal, pre-filled with the exact gap
+// boundaries (see the Fill Gap button above) - category/notes are the
+// only thing left to fill in.
+function openGapFillModal(dateKey, startMinutes, endMinutes) {
+    const startH = Math.floor(startMinutes / 60), startM = startMinutes % 60;
+    openQuickAddModal(dateKey, startH, null);
+    const startInput = document.getElementById('modal-start-time');
+    const endInput = document.getElementById('modal-end-time');
+    if (startInput) startInput.value = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`;
+    if (endInput) {
+        const endH = Math.floor(endMinutes / 60), endM = endMinutes % 60;
+        endInput.value = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    }
 }
 
 // Renders the Today strip - a single-day mirror of the big calendar,
@@ -2307,6 +2448,10 @@ function updateTodayNowLine() {
         const lineLabel = line.querySelector('.calendar-now-line-label');
         if (lineLabel) lineLabel.textContent = timeLabel;
     });
+
+    const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const stopwatchLinkNowLabel = document.getElementById('stopwatch-link-now-label');
+    if (stopwatchLinkNowLabel) stopwatchLinkNowLabel.textContent = `· ${monthNamesShort[now.getMonth()]} ${now.getDate()}, ${timeLabel}`;
 }
 
 function renderVisualMatrix() {
@@ -3796,6 +3941,20 @@ function initBoardSection() {
                 draggedBlockInfo = null;
             }
         });
+
+        // Completes an armed touch-move (see toggleArmedMoveBoardCard) -
+        // a tap anywhere in this column while a card is armed moves it
+        // here. Does nothing when nothing's armed, so it's inert during
+        // normal scrolling/tapping.
+        el.addEventListener('touchend', (e) => {
+            if (!armedMoveBoardCardId) return;
+            if (e.target.closest('.board-card')) return; // let the card's own dblclick-arm/buttons handle taps directly on a card
+            e.preventDefault();
+            const movingId = armedMoveBoardCardId;
+            armedMoveBoardCardId = null;
+            if (navigator.vibrate) navigator.vibrate(30);
+            moveBoardItem(movingId, col.status, null);
+        });
     });
     renderBoardSection();
 }
@@ -3866,6 +4025,7 @@ function buildBoardCardEl(item, status) {
     const color = getCategoryColor(item.category);
     const card = document.createElement('div');
     card.className = `board-card ${status === 'done' ? 'board-card-done' : ''}`;
+    if (armedMoveBoardCardId === item.id) card.classList.add('board-card-move-armed');
     card.draggable = true;
     card.dataset.backlogId = item.id;
     card.style.borderLeftColor = color;
@@ -3873,7 +4033,10 @@ function buildBoardCardEl(item, status) {
     card.innerHTML = `
         <div class="board-card-top">
             <span class="board-card-category" style="color:${color};">${item.type === 'projected' ? '🌫️ ' : ''}${escapeHtml(item.category)}</span>
-            <button type="button" class="board-card-del" title="Delete">✕</button>
+            <div class="board-card-top-actions">
+                <button type="button" class="board-card-edit" title="Edit">✎</button>
+                <button type="button" class="board-card-del" title="Delete">✕</button>
+            </div>
         </div>
         ${item.name ? `<div class="board-card-name">${escapeHtml(item.name)}</div>` : ''}
     `;
@@ -3882,12 +4045,21 @@ function buildBoardCardEl(item, status) {
         e.stopPropagation();
         deleteBacklogItem(item.id);
     });
+    card.querySelector('.board-card-edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openBacklogEditModal(item.id, e);
+    });
 
+    // Desktop mouse: dblclick still opens the editor directly, same as
+    // it always has. Touch: double-tap now arms the card for a two-tap
+    // move instead (see toggleArmedMoveBoardCard) - editing on touch
+    // goes through the explicit ✎ button above instead, the same
+    // tradeoff already made for calendar blocks.
     card.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         openBacklogEditModal(item.id, e);
     });
-    addDoubleTapListener(card, (e) => openBacklogEditModal(item.id, e));
+    addDoubleTapListener(card, () => toggleArmedMoveBoardCard(item.id));
 
     // Same dragstart shape the drawer already uses (source:'backlog',
     // backlogId) - this is exactly what makes dragging a card straight

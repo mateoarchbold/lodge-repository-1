@@ -132,7 +132,7 @@ button, input, select, textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 6px;
     color: var(--accent); /* Verdigris, matching the logo's own "NABU" wordmark color exactly */
 }
 
@@ -141,6 +141,10 @@ button, input, select, textarea {
     height: 48px;
     border-radius: 11px;
     flex-shrink: 0;
+}
+
+.header-menu-btn {
+    display: none; /* shown only on mobile - see the max-width:768px media query */
 }
 
 /* Home / Account / Theme row - three equal-sized "boxes" instead of
@@ -430,6 +434,48 @@ h2 {
     padding: 1px 4px;
     border-radius: 4px;
     white-space: nowrap;
+}
+
+/* The gap zone itself is completely invisible/plain by default - just
+   an empty positioned region layered over the grid, zero visual chrome
+   until interacted with. Only the small + icon inside it fades in. */
+.calendar-fill-gap-zone {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.calendar-fill-gap-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+/* Desktop: hovering anywhere in the gap zone reveals the icon - plain
+   CSS, no JS needed for this half. */
+.calendar-fill-gap-zone:hover .calendar-fill-gap-btn {
+    opacity: 1;
+}
+/* Mobile: a brief hold on the zone adds this class (see the
+   touchstart timer in buildDayColumnEl) instead of relying on hover,
+   which doesn't exist on touch. */
+.calendar-fill-gap-zone.revealed .calendar-fill-gap-btn {
+    opacity: 1;
 }
 
 .display {
@@ -1597,6 +1643,11 @@ summary.details-summary:hover {
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-muted);
+}
+.stopwatch-link-now-label {
+    font-weight: 400;
+    font-size: 0.72rem;
+    opacity: 0.8;
 }
 .stopwatch-toggle-switch {
     position: relative;
@@ -2889,6 +2940,24 @@ summary.details-summary:hover {
     white-space: nowrap;
 }
 
+.board-card-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.board-card-edit {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.72rem;
+    padding: 2px 4px;
+    line-height: 1;
+}
+.board-card-edit:hover {
+    color: var(--accent);
+}
 .board-card-del {
     background: transparent;
     border: none;
@@ -2902,6 +2971,14 @@ summary.details-summary:hover {
 
 .board-card-del:hover {
     color: var(--danger);
+}
+
+/* Armed for a two-tap move (see toggleArmedMoveBoardCard) - same
+   pulsing treatment as the calendar's .move-armed, for a consistent
+   "this will move on your next tap" visual language across the app. */
+.board-card-move-armed {
+    outline: 2px dashed var(--accent);
+    animation: moveArmedPulse 1s ease-in-out infinite;
 }
 
 .board-card-name {
@@ -3100,58 +3177,99 @@ summary.details-summary:hover {
   .header-container, 
   header {
     display: flex !important;
-    flex-direction: column !important;
+    flex-direction: row !important;
     align-items: center !important;
+    justify-content: center !important;
     text-align: center !important;
-    gap: 12px !important;
+    gap: 8px !important;
+    position: relative !important;
   }
 
-  /* The icon row (Home/Save/Account/Theme/Dropbox) at its normal desktop
-     size (78px-wide labeled buttons) simply doesn't fit most phone
-     screens - 5 of them add up to well over 400px. A scrolling row was
-     tried here first, but a left-aligned scrolling row with empty space
-     on the right just looks lopsided, not intentional. This is the
-     better fix: shrink to small icon-only circles on mobile specifically
-     (labels hidden, title="..." still gives the name on long-press/
-     hover) - small enough that all of them genuinely fit and can be
-     centered properly, the same way a normal toolbar looks, rather than
-     needing to scroll or peek at all. */
+  /* Hamburger button - hidden on desktop (see the non-mobile rule
+     further up implicitly not touching it), shown here top-right of
+     the header. The row of actions it opens moves into a dropdown
+     instead of its own always-visible strip - freeing up that
+     vertical space for the Chronometer/Today strip below. */
+  .header-menu-btn {
+    display: flex !important;
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-badge-bg);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    z-index: 1001;
+  }
+  .header-menu-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .header-menu-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+  }
+  .header-menu-backdrop.visible {
+    display: block;
+  }
+
+  /* The dropdown itself - hidden by default (collapsed, invisible),
+     expands open when toggleHeaderMenu() adds .open. Positioned to
+     drop down from the top-right, under the hamburger button. */
   .header-actions-wrap {
-    width: 100%;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 4px;
+    width: auto;
+    z-index: 1000;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    padding: 10px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+  }
+  .header-actions-wrap.open {
+    max-height: 400px;
+    opacity: 1;
+    pointer-events: auto;
   }
   .header-actions {
     display: flex !important;
-    gap: 10px !important;
-    justify-content: center !important;
+    gap: 8px !important;
     flex-wrap: wrap !important;
+    justify-content: center !important;
     overflow: visible !important;
     padding: 2px !important;
     margin: 0 !important;
+    width: 190px;
   }
   .header-actions .theme-toggle-btn {
-    width: 48px !important;
-    height: 48px !important;
-    border-radius: 50% !important;
-    padding: 0 !important;
-    gap: 0 !important;
-    /* The base .theme-toggle-btn rule uses justify-content:flex-start
-       (needed on desktop so icons stay aligned regardless of how long
-       each button's text label is - see the desktop alignment fix).
-       On mobile there's no text label at all (hidden below), just the
-       one icon - flex-start left it sitting at the TOP of this circle
-       instead of dead-center in it, which is exactly what looked "not
-       centered". With only one child and no label to worry about,
-       centering here is correct and safe. */
-    justify-content: center !important;
+    width: 78px !important;
+    height: 60px !important;
+    padding: 6px 4px !important;
+    justify-content: flex-start !important;
   }
-  /* Icon stays, the text label under it (span:last-child) is hidden -
-     the button's title="..." attribute still identifies it via a
-     long-press tooltip, same as any icon-only toolbar. */
   .header-actions .theme-toggle-btn span:last-child {
-    display: none !important;
+    display: block !important;
+    font-size: 0.68rem !important;
   }
   .header-actions .theme-toggle-btn span:first-child {
-    font-size: 1.3rem !important;
+    font-size: 1.1rem !important;
   }
 
   /* On phones, the title bar (Lodge Time Budgeter / Home / Account /
