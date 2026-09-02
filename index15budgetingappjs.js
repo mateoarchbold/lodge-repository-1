@@ -507,6 +507,10 @@ function refreshApp() {
     refreshAllCategoryDropdowns();
     activeLiveTimerRef = findActiveLiveTimer();
     renderLiveTimerWidget();
+    // Same rule as the modal's own chronometer button - hide it while a
+    // timer's already running (only one can run at a time).
+    const cardChronoBtn = document.getElementById('card-start-chronometer-btn');
+    if (cardChronoBtn) cardChronoBtn.style.display = activeLiveTimerRef ? 'none' : 'flex';
 
     // If a session survived a page reload (e.g. the tab was refreshed
     // while it was running), re-flip the toggle too - otherwise the
@@ -872,8 +876,23 @@ function setMode(mode) {
     inputMode = mode;
     document.getElementById('mode-simple')?.classList.toggle('active', mode === 'simple');
     document.getElementById('mode-exact')?.classList.toggle('active', mode === 'exact');
-    document.getElementById('simple-input-group').style.display = mode === 'simple' ? 'flex' : 'none';
-    document.getElementById('exact-input-group').style.display = mode === 'exact' ? 'flex' : 'none';
+    document.getElementById('hours-field-group').style.display = mode === 'simple' ? 'flex' : 'none';
+    document.getElementById('end-time-field-group').style.display = mode === 'exact' ? 'flex' : 'none';
+    // Hours mode has no separate "which time slot" step - re-suggest the
+    // next open slot as Start Time so it's ready to go, still editable
+    // if that's not actually the one wanted.
+    if (mode === 'simple') refreshCardStartTimeSuggestion();
+}
+
+// Suggests the next open slot today as a starting point for Start Time
+// (Hours mode on the card) - called on load and whenever Hours mode is
+// switched into, so the field is never stale, but never touched again
+// after that so it doesn't fight with something already typed in.
+function refreshCardStartTimeSuggestion() {
+    const startInput = document.getElementById('start-time');
+    if (!startInput) return;
+    const h = getNextAvailableHour(selectedDateStr);
+    startInput.value = `${String(h).padStart(2, '0')}:00`;
 }
 
 function setEntryType(type) {
@@ -911,25 +930,22 @@ function addTimeBlock() {
     const category = catInput.value.trim() || 'General';
     const name = actInput.value.trim();
 
-    let hours = 1.0;
-    let timeRange = '';
+    const startVal = document.getElementById('start-time').value || '09:00';
+    let endVal;
 
     if (inputMode === 'simple') {
-        const durInput = document.getElementById('duration-hours');
-        hours = parseFloat(durInput.value) || 1.0;
-        const startH = getNextAvailableHour(selectedDateStr);
-        const endH = Math.min(23, startH + Math.ceil(hours));
-        timeRange = `${String(startH).padStart(2, '0')}:00 to ${String(endH).padStart(2, '0')}:00`;
-    } else {
-        const startVal = document.getElementById('start-time').value || "09:00";
-        const endVal = document.getElementById('end-time').value || "11:00";
-
+        const durHours = parseFloat(document.getElementById('duration-hours').value) || 1;
         const [sH, sM] = startVal.split(':').map(Number);
-        const [eH, eM] = endVal.split(':').map(Number);
-
-        hours = Math.max(0.25, (eH + eM / 60) - (sH + sM / 60));
-        timeRange = `${startVal} to ${endVal}`;
+        const totalMins = Math.min(24 * 60 - 1, (sH * 60 + sM) + Math.round(durHours * 60));
+        endVal = `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}`;
+    } else {
+        endVal = document.getElementById('end-time').value || '11:00';
     }
+
+    const [sH, sM] = startVal.split(':').map(Number);
+    const [eH, eM] = endVal.split(':').map(Number);
+    const hours = Math.max(0.25, (eH + eM / 60) - (sH + sM / 60));
+    const timeRange = `${startVal} to ${endVal}`;
 
     if (!timeData[selectedDateStr]) timeData[selectedDateStr] = [];
     timeData[selectedDateStr].push({
@@ -946,6 +962,7 @@ function addTimeBlock() {
     const mobileSelect = document.getElementById('mobile-category-select');
     if (mobileSelect) mobileSelect.value = '';
     refreshApp();
+    if (inputMode === 'simple') refreshCardStartTimeSuggestion();
 }
 
 // --- PLANE FILTER CONTROL ---
@@ -1681,6 +1698,17 @@ function startLiveTimerFromModal() {
 
     const started = beginLiveTimer(dateKey, startH, startM || 0, category, name);
     if (started) closeQuickAddModal();
+}
+
+// Same idea as startLiveTimerFromModal() above, but for the desktop
+// Log Time card - uses whatever category/notes/start time are already
+// filled in there as the exact spot to start the chronometer, instead
+// of always starting at "right now".
+function startLiveTimerFromCard() {
+    const category = (document.getElementById('category-name').value || '').trim();
+    const name = (document.getElementById('activity-name').value || '').trim();
+    const [startH, startM] = (document.getElementById('start-time').value || '09:00').split(':').map(Number);
+    beginLiveTimer(selectedDateStr, startH, startM || 0, category, name);
 }
 
 function pauseResumeLiveTimer() {
@@ -3171,9 +3199,9 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     const deleteBtn = document.getElementById('modal-delete-btn');
     const chronoBtn = document.getElementById('modal-start-chronometer-btn');
     if (label) label.innerText = 'Add Activity';
-    if (submitBtn) submitBtn.innerText = 'ADD TIME BLOCK';
+    if (submitBtn) { submitBtn.innerText = '+'; submitBtn.title = 'Add Time Block'; }
     if (deleteBtn) deleteBtn.style.display = 'none';
-    if (chronoBtn) chronoBtn.style.display = activeLiveTimerRef ? 'none' : 'block';
+    if (chronoBtn) chronoBtn.style.display = activeLiveTimerRef ? 'none' : 'flex';
 
     if (modal) {
         modal.style.display = 'block';
@@ -3215,8 +3243,8 @@ function openEditModal(dateKey, index, clickEvent) {
     const deleteBtn = document.getElementById('modal-delete-btn');
     const chronoBtn = document.getElementById('modal-start-chronometer-btn');
     if (label) label.innerText = 'Edit Activity';
-    if (submitBtn) submitBtn.innerText = 'SAVE CHANGES';
-    if (deleteBtn) deleteBtn.style.display = 'block';
+    if (submitBtn) { submitBtn.innerText = '✓'; submitBtn.title = 'Save changes'; }
+    if (deleteBtn) deleteBtn.style.display = 'flex';
     if (chronoBtn) chronoBtn.style.display = 'none';
 
     if (modal) {
@@ -3266,8 +3294,8 @@ function openBacklogEditModal(backlogId, clickEvent) {
     const deleteBtn = document.getElementById('modal-delete-btn');
     const chronoBtn = document.getElementById('modal-start-chronometer-btn');
     if (label) label.innerText = 'Edit Backlog Item';
-    if (submitBtn) submitBtn.innerText = 'SAVE CHANGES';
-    if (deleteBtn) deleteBtn.style.display = 'block';
+    if (submitBtn) { submitBtn.innerText = '✓'; submitBtn.title = 'Save changes'; }
+    if (deleteBtn) deleteBtn.style.display = 'flex';
     if (chronoBtn) chronoBtn.style.display = 'none';
 
     if (modal) {
@@ -3546,16 +3574,13 @@ async function importData(event) {
     reader.readAsText(file);
 }
 
-// Downloads just the currently-open note as a plain, readable text file -
-// title, notebook, and every text block's content, in order (photos and
-// voice notes are noted by position but obviously can't go into a .txt
-// file - use "Export everything" above for a full JSON backup that
-// includes the actual media URLs).
-function exportCurrentNote() {
-    const note = notesData.find(n => n.id === currentNoteId);
-    if (!note) return;
+// Builds the same plain-text rendering of a note used by both
+// exportCurrentNote() (downloads it as a .txt) and copyCurrentNoteText()
+// (copies it straight to the clipboard) - title, notebook, and every
+// text block's content in order; photos/voice notes/dividers are noted
+// by position since they obviously can't become plain text themselves.
+function buildNotePlainText(note) {
     ensureNoteBlocks(note);
-
     const lines = [note.title || 'Untitled note'];
     if (note.notebook) lines.push(`Notebook: ${note.notebook}`);
     lines.push('');
@@ -3572,7 +3597,17 @@ function exportCurrentNote() {
         }
     });
 
-    const blob = new Blob([lines.join('\n\n')], { type: 'text/plain;charset=utf-8' });
+    return lines.join('\n\n');
+}
+
+// Downloads just the currently-open note as a plain, readable text file -
+// use "Export everything" above for a full JSON backup that includes the
+// actual media URLs.
+function exportCurrentNote() {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+
+    const blob = new Blob([buildNotePlainText(note)], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -4497,6 +4532,12 @@ let noteSaveDebounceTimer = null;
 let notesNotebooks = [];
 let activeNotebookFilter = '';
 let notesSearchQuery = '';
+// 'custom' keeps whatever order notes sit in notesData (drag to
+// reorder them there); 'alpha' sorts the visible list by title without
+// touching that underlying order, so switching back to "My order"
+// always restores exactly how they were arranged.
+let notesSortMode = localStorage.getItem('notesSortMode') || 'custom';
+let draggedNoteId = null;
 
 // Notes don't participate in the calendar/backlog undo stack (same as
 // categoryGoals and customCategoryColors below) - they're edited through
@@ -4667,6 +4708,26 @@ function renderNoteColorSwatches() {
         btn.addEventListener('click', () => setNoteColor(hex));
         wrap.appendChild(btn);
     });
+
+    // The trigger button shows the note's actual chosen color as a
+    // solid dot, or falls back to the CSS rainbow default (see
+    // .notes-color-trigger-dot) when it's using the theme color.
+    const dot = document.getElementById('notes-color-trigger-dot');
+    if (dot) dot.style.background = (note && note.color) ? note.color : '';
+}
+
+function toggleNoteColorPicker() {
+    const panel = document.getElementById('notes-color-picker-panel');
+    const trigger = document.getElementById('notes-color-trigger');
+    if (!panel) return;
+    const opening = !panel.classList.contains('open');
+    panel.classList.toggle('open', opening);
+    if (trigger) trigger.classList.toggle('open', opening);
+}
+
+function closeNoteColorPicker() {
+    document.getElementById('notes-color-picker-panel')?.classList.remove('open');
+    document.getElementById('notes-color-trigger')?.classList.remove('open');
 }
 
 function setNoteColor(hex) {
@@ -4678,6 +4739,76 @@ function setNoteColor(hex) {
     applyNotePageColor(note);
     renderNoteColorSwatches();
     renderNotesList();
+    closeNoteColorPicker();
+}
+
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('notes-color-picker-wrap');
+    const panel = document.getElementById('notes-color-picker-panel');
+    if (!wrap || !panel || !panel.classList.contains('open')) return;
+    if (!wrap.contains(e.target)) closeNoteColorPicker();
+});
+
+// --- "MORE OPTIONS" MENU (Delete / Download / Copy / Duplicate) ---
+function toggleNoteActionsMenu() {
+    const panel = document.getElementById('note-actions-menu-panel');
+    const trigger = document.getElementById('note-actions-menu-btn');
+    if (!panel) return;
+    const opening = !panel.classList.contains('open');
+    panel.classList.toggle('open', opening);
+    if (trigger) trigger.classList.toggle('open', opening);
+}
+
+function closeNoteActionsMenu() {
+    document.getElementById('note-actions-menu-panel')?.classList.remove('open');
+    document.getElementById('note-actions-menu-btn')?.classList.remove('open');
+}
+
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('note-actions-menu-wrap');
+    const panel = document.getElementById('note-actions-menu-panel');
+    if (!wrap || !panel || !panel.classList.contains('open')) return;
+    if (!wrap.contains(e.target)) closeNoteActionsMenu();
+});
+
+// Copies the note's plain-text rendering (same one exportCurrentNote
+// downloads as a .txt) straight to the clipboard instead - a quick way
+// to paste a note's contents somewhere else without a file changing
+// hands.
+async function copyCurrentNoteText() {
+    const note = notesData.find(n => n.id === currentNoteId);
+    closeNoteActionsMenu();
+    if (!note) return;
+    try {
+        await navigator.clipboard.writeText(buildNotePlainText(note));
+        setVoiceStatus('Note copied.');
+        setTimeout(() => setVoiceStatus(''), 1500);
+    } catch (err) {
+        setVoiceStatus("Couldn't copy that note.");
+        setTimeout(() => setVoiceStatus(''), 2000);
+    }
+}
+
+// Creates an identical copy of the current note (fresh id, fresh block
+// ids so editing one never touches the other) right above it in the
+// list, and opens the copy.
+function duplicateCurrentNote() {
+    const note = notesData.find(n => n.id === currentNoteId);
+    closeNoteActionsMenu();
+    if (!note) return;
+
+    const copy = JSON.parse(JSON.stringify(note));
+    copy.id = 'note_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    copy.title = note.title ? `${note.title} (copy)` : '';
+    copy.createdAt = Date.now();
+    copy.updatedAt = Date.now();
+    if (Array.isArray(copy.blocks)) {
+        copy.blocks.forEach(b => { b.id = genBlockId(); });
+    }
+
+    notesData.unshift(copy);
+    saveNotesData();
+    selectNote(copy.id);
 }
 
 // --- VOICE NOTES (inline blocks) ---
@@ -6226,6 +6357,9 @@ function renderNotesList() {
     const badge = document.getElementById('notes-count-badge');
     if (!list) return;
 
+    const sortSelect = document.getElementById('notes-sort-select');
+    if (sortSelect) sortSelect.value = notesSortMode;
+
     let visibleNotes = notesData;
     if (activeNotebookFilter) {
         visibleNotes = visibleNotes.filter(n => n.notebook === activeNotebookFilter);
@@ -6236,6 +6370,11 @@ function renderNotesList() {
             if (title.includes(notesSearchQuery)) return true;
             return getNotePreviewText(n).toLowerCase().includes(notesSearchQuery);
         });
+    }
+    if (notesSortMode === 'alpha') {
+        visibleNotes = [...visibleNotes].sort((a, b) =>
+            (a.title || 'Untitled note').localeCompare(b.title || 'Untitled note', undefined, { sensitivity: 'base' })
+        );
     }
 
     if (badge) badge.innerText = visibleNotes.length;
@@ -6255,6 +6394,12 @@ function renderNotesList() {
         list.appendChild(empty);
         return;
     }
+
+    // Dragging to reorder only makes unambiguous sense when the list
+    // shown IS notesData's own order, unfiltered and unsorted -
+    // otherwise "drop it here" wouldn't map cleanly back onto where it
+    // actually belongs in the underlying array.
+    const canDragReorder = notesSortMode === 'custom' && !activeNotebookFilter && !notesSearchQuery;
 
     visibleNotes.forEach(note => {
         const item = document.createElement('div');
@@ -6304,8 +6449,59 @@ function renderNotesList() {
         `;
 
         item.addEventListener('click', () => selectNote(note.id));
+
+        if (canDragReorder) {
+            item.draggable = true;
+            item.addEventListener('dragstart', (e) => {
+                draggedNoteId = note.id;
+                item.classList.add('dragging');
+                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+            });
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                draggedNoteId = null;
+                list.querySelectorAll('.note-drop-target').forEach(el => el.classList.remove('note-drop-target'));
+            });
+            item.addEventListener('dragover', (e) => {
+                if (!draggedNoteId || draggedNoteId === note.id) return;
+                e.preventDefault();
+                item.classList.add('note-drop-target');
+            });
+            item.addEventListener('dragleave', () => {
+                item.classList.remove('note-drop-target');
+            });
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                item.classList.remove('note-drop-target');
+                if (!draggedNoteId || draggedNoteId === note.id) return;
+                reorderNote(draggedNoteId, note.id);
+                draggedNoteId = null;
+            });
+        }
+
         list.appendChild(item);
     });
+}
+
+function handleNotesSortChange(value) {
+    notesSortMode = value;
+    localStorage.setItem('notesSortMode', value);
+    renderNotesList();
+}
+
+// Moves a note to sit right where another one was dropped on, in
+// notesData's own underlying order - only reachable while "My order"
+// is selected and the list isn't filtered/searched (see
+// canDragReorder above), so the indices always line up 1:1 with what's
+// on screen.
+function reorderNote(sourceId, targetId) {
+    const fromIdx = notesData.findIndex(n => n.id === sourceId);
+    const toIdx = notesData.findIndex(n => n.id === targetId);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+    const [moved] = notesData.splice(fromIdx, 1);
+    notesData.splice(toIdx, 0, moved);
+    saveNotesData();
+    renderNotesList();
 }
 
 // Opens the notebook-picker modal for a given note - a proper dropdown of
@@ -6416,16 +6612,26 @@ function handleNoteEdited() {
     if (!note) return;
 
     note.title = document.getElementById('note-title-input').value;
+    note.notebook = document.getElementById('note-category-input').value.trim();
 
+    scheduleNoteSave(note);
+}
+
+// Registers a newly-typed notebook name into the master list (the one
+// the notebook filter dropdown and every note's own Notebook field
+// autocomplete from) once you're actually done typing it - on blur or
+// Enter, not on every keystroke. Registering on every keystroke (the
+// old behavior) meant typing a brand-new name like "Coding" letter by
+// letter silently added "C", "Co", "Cod"... as separate half-typed
+// notebooks along the way, which is why the notebook list looked like
+// it wasn't working right.
+function commitNoteNotebook() {
     const notebookValue = document.getElementById('note-category-input').value.trim();
-    note.notebook = notebookValue;
     if (notebookValue && !notesNotebooks.includes(notebookValue)) {
         notesNotebooks.push(notebookValue);
         saveNotebooks();
         renderNotebookSelector();
     }
-
-    scheduleNoteSave(note);
 }
 
 // Shared debounced save used by every kind of edit (title, category, any
@@ -7730,3 +7936,4 @@ document.querySelectorAll('[data-mobile-section]').forEach(el => {
 window.addEventListener('resize', refreshMobileNavForViewport);
 refreshMobileNavForViewport();
 setMobileNotesView('list'); // starting screen for the mobile Notes tab - the full list, not a note
+refreshCardStartTimeSuggestion(); // Log Time card opens in Hours mode by default - give Start Time a sensible first value

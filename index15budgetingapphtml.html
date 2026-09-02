@@ -222,43 +222,6 @@
             </div>
         </div>
 
-        <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default so the
-             planner doesn't feel crowded; tap to reveal the View Plane
-             filter and the category color legend. -->
-        <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
-            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg>Filters &amp; Categories</span>
-            <span class="planner-header-toggle-arrow">▾</span>
-        </button>
-
-        <div class="planner-header-collapsible" id="planner-header-collapsible">
-            <!-- VIEW PLANE FILTER TOGGLE BAR -->
-            <div class="plane-toggle-bar">
-                <span class="plane-label">View Plane:</span>
-                <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')">🌐 All</button>
-                <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')">🌫️ Planned</button>
-                <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
-            </div>
-
-            <!-- Category manager - a dropdown instead of an always-on
-                 row, since a long-used app can accumulate a lot of
-                 categories and a flat row of all of them just gets
-                 messy. See renderCategoryManagerDropdown() in the JS. -->
-            <div class="category-manager" id="category-manager">
-                <button type="button" class="category-manager-trigger" onclick="toggleCategoryManagerDropdown()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
-                    Categories
-                    <span class="category-manager-arrow">▾</span>
-                </button>
-                <div class="category-manager-panel" id="category-manager-panel">
-                    <div class="category-manager-add-row">
-                        <input type="text" id="category-manager-add-input" placeholder="Add a category..." onkeydown="if(event.key==='Enter') submitAddKnownCategory();">
-                        <button type="button" onclick="submitAddKnownCategory()">+</button>
-                    </div>
-                    <div class="category-manager-list" id="category-manager-list"></div>
-                </div>
-            </div>
-        </div>
-        
         <div class="planner-body-row">
             <div class="visual-matrix-column">
                 <div class="visual-matrix-container">
@@ -281,6 +244,48 @@
                         <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(-1)" title="Previous month">◀ Month</button>
                         <button type="button" class="week-nav-btn week-nav-today-btn" onclick="jumpPlannerToToday()" title="Jump to today">Today</button>
                         <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(1)" title="Next month">Month ▶</button>
+                    </div>
+                </div>
+
+                <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default
+                     so the planner doesn't feel crowded; tap to reveal the
+                     View Plane filter and the category color legend. Lives
+                     inside the calendar column itself, right under the
+                     week/month nav bar, so it stays close to the calendar
+                     instead of ending up far below it (the backlog drawer
+                     next to this column can be much taller, so putting this
+                     outside/after the whole row left a big gap here). -->
+                <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
+                    <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg>Filters &amp; Categories</span>
+                    <span class="planner-header-toggle-arrow">▾</span>
+                </button>
+
+                <div class="planner-header-collapsible" id="planner-header-collapsible">
+                    <!-- VIEW PLANE FILTER TOGGLE BAR -->
+                    <div class="plane-toggle-bar">
+                        <span class="plane-label">View Plane:</span>
+                        <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')">🌐 All</button>
+                        <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')">🌫️ Planned</button>
+                        <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
+                    </div>
+
+                    <!-- Category manager - a dropdown instead of an always-on
+                         row, since a long-used app can accumulate a lot of
+                         categories and a flat row of all of them just gets
+                         messy. See renderCategoryManagerDropdown() in the JS. -->
+                    <div class="category-manager" id="category-manager">
+                        <button type="button" class="category-manager-trigger" onclick="toggleCategoryManagerDropdown()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+                            Categories
+                            <span class="category-manager-arrow">▾</span>
+                        </button>
+                        <div class="category-manager-panel" id="category-manager-panel">
+                            <div class="category-manager-add-row">
+                                <input type="text" id="category-manager-add-input" placeholder="Add a category..." onkeydown="if(event.key==='Enter') submitAddKnownCategory();">
+                                <button type="button" onclick="submitAddKnownCategory()">+</button>
+                            </div>
+                            <div class="category-manager-list" id="category-manager-list"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -335,52 +340,55 @@
             <!-- LOG TIME INPUT FORM -->
             <div class="card" id="log-time-card">
                 <h2 id="selected-date-title">Log Time</h2>
-                
+
+                <div class="activity-combo-box">
+                    <div class="activity-combo-field">
+                        <div class="category-select-row">
+                            <div class="category-combo-wrap">
+                                <input type="text" id="category-name" class="category-combo-input" placeholder="Category" autocomplete="off" oninput="showCategoryCombo('category-name')" onfocus="showCategoryCombo('category-name')">
+                                <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('category-name')" title="Show all categories">▾</button>
+                                <div id="category-name-combo-list" class="category-combo-list"></div>
+                            </div>
+                            <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                        </div>
+                    </div>
+                    <div class="activity-combo-divider"></div>
+                    <div class="activity-combo-field">
+                        <input type="text" id="activity-name" placeholder="Notes / topic (optional)">
+                    </div>
+                </div>
+                <datalist id="category-list"></datalist>
+                <datalist id="notebook-list"></datalist>
+
                 <div class="toggle-container">
-                    <button class="toggle-btn active" id="mode-simple" onclick="setMode('simple')">Simple Hours</button>
+                    <button class="toggle-btn" id="type-projected" onclick="setEntryType('projected')">🌫️ Planned</button>
+                    <button class="toggle-btn active" id="type-actual" onclick="setEntryType('actual')">🎯 Completed</button>
+                </div>
+
+                <div class="toggle-container">
+                    <button class="toggle-btn active" id="mode-simple" onclick="setMode('simple')">Hours</button>
                     <button class="toggle-btn" id="mode-exact" onclick="setMode('exact')">Exact Times</button>
                 </div>
 
-                <!-- ADDED: Planned vs Actual Default Toggle -->
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted); display:block; margin-bottom:4px;">Entry Type</label>
-                    <div class="toggle-container" style="margin-bottom:0;">
-                        <button class="toggle-btn" id="type-projected" onclick="setEntryType('projected')">🌫️ Planned</button>
-                        <button class="toggle-btn active" id="type-actual" onclick="setEntryType('actual')">🎯 Completed</button>
+                <div class="activity-time-row">
+                    <div class="activity-time-field">
+                        <label>Start Time</label>
+                        <input type="time" id="start-time" value="09:00">
+                    </div>
+                    <div class="activity-time-field" id="hours-field-group">
+                        <label>Hours</label>
+                        <input type="number" id="duration-hours" min="0.25" step="0.25" placeholder="e.g. 1.5, 2">
+                    </div>
+                    <div class="activity-time-field" id="end-time-field-group" style="display:none;">
+                        <label>End Time</label>
+                        <input type="time" id="end-time" value="11:00">
                     </div>
                 </div>
 
-                <div class="input-box">
-                    <div id="simple-input-group">
-                        <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted);">How many hours?</label>
-                        <input type="number" id="duration-hours" min="0.5" max="24" step="0.5" placeholder="e.g. 1.5, 2, 8">
-                    </div>
-
-                    <div id="exact-input-group" style="display: none; gap: 10px;">
-                        <div style="flex: 1; display:flex; flex-direction:column;">
-                            <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted);">Start Time</label>
-                            <input type="time" id="start-time" value="09:00">
-                        </div>
-                        <div style="flex: 1; display:flex; flex-direction:column;">
-                            <label style="font-size:0.85rem; font-weight:bold; color:var(--text-muted);">End Time</label>
-                            <input type="time" id="end-time" value="11:00">
-                        </div>
-                    </div>
-
-                    <label style="font-size:0.85rem; font-weight:bold; margin-top:5px; color:var(--text-muted);">Category</label>
-                    <div class="category-combo-wrap">
-                        <input type="text" id="category-name" class="category-combo-input" placeholder="e.g. coding, math, exercise, studio" autocomplete="off" oninput="showCategoryCombo('category-name')" onfocus="showCategoryCombo('category-name')">
-                        <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('category-name')" title="Show all categories">▾</button>
-                        <div id="category-name-combo-list" class="category-combo-list"></div>
-                    </div>
-                    <datalist id="category-list"></datalist>
-                    <datalist id="notebook-list"></datalist>
-
-                    <label style="font-size:0.85rem; font-weight:bold; margin-top:5px; color:var(--text-muted);">Notes / Topic (Optional)</label>
-                    <input type="text" id="activity-name" placeholder="e.g. website, calculus, leg day">
+                <div class="activity-submit-row">
+                    <button type="button" class="activity-chrono-btn" id="card-start-chronometer-btn" onclick="startLiveTimerFromCard()" title="Start Live Chronometer Here">⏱️</button>
+                    <button type="button" class="activity-fab-btn" onclick="addTimeBlock()" title="Add Time Block">+</button>
                 </div>
-
-                <button class="btn-add" onclick="addTimeBlock()">Add Time Block</button>
             </div>
 
             <!-- DAILY SCHEDULE STACK -->
@@ -442,6 +450,7 @@
                             <div style="display:flex; gap:8px; flex-wrap:wrap;">
                                 <button onclick="exportData()" class="backup-btn">💾 Export everything</button>
                                 <button onclick="document.getElementById('import-file').click()" class="backup-btn">📂 Import backup</button>
+                                <button onclick="exportAllNotes()" class="backup-btn" title="Just the notes, not the calendar/backlog/goals data">📝 Download just notes</button>
                                 <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
                             </div>
 
@@ -548,9 +557,14 @@
                                 <div id="board-add-category-combo-list" class="category-combo-list"></div>
                             </div>
                             <input type="text" id="board-add-name" placeholder="Notes / topic (optional)">
-                            <button class="btn-add" onclick="addBoardItem()">+ Add to Backlog</button>
                         </div>
                         <div class="board-column-list" id="board-col-todo"></div>
+                        <!-- Circular "+" at the bottom instead of a text
+                             button squeezed between the fields and the
+                             list - the familiar "add" pattern from most
+                             apps. Fields stay up top so you can see what
+                             you're typing; this just submits them. -->
+                        <button type="button" class="board-add-fab" onclick="addBoardItem()" title="Add to Backlog">+</button>
                     </div>
                     <div class="board-column">
                         <div class="board-column-header">
@@ -584,7 +598,6 @@
                         <div class="notes-sidebar-header">
                             <span class="notes-sidebar-title">Notes <span class="notes-count" id="notes-count-badge">0</span></span>
                             <button class="notes-new-btn" onclick="openTrashModal()" title="Trash" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color); position:relative;"><svg style="width:15px; height:15px; vertical-align:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg><span id="trash-badge-count" class="trash-header-badge">0</span></button>
-                            <button class="notes-new-btn" onclick="exportAllNotes()" title="Export all notes as a backup file" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);">⬇️</button>
                             <button class="notes-new-btn" onclick="createNote()" title="New note">+ New</button>
                         </div>
 
@@ -601,6 +614,19 @@
                             <input type="text" id="notes-search-input" class="notes-search-input" placeholder="🔎 Search notes..." oninput="handleNotesSearch(this.value)">
                         </div>
 
+                        <!-- Sort/order control - "My order" keeps whatever
+                             sequence you've dragged notes into (drag any
+                             row in the list below to rearrange, only
+                             active while this is selected and nothing's
+                             filtered/searched); "A-Z" sorts by title
+                             without touching that underlying order. -->
+                        <div class="notes-sort-row">
+                            <select id="notes-sort-select" class="notebook-filter-select" onchange="handleNotesSortChange(this.value)" title="Sort notes">
+                                <option value="custom">My order (drag to reorder)</option>
+                                <option value="alpha">Alphabetical (A–Z)</option>
+                            </select>
+                        </div>
+
                         <div class="notes-list" id="notes-list"></div>
                     </div>
 
@@ -613,8 +639,26 @@
                         <div class="notes-editor" id="notes-editor" style="display:none;">
                             <div class="notes-editor-topbar">
                                 <button type="button" class="notes-back-btn" onclick="showMobileNotesList()" title="Back to notes list">←</button>
-                                <input type="text" id="note-title-input" class="note-title-input" placeholder="Untitled note" oninput="handleNoteEdited()">
-                                <button class="note-delete-btn" onclick="deleteCurrentNote()" title="Delete this note">🗑️</button>
+                                <div class="note-title-notebook-row">
+                                    <input type="text" id="note-title-input" class="note-title-input" placeholder="Untitled note" oninput="handleNoteEdited()">
+                                    <div class="note-title-notebook-divider"></div>
+                                    <input type="text" id="note-category-input" class="note-notebook-inline-input" list="notebook-list" placeholder="Notebook" autocomplete="off" oninput="handleNoteEdited()" onchange="commitNoteNotebook()">
+                                </div>
+                                <!-- "More options" - Delete, Download, Copy, and
+                                     Duplicate all live here now instead of being
+                                     separate icons scattered around the editor. -->
+                                <div class="note-actions-menu-wrap">
+                                    <button type="button" class="note-actions-menu-btn" id="note-actions-menu-btn" onclick="toggleNoteActionsMenu()" title="More options">
+                                        <svg style="width:18px; height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                    </button>
+                                    <div class="note-actions-menu-panel" id="note-actions-menu-panel">
+                                        <button type="button" onclick="exportCurrentNote(); closeNoteActionsMenu();">⬇️ Download</button>
+                                        <button type="button" onclick="copyCurrentNoteText();">📋 Copy</button>
+                                        <button type="button" onclick="duplicateCurrentNote();">📑 Duplicate</button>
+                                        <div class="note-actions-menu-divider"></div>
+                                        <button type="button" class="note-actions-menu-danger" onclick="deleteCurrentNote(); closeNoteActionsMenu();">🗑️ Delete</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Page color + Photo + Record, grouped into one compact
@@ -626,7 +670,15 @@
                                  always in thumb's reach while typing, instead of
                                  scrolled away above. -->
                             <div class="notes-toolbar" id="notes-toolbar">
-                                <div class="notes-color-swatches" id="notes-color-swatches" title="Page color"></div>
+                                <div class="notes-color-picker-wrap" id="notes-color-picker-wrap">
+                                    <button type="button" class="notes-color-trigger" id="notes-color-trigger" onclick="toggleNoteColorPicker()" title="Page color">
+                                        <span class="notes-color-trigger-dot" id="notes-color-trigger-dot"></span>
+                                        <span class="notes-color-trigger-arrow">▾</span>
+                                    </button>
+                                    <div class="notes-color-picker-panel" id="notes-color-picker-panel">
+                                        <div class="notes-color-swatches" id="notes-color-swatches" title="Page color"></div>
+                                    </div>
+                                </div>
                                 <button type="button" class="notes-undo-btn" id="notes-undo-btn" onclick="undoNoteAction()" title="Undo last note change" disabled>↺</button>
                                 <button type="button" class="notes-undo-btn" id="notes-redo-btn" onclick="redoNoteAction()" title="Redo" disabled>↻</button>
                                 <div class="notes-toolbar-divider"></div>
@@ -634,20 +686,6 @@
                                 <input type="file" id="note-photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoFilesSelected(event)">
                                 <button type="button" class="notes-voice-record-btn" id="notes-voice-record-btn" onclick="toggleNoteRecording()" title="Record a voice note here">●</button>
                                 <button type="button" class="notes-photo-btn" id="notes-divider-btn" onclick="insertDividerBlock()" title="Insert a divider line"><svg style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/></svg></button>
-                                <div class="notes-toolbar-divider"></div>
-                                <button type="button" class="notes-photo-btn" onclick="exportCurrentNote()" title="Export this note as a text file"><svg style="width:15px; height:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 19h16"/></svg></button>
-                            </div>
-
-                            <!-- This field assigns which NOTEBOOK a note belongs to (used
-                                 to point at the calendar's own activity categories via
-                                 category-list, which never made sense for a note - now
-                                 uses notebook-list, populated from notesNotebooks in
-                                 renderNotebookSelector()). On phones it's set from each
-                                 note's miniature in the sidebar list instead (tap it) -
-                                 see .note-list-item-category / openNoteNotebookPicker(). -->
-                            <div class="form-group notes-category-field" id="notes-category-field">
-                                <label>Notebook</label>
-                                <input type="text" id="note-category-input" list="notebook-list" placeholder="leave blank for no notebook" autocomplete="off" oninput="handleNoteEdited()">
                             </div>
 
                             <div class="notes-voice-status" id="notes-voice-status"></div>
@@ -801,80 +839,75 @@
             <div class="modal-content" id="quick-add-modal-content" style="width: 320px;">
                 <button class="modal-close-btn" onclick="closeQuickAddModal()">✕</button>
                 <h4 id="modal-time-label" style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Log Time</h4>
-                
-                <!-- Added Planned vs Actual Toggle inside Modal -->
-                <div class="mode-toggle" style="display: flex; gap: 4px; margin-bottom: 12px;">
-                    <button id="modal-type-projected" class="range-btn" style="flex:1;" onclick="setModalType('projected')">🌫️ Planned</button>
-                    <button id="modal-type-actual" class="range-btn active" style="flex:1;" onclick="setModalType('actual')">🎯 Completed</button>
-                </div>
 
                 <!-- Date is pre-filled from whichever cell was clicked, but it's
                      editable and clearable - clearing it sends the item to the
                      Backlog (unscheduled) instead of forcing it onto a specific
                      day. Not shown in edit mode for items dragged in from the
-                     backlog without a clock time. -->
+                     backlog without a clock time. This is the one field that's
+                     genuinely modal-only - the desktop card doesn't need it
+                     since its date already comes from the mini calendar next
+                     to it - everything else below is identical to that card. -->
                 <div class="form-group" id="modal-date-group">
                     <label>Date <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">(optional — leave blank to send to Backlog)</span></label>
                     <input type="date" id="modal-date-input">
                 </div>
 
-                <!-- Hours vs Exact Times toggle - mirrors the same choice on
-                     the main Log Time card, so typing "3" for hours and
-                     letting the end time work itself out is available here
-                     too, not just on desktop's big card. Start Time stays
-                     visible in both modes (it's the anchor either way);
-                     only End Time swaps for an Hours field - see
-                     setModalTimeMode() in the JS. -->
-                <div class="toggle-container" style="margin-bottom:12px;">
+                <div class="activity-combo-box">
+                    <div class="activity-combo-field">
+                        <div class="category-select-row">
+                            <div class="category-combo-wrap">
+                                <input type="text" id="modal-category-name" class="category-combo-input" placeholder="Category" autocomplete="off" oninput="showCategoryCombo('modal-category-name')" onfocus="showCategoryCombo('modal-category-name')">
+                                <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('modal-category-name')" title="Show all categories">▾</button>
+                                <div id="modal-category-name-combo-list" class="category-combo-list"></div>
+                            </div>
+                            <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                        </div>
+                    </div>
+                    <div class="activity-combo-divider"></div>
+                    <div class="activity-combo-field">
+                        <input type="text" id="modal-activity-name" placeholder="Notes / topic (optional)">
+                    </div>
+                </div>
+
+                <div class="toggle-container">
+                    <button id="modal-type-projected" class="toggle-btn" onclick="setModalType('projected')">🌫️ Planned</button>
+                    <button id="modal-type-actual" class="toggle-btn active" onclick="setModalType('actual')">🎯 Completed</button>
+                </div>
+
+                <div class="toggle-container">
                     <button class="toggle-btn" id="modal-mode-hours" onclick="setModalTimeMode('hours')">Hours</button>
                     <button class="toggle-btn active" id="modal-mode-exact" onclick="setModalTimeMode('exact')">Exact Times</button>
                 </div>
 
-                <div class="form-group" style="display:flex; flex-direction:row; gap:10px;">
-                    <div style="flex:1; display:flex; flex-direction:column;">
+                <div class="activity-time-row">
+                    <div class="activity-time-field">
                         <label>Start Time</label>
                         <input type="time" id="modal-start-time" value="09:00">
                     </div>
-                    <div style="flex:1; display:flex; flex-direction:column;" id="modal-end-time-group">
-                        <label>End Time</label>
-                        <input type="time" id="modal-end-time" value="10:00">
-                    </div>
-                    <div style="flex:1; display:none; flex-direction:column;" id="modal-hours-group">
+                    <div class="activity-time-field" id="modal-hours-group" style="display:none;">
                         <label>Hours</label>
                         <input type="number" id="modal-duration-hours" min="0.25" step="0.25" placeholder="e.g. 1.5, 2">
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Category</label>
-                    <div class="category-select-row">
-                        <div class="category-combo-wrap">
-                            <input type="text" id="modal-category-name" class="category-combo-input" placeholder="e.g. coding, math, exercise" autocomplete="off" oninput="showCategoryCombo('modal-category-name')" onfocus="showCategoryCombo('modal-category-name')">
-                            <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('modal-category-name')" title="Show all categories">▾</button>
-                            <div id="modal-category-name-combo-list" class="category-combo-list"></div>
-                        </div>
-                        <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                    <div class="activity-time-field" id="modal-end-time-group">
+                        <label>End Time</label>
+                        <input type="time" id="modal-end-time" value="10:00">
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Notes / Topic (Optional)</label>
-                    <input type="text" id="modal-activity-name" placeholder="e.g. website, calculus, leg day">
                 </div>
 
                 <div id="modal-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: -6px; margin-bottom: 6px; display: none;"></div>
 
-                <div style="display:flex; gap:8px; margin-top:14px;">
-                    <button id="modal-submit-btn" class="btn-primary" style="margin:0; flex:1;" onclick="submitQuickAddModal()">ADD TIME BLOCK</button>
-                    <button id="modal-delete-btn" class="btn-primary" style="margin:0; background:var(--danger); display:none;" onclick="deleteModalActivity()">DELETE</button>
+                <div class="activity-submit-row">
+                    <!-- Only shown when adding a brand new activity (not while
+                         editing one) - uses this same Category/Notes/Date/
+                         Start Time you've already filled in as the exact spot
+                         to start the chronometer, instead of always starting
+                         at "right now" like the bar above the calendar does.
+                         See startLiveTimerFromModal() in the JS. -->
+                    <button type="button" class="activity-chrono-btn" id="modal-start-chronometer-btn" onclick="startLiveTimerFromModal()" title="Start Live Chronometer Here">⏱️</button>
+                    <button type="button" class="activity-delete-fab" id="modal-delete-btn" onclick="deleteModalActivity()" title="Delete" style="display:none;">🗑️</button>
+                    <button type="button" class="activity-fab-btn" id="modal-submit-btn" onclick="submitQuickAddModal()" title="Add Time Block">+</button>
                 </div>
-                <!-- Only shown when adding a brand new activity (not while
-                     editing one) - uses this same Category/Notes/Date/
-                     Start Time you've already filled in as the exact spot
-                     to start the chronometer, instead of always starting
-                     at "right now" like the bar above the calendar does.
-                     See startLiveTimerFromModal() in the JS. -->
-                <button id="modal-start-chronometer-btn" class="btn-primary" style="margin:8px 0 0 0; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="startLiveTimerFromModal()">⏱️ Start Live Chronometer Here</button>
             </div>
         </div>
 
