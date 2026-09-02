@@ -4267,19 +4267,11 @@ summary.details-summary:hover {
 /* --- Photo block: thumbnail card, insertable/movable inline between
        text blocks, same shell as the voice-note card --- */
 .note-image-block {
-    /* No background/border/padding "box" by default - just the photo
-       itself. A thin highlight only appears once selected (see
-       .block-selected below), same treatment as text/audio blocks. */
+    /* Just the photo, full stop - no surrounding "card" padding/
+       background. The only visual change on selection is a thin ring
+       drawn directly on the photo's own rounded corners (see
+       .note-image-thumb-wrap below), not a box around it. */
     margin: 4px 0;
-    border-radius: 10px;
-    padding: 3px;
-    border: 2px solid transparent;
-    transition: border-color 0.12s ease;
-}
-
-.note-image-block.block-selected {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .note-image-thumb-wrap {
@@ -4290,6 +4282,12 @@ summary.details-summary:hover {
     border-radius: 7px;
     overflow: hidden;
     background: var(--card-bg);
+    border: 2px solid transparent;
+    transition: border-color 0.12s ease;
+}
+
+.note-image-block.block-selected .note-image-thumb-wrap {
+    border-color: var(--accent);
 }
 
 .note-image-thumb {
@@ -4297,7 +4295,7 @@ summary.details-summary:hover {
     width: 100%;
     max-height: 340px;
     object-fit: contain;
-    border-radius: 7px;
+    border-radius: 5px;
     cursor: pointer;
 }
 
@@ -4326,89 +4324,25 @@ summary.details-summary:hover {
     max-width: 90%;
 }
 
-/* Drag-to-resize grip, bottom-right corner of the photo - a small
-   diagonal-lines handle like the resize grip in most editors. Always
-   there at a low opacity (not gated behind selection - resizing is
-   something you'd want without first having to select the photo),
-   brightening on hover/tap so it's easy to find without being loud. */
-.note-image-resize-handle {
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 18px;
-    height: 18px;
-    cursor: nwse-resize;
-    touch-action: none;
-    opacity: 0.45;
-    transition: opacity 0.15s ease;
-    background:
-        linear-gradient(135deg, transparent 0 40%, rgba(255,255,255,0.9) 40% 46%, transparent 46% 56%, rgba(255,255,255,0.9) 56% 62%, transparent 62% 72%, rgba(255,255,255,0.9) 72% 78%, transparent 78%);
-    filter: drop-shadow(0 0 1px rgba(0,0,0,0.6));
-}
-
-.note-image-block:hover .note-image-resize-handle {
-    opacity: 0.85;
-}
-
-.note-image-resize-handle:hover {
-    opacity: 1 !important;
-}
-
-/* The caption + move/delete row - hidden entirely by default (this is
-   what used to always show and made every photo feel boxed-in/cluttered
-   with an input field and buttons under it), only appearing once the
-   photo is selected (single click). */
-.note-image-selected-bar {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-}
-
-.note-image-block.block-selected .note-image-selected-bar {
-    display: flex;
-}
-
-.note-image-caption {
-    flex: 1;
-    min-width: 0;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    font-size: 0.8rem;
-    padding: 2px 0;
-}
-
-.note-image-caption:focus {
-    outline: none;
-    border-bottom: 1px solid var(--accent);
-}
-
-.note-image-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-
-.note-image-icon-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 0.85rem;
+/* --- DIVIDER BLOCK (toolbar-inserted line to separate ideas) --- */
+.note-divider-block {
+    margin: 4px 0;
+    padding: 10px 0;
     cursor: pointer;
-    padding: 3px 5px;
-    border-radius: 4px;
-    line-height: 1;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    transition: border-color 0.12s ease;
 }
 
-.note-image-icon-btn:hover {
-    background: var(--card-bg);
-    color: var(--text);
+.note-divider-block .note-divider-line {
+    height: 1px;
+    width: 100%;
+    background: var(--border-color);
 }
 
-.note-image-icon-btn.note-image-delete:hover {
-    color: var(--danger);
+.note-divider-block.block-selected {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .note-list-item-voice-badge {
@@ -4486,10 +4420,6 @@ summary.details-summary:hover {
     }
 
     .note-block-actions {
-        opacity: 0.6;
-    }
-
-    .note-image-actions {
         opacity: 0.6;
     }
 
@@ -4666,9 +4596,72 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     display: none;
 }
 
+/* Floating global undo/redo (phones have no Ctrl+Z key) - a small
+/* Floating global undo/redo (Ctrl+Z has no equivalent to tap on a
+   phone, and even on desktop this gives a one-click undo without
+   needing to remember the shortcut) - a small pill parked in the
+   bottom-right corner, reachable from every section on every screen
+   size. JS (updateGlobalUndoBtn) toggles each button's disabled state;
+   this rule only handles position/sizing. Desktop gets a plain
+   bottom-right position; the mobile media query below re-parks it
+   above the bottom tab bar instead. */
+.mobile-global-undo {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 999; /* below .notes-toolbar (1001) and .mobile-bottom-nav (1000) on mobile, so it never sits on top of either */
+    display: flex;
+    gap: 8px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-global-undo-btn {
+    background: var(--header-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+
+.mobile-global-undo-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 @media (max-width: 768px) {
     .mobile-bottom-nav {
         display: flex;
+    }
+
+    /* Lifted above the bottom nav (which is 10px tall + ~64px) so the
+       two floating pills sit stacked, not overlapping. Hidden entirely
+       whenever the Notes tab is active or the keyboard is open - see
+       updateGlobalUndoBtn() in the JS for the Notes-tab hide, and the
+       keyboard-open rule right below for the other. */
+    .mobile-global-undo {
+        right: 10px;
+        bottom: 84px;
+    }
+
+    body.keyboard-open .mobile-global-undo {
+        display: none;
+    }
+
+    /* Notes already shows its own undo/redo pair in its own toolbar
+       (#notes-undo-btn/#notes-redo-btn) - set by updateGlobalUndoBtn()
+       in the JS whenever the Notes tab is the active mobile section, so
+       this floating one doesn't double up with it. */
+    .mobile-global-undo.hidden-for-notes {
+        display: none;
     }
 
     /* --- Log tab, simplified: the calendar is the whole screen ---

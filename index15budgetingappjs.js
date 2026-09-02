@@ -888,6 +888,23 @@ function setModalType(type) {
     document.getElementById('modal-type-actual')?.classList.toggle('active', type === 'actual');
 }
 
+// Mirrors setMode() for the main Log Time card, but for the popup
+// modal: Hours mode swaps the End Time field for a plain "how many
+// hours" field (Start Time stays put as the anchor either way) so you
+// can type "3" instead of picking an exact end clock time - see
+// submitQuickAddModal() for where that gets turned back into an end
+// time right before saving.
+let modalTimeMode = 'exact';
+function setModalTimeMode(mode) {
+    modalTimeMode = mode;
+    document.getElementById('modal-mode-hours')?.classList.toggle('active', mode === 'hours');
+    document.getElementById('modal-mode-exact')?.classList.toggle('active', mode === 'exact');
+    const endGroup = document.getElementById('modal-end-time-group');
+    const hoursGroup = document.getElementById('modal-hours-group');
+    if (endGroup) endGroup.style.display = mode === 'exact' ? 'flex' : 'none';
+    if (hoursGroup) hoursGroup.style.display = mode === 'hours' ? 'flex' : 'none';
+}
+
 function addTimeBlock() {
     const catInput = document.getElementById('category-name');
     const actInput = document.getElementById('activity-name');
@@ -1187,6 +1204,7 @@ function pushUndoSnapshot() {
     });
     if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
     redoStack = [];
+    updateGlobalUndoBtn();
 }
 
 function applySnapshot(snapshot) {
@@ -1219,6 +1237,7 @@ function undoLastAction() {
         backlogItems: localStorage.getItem('backlogItems')
     });
     applySnapshot(prevSnapshot);
+    updateGlobalUndoBtn();
 }
 
 function redoLastAction() {
@@ -1229,6 +1248,23 @@ function redoLastAction() {
         backlogItems: localStorage.getItem('backlogItems')
     });
     applySnapshot(nextSnapshot);
+    updateGlobalUndoBtn();
+}
+
+// Mirrors updateNotesUndoBtn() below, but for the floating phone button
+// (#mobile-global-undo) that stands in for Ctrl+Z/Ctrl+Shift+Z on
+// calendar/backlog actions everywhere except the Notes tab, which
+// already has its own undo/redo pair in its toolbar. Called after every
+// snapshot push/undo/redo, and once on load/tab-switch from
+// setMobileSection() so it's correct as soon as the page opens.
+function updateGlobalUndoBtn() {
+    const wrap = document.getElementById('mobile-global-undo');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden-for-notes', currentMobileSection === 'notes');
+    const undoBtn = document.getElementById('mobile-global-undo-btn');
+    const redoBtn = document.getElementById('mobile-global-redo-btn');
+    if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
 }
 
 function saveData() {
@@ -3124,6 +3160,11 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     const endH = Math.min(23, startH + 1);
     document.getElementById('modal-start-time').value = `${String(startH).padStart(2, '0')}:00`;
     document.getElementById('modal-end-time').value = `${String(endH).padStart(2, '0')}:00`;
+    const durInput = document.getElementById('modal-duration-hours');
+    if (durInput) durInput.value = '1';
+    // Hours is the simpler default for a brand-new activity - typing "3"
+    // beats picking an exact end clock time for most quick adds.
+    setModalTimeMode('hours');
 
     const label = document.getElementById('modal-time-label');
     const submitBtn = document.getElementById('modal-submit-btn');
@@ -3163,6 +3204,11 @@ function openEditModal(dateKey, index, clickEvent) {
     const [rangeStart, rangeEnd] = (item.timeRange || '09:00 to 10:00').split(' to ');
     document.getElementById('modal-start-time').value = rangeStart || '09:00';
     document.getElementById('modal-end-time').value = rangeEnd || '10:00';
+    const durInput = document.getElementById('modal-duration-hours');
+    if (durInput) durInput.value = item.hours || 1;
+    // Exact by default here - an existing entry already has a precise
+    // range worth preserving as-is, unlike a brand-new "add".
+    setModalTimeMode('exact');
 
     const label = document.getElementById('modal-time-label');
     const submitBtn = document.getElementById('modal-submit-btn');
@@ -3209,6 +3255,11 @@ function openBacklogEditModal(backlogId, clickEvent) {
     const endTotalMins = Math.min(23 * 60 + 59, (9 * 60) + Math.round(durationHrs * 60));
     document.getElementById('modal-start-time').value = '09:00';
     document.getElementById('modal-end-time').value = `${String(Math.floor(endTotalMins / 60)).padStart(2, '0')}:${String(endTotalMins % 60).padStart(2, '0')}`;
+    const durInput = document.getElementById('modal-duration-hours');
+    if (durInput) durInput.value = durationHrs;
+    // A backlog item is really just a duration (no real clock time yet) -
+    // Hours mode matches that directly.
+    setModalTimeMode('hours');
 
     const label = document.getElementById('modal-time-label');
     const submitBtn = document.getElementById('modal-submit-btn');
@@ -3267,7 +3318,15 @@ function submitQuickAddModal() {
     const dateVal = (document.getElementById('modal-date-input')?.value || '').trim();
 
     const startVal = document.getElementById('modal-start-time').value || '09:00';
-    const endVal = document.getElementById('modal-end-time').value || '10:00';
+    let endVal;
+    if (modalTimeMode === 'hours') {
+        const durHours = parseFloat(document.getElementById('modal-duration-hours').value) || 1;
+        const [sH, sM] = startVal.split(':').map(Number);
+        const totalMins = Math.min(24 * 60 - 1, (sH * 60 + sM) + Math.round(durHours * 60));
+        endVal = `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}`;
+    } else {
+        endVal = document.getElementById('modal-end-time').value || '10:00';
+    }
     const [sH, sM] = startVal.split(':').map(Number);
     const [eH, eM] = endVal.split(':').map(Number);
     const hours = (eH + eM / 60) - (sH + sM / 60);
@@ -3508,6 +3567,8 @@ function exportCurrentNote() {
             lines.push(`[Photo${block.caption ? ': ' + block.caption : ''}]`);
         } else if (block.type === 'audio') {
             lines.push(`[Voice note - ${formatAudioDuration(block.duration)}]`);
+        } else if (block.type === 'divider') {
+            lines.push('----------');
         }
     });
 
@@ -5217,10 +5278,10 @@ function renderTrashModal() {
     }
 
     list.innerHTML = trashedItems.map(item => {
-        const icon = item.type === 'note' ? '📝' : item.data.type === 'image' ? '📷' : item.data.type === 'audio' ? '🎙️' : '📄';
+        const icon = item.type === 'note' ? '📝' : item.data.type === 'image' ? '📷' : item.data.type === 'audio' ? '🎙️' : item.data.type === 'divider' ? '➖' : '📄';
         const label = item.type === 'note'
             ? (item.data.title || 'Untitled note')
-            : (item.data.type === 'text' ? (item.data.content || '').slice(0, 60) || 'Text block' : `${item.data.type === 'image' ? 'Photo' : 'Voice note'} from "${item.noteTitle}"`);
+            : (item.data.type === 'text' ? (item.data.content || '').slice(0, 60) || 'Text block' : item.data.type === 'divider' ? `Divider from "${item.noteTitle}"` : `${item.data.type === 'image' ? 'Photo' : 'Voice note'} from "${item.noteTitle}"`);
         const daysLeft = daysLeftInTrash(item.deletedAt);
         return `
             <div class="trash-item-row">
@@ -5280,9 +5341,10 @@ async function deleteSelectedBlocks() {
 // ISN'T in a text field - otherwise this would hijack normal typing
 // (deleting a character while editing a text block must always just
 // delete that character). Escape clears the selection without deleting
-// anything, and Ctrl/Cmd+C copies the selected text blocks' plain text
-// (photos/voice notes are skipped - there's no meaningful "copy" for
-// them outside the app) to the clipboard.
+// anything, and Ctrl/Cmd+C copies: the selected text blocks' plain text
+// to the clipboard, or - if a single photo is selected - the actual
+// image bytes (see copyImageBlockToClipboard), so it can be pasted into
+// this note, a different one, or any other app.
 document.addEventListener('keydown', (e) => {
     if (selectedBlockIds.length === 0 || !currentNoteId) return;
     const active = document.activeElement;
@@ -5297,6 +5359,13 @@ document.addEventListener('keydown', (e) => {
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
         const note = notesData.find(n => n.id === currentNoteId);
         if (!note) return;
+        if (selectedBlockIds.length === 1) {
+            const soleBlock = note.blocks.find(b => b.id === selectedBlockIds[0]);
+            if (soleBlock && soleBlock.type === 'image') {
+                copyImageBlockToClipboard(soleBlock);
+                return;
+            }
+        }
         const text = note.blocks
             .filter(b => selectedBlockIds.includes(b.id) && b.type === 'text')
             .map(b => b.content || '')
@@ -5327,6 +5396,8 @@ function renderNoteBlocks(note) {
             container.appendChild(buildAudioBlockEl(block));
         } else if (block.type === 'image') {
             container.appendChild(buildImageBlockEl(block));
+        } else if (block.type === 'divider') {
+            container.appendChild(buildDividerBlockEl(block));
         } else {
             container.appendChild(buildTextBlockEl(block, index));
         }
@@ -5721,6 +5792,51 @@ document.addEventListener('paste', (e) => {
 // keeps lastFocusedBlockId pointing at that new text block, so the
 // *next* thing you add (typed text or another photo) lands after it
 // instead of always piling up in the same spot.
+// Inserts a full-width divider line at the cursor - the toolbar
+// button version of typing a row of dashes to separate ideas, which
+// is common enough to deserve one click. Same insert-after-focus
+// placement as photos/voice notes, and a fresh text block right after
+// so you can keep typing immediately.
+function insertDividerBlock() {
+    if (!currentNoteId) return;
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    pushNotesUndoSnapshot();
+    ensureNoteBlocks(note);
+
+    const dividerBlock = { id: genBlockId(), type: 'divider' };
+    const newTextBlock = { id: genBlockId(), type: 'text', content: '' };
+
+    let insertAt = note.blocks.length;
+    if (lastFocusedBlockId) {
+        const idx = note.blocks.findIndex(b => b.id === lastFocusedBlockId);
+        if (idx !== -1) insertAt = idx + 1;
+    }
+
+    note.blocks.splice(insertAt, 0, dividerBlock, newTextBlock);
+    lastFocusedBlockId = newTextBlock.id;
+
+    renderNoteBlocks(note);
+    scheduleNoteSave(note);
+    renderNotesList();
+
+    const newTa = document.querySelector(`textarea[data-block-id="${newTextBlock.id}"]`);
+    if (newTa) newTa.focus();
+}
+
+function buildDividerBlockEl(block) {
+    const wrap = document.createElement('div');
+    wrap.className = 'note-divider-block';
+    wrap.dataset.blockId = block.id;
+    if (isBlockSelected(block.id)) wrap.classList.add('block-selected');
+    wrap.innerHTML = `<div class="note-divider-line"></div>`;
+    wrap.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectBlock(block.id, { extend: e.shiftKey });
+    });
+    return wrap;
+}
+
 function insertImageBlockAfterFocus(note, dataUrl, storagePath) {
     ensureNoteBlocks(note);
 
@@ -5781,32 +5897,24 @@ function buildImageBlockEl(block) {
 
     const widthStyle = block.widthPercent ? ` style="width:${block.widthPercent}%;"` : '';
 
-    // Just the photo by default - no caption/move/delete row cluttering
-    // the view. The corner resize handle is always there (small, subtle,
-    // bottom-right) since resizing is something you'd want without
-    // having to first "select" anything. Everything else (caption,
-    // reorder, delete) only appears in the slim bar below once the photo
-    // is selected - a single click selects it, a second click elsewhere
-    // (or Escape) deselects, Delete/Backspace removes it while selected.
+    // Just the photo - no bordered "card" around it, no caption field,
+    // no separate row of buttons underneath. A click selects it (a thin
+    // outline shows that, drawn on the photo itself rather than a
+    // surrounding box); Delete/Backspace removes it and Ctrl+C copies
+    // the actual image to the system clipboard while it's selected (see
+    // the keydown handler and copyImageBlockToClipboard below). Dragging
+    // from near the image's own edge/corner resizes it - see
+    // attachImageResizeHandlers - so there's no separate handle icon
+    // sitting on top of the photo either.
     wrap.innerHTML = `
         <div class="note-image-thumb-wrap"${widthStyle}>
             <img class="note-image-thumb" src="${block.imageData}" alt="Note photo" onerror="handleNoteImageError(this)">
-            <div class="note-image-resize-handle" title="Drag to resize"></div>
-        </div>
-        <div class="note-image-selected-bar">
-            <input type="text" class="note-image-caption" placeholder="Add a caption…" value="${escapeHtml(block.caption || '')}" oninput="handleImageCaptionEdited('${block.id}', this.value)" onfocus="setLastFocusedBlock('${block.id}')" onclick="event.stopPropagation();">
-            <div class="note-image-actions">
-                <button type="button" class="note-image-icon-btn" onclick="event.stopPropagation(); moveBlock('${block.id}', -1)" title="Move up">↑</button>
-                <button type="button" class="note-image-icon-btn" onclick="event.stopPropagation(); moveBlock('${block.id}', 1)" title="Move down">↓</button>
-                <button type="button" class="note-image-icon-btn note-image-delete" onclick="event.stopPropagation(); deleteNoteBlock('${block.id}')" title="Delete photo">🗑️</button>
-            </div>
         </div>
     `;
 
     const thumbWrap = wrap.querySelector('.note-image-thumb-wrap');
     const img = wrap.querySelector('.note-image-thumb');
-    const handle = wrap.querySelector('.note-image-resize-handle');
-    if (handle && thumbWrap) attachImageResizeHandlers(handle, thumbWrap, block);
+    attachImageResizeHandlers(img, thumbWrap, block);
 
     img.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -5820,16 +5928,30 @@ function buildImageBlockEl(block) {
     return wrap;
 }
 
-// Drag-to-resize: grabbing the corner handle scales the photo's width
-// (height follows automatically since the image keeps its aspect
-// ratio) between a small minimum and the full width of the note pane.
-// Uses Pointer Events so the same code handles mouse drags on desktop
-// and finger drags on mobile.
-function attachImageResizeHandlers(handle, thumbWrap, block) {
+// Drag-to-resize: grabbing near the photo's own right/bottom edge (no
+// separate handle element to hunt for) scales its width - height
+// follows automatically since the image keeps its aspect ratio -
+// between a small minimum and the full width of the note pane. Uses
+// Pointer Events so the same code handles mouse drags on desktop and
+// finger drags on mobile. A plain click anywhere else on the photo
+// still falls through to the normal select/open-lightbox handlers
+// above, since the pointerdown listener here only acts (and only
+// preventDefaults/stops the event) when the pointer actually started
+// near an edge.
+const NOTE_IMAGE_RESIZE_EDGE_PX = 18;
+
+function attachImageResizeHandlers(img, thumbWrap, block) {
     let startX = 0;
     let startWidthPx = 0;
     let containerWidthPx = 0;
     let dragging = false;
+
+    function isNearResizeEdge(e) {
+        const rect = img.getBoundingClientRect();
+        const nearRight = (rect.right - e.clientX) <= NOTE_IMAGE_RESIZE_EDGE_PX;
+        const nearBottom = (rect.bottom - e.clientY) <= NOTE_IMAGE_RESIZE_EDGE_PX;
+        return nearRight || nearBottom;
+    }
 
     function onPointerMove(e) {
         if (!dragging) return;
@@ -5841,6 +5963,7 @@ function attachImageResizeHandlers(handle, thumbWrap, block) {
     function onPointerUp() {
         if (!dragging) return;
         dragging = false;
+        img.style.cursor = '';
         document.removeEventListener('pointermove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
 
@@ -5853,7 +5976,18 @@ function attachImageResizeHandlers(handle, thumbWrap, block) {
         if (note) scheduleNoteSave(note);
     }
 
-    handle.addEventListener('pointerdown', (e) => {
+    // Hover feedback so the resizable edge is discoverable without a
+    // visible handle graphic sitting on the photo.
+    img.addEventListener('pointermove', (e) => {
+        if (dragging) return;
+        img.style.cursor = isNearResizeEdge(e) ? 'nwse-resize' : 'pointer';
+    });
+    img.addEventListener('pointerleave', () => {
+        if (!dragging) img.style.cursor = '';
+    });
+
+    img.addEventListener('pointerdown', (e) => {
+        if (!isNearResizeEdge(e)) return; // not near the edge - let it act as a normal click (select/open)
         e.preventDefault();
         e.stopPropagation();
         dragging = true;
@@ -5865,13 +5999,41 @@ function attachImageResizeHandlers(handle, thumbWrap, block) {
     });
 }
 
-function handleImageCaptionEdited(blockId, value) {
-    const note = notesData.find(n => n.id === currentNoteId);
-    if (!note) return;
-    const block = note.blocks.find(b => b.id === blockId);
-    if (!block) return;
-    block.caption = value;
-    scheduleNoteSave(note);
+// Puts the actual image bytes on the system clipboard (not just an
+// internal reference) when a single selected photo is copied with
+// Ctrl/Cmd+C - so it can be pasted straight into another app exactly
+// like copying any other image, the same way copying it back into this
+// note (or a different one) works for free too, since Ctrl+V here
+// already knows how to turn a pasted image into a block (see the
+// 'paste' listener below). Re-encodes through a canvas to PNG first,
+// since clipboard image writes aren't reliably supported as JPEG
+// across browsers even though photos are stored as JPEG to keep their
+// file size down.
+async function copyImageBlockToClipboard(block) {
+    if (!navigator.clipboard || !window.ClipboardItem) {
+        setVoiceStatus("Copying photos isn't supported in this browser.");
+        setTimeout(() => setVoiceStatus(''), 2500);
+        return;
+    }
+    const pngBlobPromise = (async () => {
+        const resp = await fetch(block.imageData);
+        const blob = await resp.blob();
+        const bitmap = await createImageBitmap(blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        return await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    })();
+
+    try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlobPromise })]);
+        setVoiceStatus('Photo copied - paste it anywhere.');
+        setTimeout(() => setVoiceStatus(''), 1800);
+    } catch (err) {
+        setVoiceStatus("Couldn't copy that photo.");
+        setTimeout(() => setVoiceStatus(''), 2000);
+    }
 }
 
 // Full-screen preview: tapping the thumbnail opens the photo at full
@@ -7371,6 +7533,7 @@ function setMobileSection(section) {
     updateMobileHeaderVisibility();
     updateMobileNavGlassPosition();
     layoutTimerPageForMobile();
+    updateGlobalUndoBtn();
 
     // Only jump to the top when the person actually tapped a different
     // tab - not on every call. Mobile browsers fire a `resize` event
