@@ -50,6 +50,13 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
                 </span> <span id="theme-text">Theme</span>
             </button>
+            <!-- Replays the walkthrough tour on demand - the one place it's
+                 reachable after the first time, since a first-time visitor
+                 gets it automatically (see maybeAutoStartWalkthrough() in
+                 the JS) but everyone else only sees it if they ask. -->
+            <button class="theme-toggle-btn" id="walkthrough-help-btn" onclick="startWalkthrough()" title="Show me around">
+                <span class="icon-badge icon-badge-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.6 1.4c0 1.6-2.1 1.9-2.1 3.3"/><circle cx="12" cy="17" r="0.3" fill="currentColor"/></svg></span> <span>Help</span>
+            </button>
             <!-- Compact Dropbox status/link button, mirrors the one in the
                  Analytics/Export section (see updateDropboxUI() in JS,
                  which now updates both) - kept up here too since this
@@ -184,7 +191,7 @@
         </div>
 
     <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
-<details class="details-section" open style="position: relative;" data-mobile-section="plan">
+<details class="details-section" open style="position: relative;" data-mobile-section="plan" id="planner-section">
     <summary class="details-summary">
         <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Visual Weekly Time-Block Planner</span>
         <div style="display: flex; align-items: center; gap: 14px;">
@@ -502,7 +509,7 @@
         </details>
 
         <!-- SECTION: GOAL TRACKING (own collapsible section) -->
-        <details class="details-section" open data-mobile-section="stats">
+        <details class="details-section" open data-mobile-section="stats" id="goals-section">
             <summary class="details-summary">
                 <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Goal Tracking</span>
                 <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
@@ -528,7 +535,7 @@
              between columns, drag onto the calendar to schedule (same
              mechanism the drawer already uses), and Doing enforces a
              work-in-progress limit of 3. -->
-        <details class="details-section" open data-mobile-section="board">
+        <details class="details-section" open data-mobile-section="board" id="kanban-section">
             <summary class="details-summary">
                 <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>Kanban Board</span>
                 <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Click to expand / collapse</span>
@@ -933,6 +940,34 @@
         <div id="photo-lightbox" class="photo-lightbox-overlay" style="display:none;" onclick="closePhotoLightbox(event)">
             <button type="button" class="photo-lightbox-close" onclick="closePhotoLightbox(event)">✕</button>
             <img id="photo-lightbox-img" class="photo-lightbox-img" src="" alt="Note photo">
+        </div>
+
+        <!-- Dim backdrop - only needed for steps with no specific element
+             to point at (the welcome/closing steps); element-anchored
+             steps dim the page a different way, see .walkthrough-spotlight
+             in the CSS. Clicking it skips the tour, same as the Skip
+             button. -->
+        <div id="walkthrough-overlay" class="walkthrough-overlay" style="display:none;" onclick="endWalkthrough()"></div>
+
+        <!-- WALKTHROUGH POPOVER: a single reusable card, repositioned and
+             refilled by JS for each step (see startWalkthrough() and
+             showWalkthroughStep()). The actual "spotlight" effect on the
+             highlighted element is a CSS class (.walkthrough-spotlight)
+             toggled on whichever element is the current step's target -
+             see that class in the CSS for how it fakes a cutout in the
+             dimmed background using just a box-shadow, no separate
+             overlay/mask needed. -->
+        <div id="walkthrough-popover" class="walkthrough-popover" style="display:none;">
+            <div class="walkthrough-popover-progress" id="walkthrough-progress"></div>
+            <div class="walkthrough-popover-title" id="walkthrough-title"></div>
+            <div class="walkthrough-popover-text" id="walkthrough-text"></div>
+            <div class="walkthrough-popover-actions">
+                <button type="button" class="walkthrough-skip-btn" onclick="endWalkthrough()">Skip</button>
+                <div class="walkthrough-popover-actions-right">
+                    <button type="button" class="walkthrough-back-btn" id="walkthrough-back-btn" onclick="walkthroughBack()">Back</button>
+                    <button type="button" class="walkthrough-next-btn" id="walkthrough-next-btn" onclick="walkthroughNext()">Next</button>
+                </div>
+            </div>
         </div>
 
         <!-- MOBILE GLOBAL UNDO/REDO: a phone has no Ctrl+Z key, so this is

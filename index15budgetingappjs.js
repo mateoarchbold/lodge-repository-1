@@ -7565,6 +7565,7 @@ async function bootAppWithSession(session) {
     try {
         await handleAuthSession(session);
         refreshApp();
+        refreshCardStartTimeSuggestion(); // real data just loaded - make sure the suggested Start Time reflects it, not the pre-load default
         renderNotebookSelector();
         initBacklogPanel();
         updateDropboxUI();
@@ -7579,6 +7580,10 @@ async function bootAppWithSession(session) {
             backupNowToDropbox();
         }
         migrateBase64MediaToStorage();
+        // Real data (or its confirmed absence, for a genuine first-time
+        // guest) has now actually loaded - safe to decide whether this
+        // is a fresh install that should see the walkthrough.
+        maybeAutoStartWalkthrough();
     } catch (err) {
         // Whatever just went wrong (a bad data shape, a Supabase hiccup,
         // anything) - without this, an error here used to leave the
@@ -7937,3 +7942,209 @@ window.addEventListener('resize', refreshMobileNavForViewport);
 refreshMobileNavForViewport();
 setMobileNotesView('list'); // starting screen for the mobile Notes tab - the full list, not a note
 refreshCardStartTimeSuggestion(); // Log Time card opens in Hours mode by default - give Start Time a sensible first value
+
+// --- FIRST-TIME WALKTHROUGH / REPLAYABLE TOUR ---
+// Auto-starts once for a genuinely fresh install (see
+// maybeAutoStartWalkthrough below, called at the very end of this file);
+// anyone with existing data never sees it unprompted. Always reachable
+// again afterward via the ❓ Help button in the header.
+const walkthroughSteps = [
+    {
+        title: 'Welcome to Nabu 👋',
+        text: "Here's a 60-second tour of the main things you can do. Skip anytime - you can always replay this later from the ❓ Help button."
+    },
+    {
+        target: '.live-timer-bar',
+        mobileSection: 'timer',
+        title: 'Start a live timer',
+        text: 'Working on something right now? Type what it is and hit Start - it tracks the time automatically while you work.'
+    },
+    {
+        target: '#log-time-card',
+        mobileSection: 'log',
+        title: 'Log or plan time',
+        text: 'Already know how long something took, or want to plan ahead? Add it here - switch between Hours and Exact Times, and mark it Planned or Completed.'
+    },
+    {
+        target: '#planner-section',
+        mobileSection: 'plan',
+        title: 'Your week at a glance',
+        text: 'Everything you log or plan shows up here as color-coded blocks across your week.'
+    },
+    {
+        target: '#kanban-section',
+        mobileSection: 'board',
+        title: 'Backlog & Kanban',
+        text: "Things you want to do but haven't scheduled go in Backlog. Drag them into Doing, then Done, as you work through them."
+    },
+    {
+        target: '#notes-section',
+        mobileSection: 'notes',
+        title: 'Notes',
+        text: 'Write notes, attach photos or voice memos, and organize them into notebooks.'
+    },
+    {
+        target: '#goals-section',
+        mobileSection: 'stats',
+        title: 'Goals & stats',
+        text: 'Set a weekly goal per category and track your progress here, plus a full breakdown of where your time actually goes.'
+    },
+    {
+        title: "That's it! 🎉",
+        text: 'You can replay this tour anytime from the ❓ Help button in the header.'
+    }
+];
+
+let walkthroughIndex = 0;
+
+function startWalkthrough() {
+    walkthroughIndex = 0;
+    showWalkthroughStep(0);
+}
+
+function clearWalkthroughSpotlight() {
+    document.querySelectorAll('.walkthrough-spotlight').forEach(el => el.classList.remove('walkthrough-spotlight'));
+}
+
+// A couple of elements (the live timer bar, the mobile bottom nav
+// items) exist twice in the DOM - once for desktop, once for mobile -
+// with CSS hiding whichever one doesn't apply. This picks whichever
+// copy is actually on screen right now, falling back to the first
+// match if neither is (e.g. mid-layout-shift).
+function getVisibleWalkthroughTarget(selector) {
+    const matches = document.querySelectorAll(selector);
+    for (const el of matches) {
+        if (el.offsetParent !== null) return el;
+    }
+    return matches[0] || null;
+}
+
+function positionWalkthroughPopover(targetEl) {
+    const pop = document.getElementById('walkthrough-popover');
+    if (!pop) return;
+
+    if (!targetEl) {
+        pop.style.transform = 'translate(-50%, -50%)';
+        pop.style.top = '50%';
+        pop.style.left = '50%';
+        return;
+    }
+
+    pop.style.transform = 'none';
+    const rect = targetEl.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    const margin = 12;
+
+    let top = rect.bottom + margin;
+    if (top + popRect.height > window.innerHeight - margin) {
+        top = rect.top - popRect.height - margin;
+    }
+    top = Math.max(margin, Math.min(top, window.innerHeight - popRect.height - margin));
+
+    let left = rect.left;
+    left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin));
+
+    pop.style.top = `${top}px`;
+    pop.style.left = `${left}px`;
+}
+
+function showWalkthroughStep(i) {
+    const step = walkthroughSteps[i];
+    if (!step) { endWalkthrough(); return; }
+    clearWalkthroughSpotlight();
+    walkthroughIndex = i;
+
+    // Switch to the right mobile tab first, and make sure a desktop
+    // <details> section is actually open, so the target is guaranteed
+    // to exist on screen before we try to point at it.
+    if (step.mobileSection && isMobileNavViewport()) {
+        setMobileSection(step.mobileSection);
+    }
+
+    let targetEl = null;
+    if (step.target) {
+        targetEl = getVisibleWalkthroughTarget(step.target);
+        if (targetEl) {
+            const detailsAncestor = targetEl.closest('details');
+            if (detailsAncestor && !detailsAncestor.open) detailsAncestor.open = true;
+        }
+    }
+
+    const overlay = document.getElementById('walkthrough-overlay');
+    const pop = document.getElementById('walkthrough-popover');
+    const progress = document.getElementById('walkthrough-progress');
+    const title = document.getElementById('walkthrough-title');
+    const text = document.getElementById('walkthrough-text');
+    const backBtn = document.getElementById('walkthrough-back-btn');
+    const nextBtn = document.getElementById('walkthrough-next-btn');
+
+    if (progress) progress.innerText = `Step ${i + 1} of ${walkthroughSteps.length}`;
+    if (title) title.innerText = step.title;
+    if (text) text.innerText = step.text;
+    if (backBtn) backBtn.disabled = i === 0;
+    if (nextBtn) nextBtn.innerText = i === walkthroughSteps.length - 1 ? 'Done' : 'Next';
+
+    if (overlay) overlay.style.display = targetEl ? 'none' : 'block';
+    if (pop) pop.style.display = 'block';
+
+    if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetEl.classList.add('walkthrough-spotlight');
+        // scrollIntoView is async, so measuring right away would grab
+        // the popover's pre-scroll position - give it a beat to land.
+        setTimeout(() => positionWalkthroughPopover(targetEl), 260);
+    } else {
+        positionWalkthroughPopover(null);
+    }
+}
+
+function walkthroughNext() {
+    if (walkthroughIndex >= walkthroughSteps.length - 1) {
+        endWalkthrough();
+    } else {
+        showWalkthroughStep(walkthroughIndex + 1);
+    }
+}
+
+function walkthroughBack() {
+    if (walkthroughIndex > 0) showWalkthroughStep(walkthroughIndex - 1);
+}
+
+function endWalkthrough() {
+    clearWalkthroughSpotlight();
+    document.getElementById('walkthrough-overlay')?.style.setProperty('display', 'none');
+    document.getElementById('walkthrough-popover')?.style.setProperty('display', 'none');
+    localStorage.setItem('walkthroughDone', '1');
+}
+
+window.addEventListener('resize', () => {
+    const pop = document.getElementById('walkthrough-popover');
+    if (!pop || pop.style.display === 'none') return;
+    const step = walkthroughSteps[walkthroughIndex];
+    const targetEl = step && step.target ? getVisibleWalkthroughTarget(step.target) : null;
+    positionWalkthroughPopover(targetEl);
+});
+
+// Only ever auto-starts for a genuinely fresh install with no data at
+// all - anyone who already has entries, backlog items, notes, or goals
+// is treated as an existing user and gets marked "done" immediately
+// instead, so updating to this version never surprises them with an
+// unrequested tour. New users still get it exactly once; everyone can
+// always replay it from the Help button regardless. Called from
+// bootAppWithSession() once real data has actually finished loading -
+// calling it any earlier would see the still-empty in-memory defaults
+// for EVERY user, new or not, since the real data only arrives
+// asynchronously after Supabase auth resolves.
+function maybeAutoStartWalkthrough() {
+    if (localStorage.getItem('walkthroughDone')) return;
+    const hasExistingData =
+        Object.keys(timeData || {}).length > 0 ||
+        (backlogItems && backlogItems.length > 0) ||
+        (notesData && notesData.length > 0) ||
+        Object.keys(categoryGoals || {}).length > 0;
+    if (hasExistingData) {
+        localStorage.setItem('walkthroughDone', '1');
+        return;
+    }
+    startWalkthrough();
+}
