@@ -122,6 +122,7 @@ button, input, select, textarea {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    position: relative; /* anchors .header-menu-btn's position:absolute - without this it was positioning against whatever ancestor happened to be positioned instead, landing the hamburger button in the middle of the page on desktop */
 }
 
 .header-title {
@@ -132,7 +133,7 @@ button, input, select, textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 2px;
     color: var(--accent); /* Verdigris, matching the logo's own "NABU" wordmark color exactly */
 }
 
@@ -143,19 +144,94 @@ button, input, select, textarea {
     flex-shrink: 0;
 }
 
+/* Hamburger menu - collapses the Home/Save/Account/Theme/Help/Language/
+   Dropbox row into a single dropdown, on every screen size (desktop
+   included) rather than just phones - one consistent header instead of
+   a different one per device width. toggleHeaderMenu() in the JS adds
+   .open to reveal it. Fixed to the viewport corner (not the header bar)
+   so it floats on top of whatever's on screen instead of taking up its
+   own row of layout space - the header itself still hides on phones
+   when you're not on the Timer tab, but this stays put regardless. */
 .header-menu-btn {
-    display: none; /* shown only on mobile - see the max-width:768px media query */
+    display: flex;
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-badge-bg);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    z-index: 1002;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.header-menu-btn svg {
+    width: 20px;
+    height: 20px;
 }
 
-/* Home / Account / Theme row - three equal-sized "boxes" instead of
-   pill buttons that stretched to fit their own label ("Dark Theme"
-   ended up visibly wider than "Home"). Fixed width + stacked
-   icon-over-label keeps all three the same size regardless of text
-   length. */
+.header-menu-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+}
+.header-menu-backdrop.visible {
+    display: block;
+}
+
+/* The dropdown itself - hidden by default (collapsed, invisible),
+   expands open when toggleHeaderMenu() adds .open. Fixed just below the
+   button, for the same reason the button itself is fixed above. */
+.header-actions-wrap {
+    position: fixed;
+    top: 56px;
+    right: 10px;
+    width: auto;
+    z-index: 1001;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    padding: 10px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+}
+.header-actions-wrap.open {
+    max-height: 400px;
+    opacity: 1;
+    pointer-events: auto;
+}
 .header-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
     justify-content: center;
+    overflow: visible;
+    padding: 2px;
+    margin: 0;
+    width: 190px;
+}
+.header-actions .theme-toggle-btn {
+    width: 78px;
+    height: 60px;
+    padding: 6px 4px;
+    justify-content: flex-start;
+}
+.header-actions .theme-toggle-btn span:last-child {
+    display: block;
+    font-size: 0.68rem;
+}
+.header-actions .theme-toggle-btn span:first-child {
+    font-size: 1.1rem;
 }
 
 .theme-toggle-btn {
@@ -1665,7 +1741,7 @@ summary.details-summary:hover {
 
 .matrix-grid {
     display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
+    grid-template-columns: 60px repeat(7, 1fr) 60px;
     min-width: 800px;
 }
 
@@ -1683,6 +1759,18 @@ summary.details-summary:hover {
 .matrix-time-col {
     display: grid;
     grid-template-rows: repeat(24, 40px);
+    position: sticky;
+    left: 0;
+    z-index: 6;
+    background: var(--bg-color);
+}
+
+/* The right-edge copy sticks to the opposite side instead - between
+   the two, at least one hour column is always somewhere on screen
+   regardless of how far the grid has been scrolled horizontally. */
+.matrix-time-col-right {
+    left: auto;
+    right: 0;
 }
 
 .time-slot-label {
@@ -3532,6 +3620,7 @@ summary.details-summary:hover {
     max-width: 100% !important;
     margin: 0 auto !important;
     padding: 0 !important;
+    padding-bottom: 100px !important; /* clears the floating .mobile-bottom-nav pill (+ safe-area inset on notched phones) - without this, whichever tab's content runs longest ends up with its last ~100px hidden behind the nav bar instead of scrolling clear of it */
     display: flex !important;
     flex-direction: column !important;
   }
@@ -3547,97 +3636,12 @@ summary.details-summary:hover {
     position: relative !important;
   }
 
-  /* Hamburger button - hidden on desktop (see the non-mobile rule
-     further up implicitly not touching it), shown here top-right of
-     the header. The row of actions it opens moves into a dropdown
-     instead of its own always-visible strip - freeing up that
-     vertical space for the Chronometer/Today strip below. */
-  .header-menu-btn {
-    display: flex !important;
-    position: absolute;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 38px;
-    height: 38px;
-    align-items: center;
-    justify-content: center;
-    background: var(--icon-badge-bg);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    z-index: 1001;
-  }
-  .header-menu-btn svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .header-menu-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 999;
-  }
-  .header-menu-backdrop.visible {
-    display: block;
-  }
-
-  /* The dropdown itself - hidden by default (collapsed, invisible),
-     expands open when toggleHeaderMenu() adds .open. Positioned to
-     drop down from the top-right, under the hamburger button. */
-  .header-actions-wrap {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 4px;
-    width: auto;
-    z-index: 1000;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    padding: 10px;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transition: max-height 0.2s ease, opacity 0.2s ease;
-  }
-  .header-actions-wrap.open {
-    max-height: 400px;
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .header-actions {
-    display: flex !important;
-    gap: 8px !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-    overflow: visible !important;
-    padding: 2px !important;
-    margin: 0 !important;
-    width: 190px;
-  }
-  .header-actions .theme-toggle-btn {
-    width: 78px !important;
-    height: 60px !important;
-    padding: 6px 4px !important;
-    justify-content: flex-start !important;
-  }
-  .header-actions .theme-toggle-btn span:last-child {
-    display: block !important;
-    font-size: 0.68rem !important;
-  }
-  .header-actions .theme-toggle-btn span:first-child {
-    font-size: 1.1rem !important;
-  }
-
-  /* On phones, the title bar (Lodge Time Budgeter / Home / Account /
-     Theme) only shows on the Timer tab - toggled by JS via
-     updateMobileHeaderVisibility(). Desktop/tablet is untouched since
-     this rule only exists inside this max-width:768px query. */
+  /* On phones, the title/logo (now the only thing left in
+     .header-container - the hamburger button and its menu moved to
+     their own fixed overlay above, unaffected by this) only shows on
+     the Timer tab, toggled by JS via updateMobileHeaderVisibility() -
+     freeing that vertical space back up for content on every other
+     tab, same as before the hamburger menu existed. */
   .header-container.mobile-header-hidden {
     display: none !important;
   }

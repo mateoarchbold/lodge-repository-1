@@ -31,6 +31,363 @@ if (typeof supabase === 'undefined') {
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// --- TRANSLATIONS (EN / ES) ---
+// This is a first pass covering the app's main, highest-traffic
+// surfaces: the header, both navs, every major section title, the
+// unified Add Activity form (card + modal + Kanban's quick-add), the
+// Chronometer, Backlog, Goals, Notes chrome, and the walkthrough tour.
+// It intentionally does NOT yet cover every deeper modal (category
+// manager, trash, session history, import/export details) - those
+// still show English on this first pass. Adding a string anywhere else
+// in the app is just adding one more key here, then either a
+// data-i18n[-title/-placeholder] attribute in the HTML or a t('key')
+// call in the JS wherever that text gets set.
+const LANG_STRINGS = {
+    en: {
+        'header.home': 'Home',
+        'header.save': 'Save',
+        'header.saveTitle': 'Save now (Ctrl+S)',
+        'header.account': 'Account',
+        'header.theme': 'Theme',
+        'header.themeTitle': 'Toggle theme',
+        'header.help': 'Help',
+        'header.helpTitle': 'Show me around',
+        'nav.timer': 'Timer',
+        'nav.plan': 'Plan',
+        'nav.log': 'Log',
+        'nav.stats': 'Stats',
+        'nav.board': 'Kanban',
+        'nav.notes': 'Notes',
+        'section.chronometer': 'Chronometer',
+        'section.today': 'Today',
+        'section.planner': 'Visual Weekly Time-Block Planner',
+        'section.backlog': 'Backlog',
+        'section.filters': 'Filters & Categories',
+        'section.dayActivities': 'Day Activities',
+        'section.analytics': 'Category Analytics',
+        'section.goals': 'Goal Tracking',
+        'section.kanban': 'Kanban Board',
+        'kanban.doing': 'Doing',
+        'kanban.done': 'Done',
+        'kanban.emptyTodo': 'Nothing here yet.',
+        'kanban.emptyOther': 'Drag a card here.',
+        'common.clickToExpand': 'Click to expand / collapse',
+        'activity.planned': '🌫️ Planned',
+        'activity.completed': '🎯 Completed',
+        'activity.hoursMode': 'Hours',
+        'activity.exactTimes': 'Exact Times',
+        'activity.startTime': 'Start Time',
+        'activity.hoursLabel': 'Hours',
+        'activity.endTime': 'End Time',
+        'activity.categoryPlaceholder': 'Category',
+        'activity.notesPlaceholder': 'Notes / topic (optional)',
+        'activity.categoryFullPlaceholder': 'Category (e.g. coding)',
+        'activity.dateLabel': 'Date',
+        'activity.dateHint': '(optional — leave blank to send to Backlog)',
+        'activity.addTitle': 'Add Activity',
+        'activity.editTitle': 'Edit Activity',
+        'activity.editBacklogTitle': 'Edit Backlog Item',
+        'activity.addTimeBlockTitle': 'Add Activity - {date}',
+        'timer.descPlaceholder': 'Description (optional)',
+        'timer.start': '▶ Start',
+        'timer.independent': 'Independent',
+        'timer.linked': 'Linked',
+        'timer.startBtn': 'Start',
+        'timer.splitBtn': 'Split',
+        'timer.stopBtn': 'Stop',
+        'timer.resetBtn': 'Reset',
+        'timer.splitNum': 'Split #',
+        'timer.splitTime': 'Split Time',
+        'timer.totalTime': 'Total Time',
+        'backlog.add': '+ Add to Backlog',
+        'goals.weeklyPlaceholder': 'Weekly target (hrs)',
+        'goals.monthlyPlaceholder': 'Monthly target (hrs)',
+        'goals.setGoal': 'Set Goal',
+        'notes.newTitle': 'New note',
+        'notes.new': '+ New',
+        'notes.searchPlaceholder': '🔎 Search notes...',
+        'notes.sortCustom': 'My order (drag to reorder)',
+        'notes.sortAlpha': 'Alphabetical (A–Z)',
+        'notes.untitled': 'Untitled note',
+        'notes.notebookPlaceholder': 'Notebook',
+        'notes.writeHere': 'Write here...',
+        'notes.emptyNoNotes': 'No notes yet. Click "+ New" to start writing.',
+        'notes.emptySearch': 'No notes match your search.',
+        'notes.emptyNotebook': 'No notes in this notebook yet.',
+        'log.filterPlaceholder': 'Filter by category...',
+        'log.loggedToday': 'Logged Today: {hours} hrs',
+        'stats.day': 'Day',
+        'stats.week': 'Week',
+        'stats.month': 'Month',
+        'stats.allTime': 'All Time',
+        'stats.logged': 'logged',
+        'stats.total': 'total',
+        'stats.nothingLogged': 'Nothing logged {period} yet.',
+        'stats.periodToday': 'today',
+        'stats.periodWeek': 'this week',
+        'stats.periodMonth': 'this month',
+        'section.export': 'All Sessions & Export',
+        'export.everything': '💾 Export everything',
+        'export.importBackup': '📂 Import backup',
+        'export.downloadNotes': '📝 Download just notes',
+        'export.linkDropbox': '📦 Link Dropbox for automatic backups',
+        'export.filterPlaceholder': '🔍 Filter category (e.g. coding)',
+        'export.clickRowHint': 'Click any row to edit or delete that entry.',
+        'export.colDate': 'Date',
+        'export.colCategory': 'Category',
+        'export.colDescription': 'Description',
+        'export.colPlane': 'Plane',
+        'export.colHrs': 'Hrs',
+        'export.totalHours': 'Total Hours:',
+        'notes.sectionTitle': 'Notes',
+        'notes.allNotesOption': 'All Notes',
+        'plane.viewPlane': 'View Plane:',
+        'plane.all': '🌐 All',
+        'categories.manageTrigger': 'Categories',
+        'categories.addPlaceholder': 'Add a category...',
+        'header.dropboxTitle': 'Link Dropbox for automatic backups',
+        'walkthrough.step1Title': 'Welcome to Nabu',
+        'walkthrough.step1Text': "This is a quick tour of the main things you can do here. Skip it anytime - you can always come back to it from the Help button up top.",
+        'walkthrough.step2Title': 'Start a timer',
+        'walkthrough.step2Text': 'Working on something right now? Type what it is and hit Start. The time gets saved automatically while you work.',
+        'walkthrough.step3Title': "Today's activities",
+        'walkthrough.step3Text': "This is the strip for today's activities. For example, the activity you just started with the timer will show up here. From this summary you can see everything you've already done and what you have planned for today.",
+        'walkthrough.step4Title': 'Your whole week',
+        'walkthrough.step4Text': "Everything you log in Today also shows up here, across your whole week - so you can see what you've been doing, and also plan activities you haven't done yet. To add one, double-click anywhere on the calendar and type the category and name of that activity. That category gets saved, so you won't have to type it again next time.",
+        'walkthrough.step5Title': 'Another way to add an activity',
+        'walkthrough.step5Text': "If you'd rather not do it directly on the calendar, you can use this form instead: type how many hours it took, or an exact start and end time, and mark it Planned or Completed.",
+        'walkthrough.step6Title': 'Kanban: for organizing tasks',
+        'walkthrough.step6Text': "Kanban is a method a lot of companies use to organize tasks. It's split into three columns: Backlog, for what you want to do; Doing, for what you're working on right now; and Done, for what you've finished. Unlike calendar activities, tasks here don't have a fixed time - you move them from column to column as you go. One tip: keep no more than three tasks in Doing at a time, so you stay focused and actually finish things instead of piling up a bunch of unfinished tasks.",
+        'walkthrough.step7Title': 'Notes',
+        'walkthrough.step7Text': 'Write notes, attach photos or voice memos, and organize them into notebooks.',
+        'walkthrough.step8Title': 'Goals & stats',
+        'walkthrough.step8Text': 'Set a weekly goal per category and track your progress here, plus a breakdown of where your time actually goes.',
+        'walkthrough.step9Title': "That's it",
+        'walkthrough.step9Text': 'You can watch this tour again anytime from the Help button up top.',
+        'walkthrough.skip': 'Skip',
+        'walkthrough.back': 'Back',
+        'walkthrough.next': 'Next',
+        'walkthrough.done': 'Done',
+        'walkthrough.stepOf': 'Step {current} of {total}',
+        'months.0': 'January', 'months.1': 'February', 'months.2': 'March', 'months.3': 'April',
+        'months.4': 'May', 'months.5': 'June', 'months.6': 'July', 'months.7': 'August',
+        'months.8': 'September', 'months.9': 'October', 'months.10': 'November', 'months.11': 'December',
+        'weekdays.0': 'Sun', 'weekdays.1': 'Mon', 'weekdays.2': 'Tue', 'weekdays.3': 'Wed',
+        'weekdays.4': 'Thu', 'weekdays.5': 'Fri', 'weekdays.6': 'Sat'
+    },
+    es: {
+        'header.home': 'Inicio',
+        'header.save': 'Guardar',
+        'header.saveTitle': 'Guardar ahora (Ctrl+S)',
+        'header.account': 'Cuenta',
+        'header.theme': 'Tema',
+        'header.themeTitle': 'Cambiar tema',
+        'header.help': 'Ayuda',
+        'header.helpTitle': 'Mostrarme cómo funciona',
+        'nav.timer': 'Cronómetro',
+        'nav.plan': 'Plan',
+        'nav.log': 'Registro',
+        'nav.stats': 'Estadísticas',
+        'nav.board': 'Kanban',
+        'nav.notes': 'Notas',
+        'section.chronometer': 'Cronómetro',
+        'section.today': 'Hoy',
+        'section.planner': 'Planificador Visual Semanal',
+        'section.backlog': 'Pendientes',
+        'section.filters': 'Filtros y categorías',
+        'section.dayActivities': 'Actividades del día',
+        'section.analytics': 'Análisis por categoría',
+        'section.goals': 'Seguimiento de metas',
+        'section.kanban': 'Tablero Kanban',
+        'kanban.doing': 'En curso',
+        'kanban.done': 'Hecho',
+        'kanban.emptyTodo': 'Nada por aquí todavía.',
+        'kanban.emptyOther': 'Arrastra una tarjeta aquí.',
+        'common.clickToExpand': 'Toca para expandir / colapsar',
+        'activity.planned': '🌫️ Planeado',
+        'activity.completed': '🎯 Completado',
+        'activity.hoursMode': 'Horas',
+        'activity.exactTimes': 'Horas exactas',
+        'activity.startTime': 'Hora de inicio',
+        'activity.hoursLabel': 'Horas',
+        'activity.endTime': 'Hora de fin',
+        'activity.categoryPlaceholder': 'Categoría',
+        'activity.notesPlaceholder': 'Notas / tema (opcional)',
+        'activity.categoryFullPlaceholder': 'Categoría (ej. programación)',
+        'activity.dateLabel': 'Fecha',
+        'activity.dateHint': '(opcional — déjalo en blanco para enviarlo a Pendientes)',
+        'activity.addTitle': 'Agregar actividad',
+        'activity.editTitle': 'Editar actividad',
+        'activity.editBacklogTitle': 'Editar pendiente',
+        'activity.addTimeBlockTitle': 'Agregar actividad - {date}',
+        'timer.descPlaceholder': 'Descripción (opcional)',
+        'timer.start': '▶ Iniciar',
+        'timer.independent': 'Independiente',
+        'timer.linked': 'Vinculado',
+        'timer.startBtn': 'Iniciar',
+        'timer.splitBtn': 'Vuelta',
+        'timer.stopBtn': 'Detener',
+        'timer.resetBtn': 'Reiniciar',
+        'timer.splitNum': 'Vuelta #',
+        'timer.splitTime': 'Tiempo de vuelta',
+        'timer.totalTime': 'Tiempo total',
+        'backlog.add': '+ Agregar a Pendientes',
+        'goals.weeklyPlaceholder': 'Meta semanal (hrs)',
+        'goals.monthlyPlaceholder': 'Meta mensual (hrs)',
+        'goals.setGoal': 'Establecer meta',
+        'notes.newTitle': 'Nota nueva',
+        'notes.new': '+ Nueva',
+        'notes.searchPlaceholder': '🔎 Buscar notas...',
+        'notes.sortCustom': 'Mi orden (arrastra para reordenar)',
+        'notes.sortAlpha': 'Alfabético (A–Z)',
+        'notes.untitled': 'Nota sin título',
+        'notes.notebookPlaceholder': 'Cuaderno',
+        'notes.writeHere': 'Escribe aquí...',
+        'notes.emptyNoNotes': 'Aún no hay notas. Toca "+ Nueva" para empezar a escribir.',
+        'notes.emptySearch': 'Ninguna nota coincide con tu búsqueda.',
+        'notes.emptyNotebook': 'Aún no hay notas en este cuaderno.',
+        'log.filterPlaceholder': 'Filtrar por categoría...',
+        'log.loggedToday': 'Registrado hoy: {hours} hrs',
+        'stats.day': 'Día',
+        'stats.week': 'Semana',
+        'stats.month': 'Mes',
+        'stats.allTime': 'Todo',
+        'stats.logged': 'registrado',
+        'stats.total': 'total',
+        'stats.nothingLogged': 'Nada registrado {period} todavía.',
+        'stats.periodToday': 'hoy',
+        'stats.periodWeek': 'esta semana',
+        'stats.periodMonth': 'este mes',
+        'section.export': 'Sesiones y exportación',
+        'export.everything': '💾 Exportar todo',
+        'export.importBackup': '📂 Importar respaldo',
+        'export.downloadNotes': '📝 Descargar solo las notas',
+        'export.linkDropbox': '📦 Vincular Dropbox para respaldo automático',
+        'export.filterPlaceholder': '🔍 Filtrar por categoría (ej. programación)',
+        'export.clickRowHint': 'Toca cualquier fila para editar o eliminar esa entrada.',
+        'export.colDate': 'Fecha',
+        'export.colCategory': 'Categoría',
+        'export.colDescription': 'Descripción',
+        'export.colPlane': 'Tipo',
+        'export.colHrs': 'Hrs',
+        'export.totalHours': 'Total de horas:',
+        'notes.sectionTitle': 'Notas',
+        'notes.allNotesOption': 'Todas las notas',
+        'plane.viewPlane': 'Ver:',
+        'plane.all': '🌐 Todo',
+        'categories.manageTrigger': 'Categorías',
+        'categories.addPlaceholder': 'Agregar una categoría...',
+        'header.dropboxTitle': 'Vincular Dropbox para respaldo automático',
+        'walkthrough.step1Title': 'Bienvenido a Nabu',
+        'walkthrough.step1Text': 'Este es un recorrido rápido por lo principal que puedes hacer aquí. Puedes saltarlo en cualquier momento - siempre puedes volver a verlo desde el botón Ayuda, arriba.',
+        'walkthrough.step2Title': 'Inicia un cronómetro',
+        'walkthrough.step2Text': '¿Estás haciendo algo ahora mismo? Escribe qué es y presiona Iniciar. El tiempo se va guardando solo, mientras trabajas.',
+        'walkthrough.step3Title': 'Las actividades de hoy',
+        'walkthrough.step3Text': 'Esta es la franja de actividades de hoy. Por ejemplo, la actividad que acabas de iniciar con el cronómetro va a aparecer aquí. Desde este resumen ves todo lo que ya hiciste y lo que tienes planeado para hoy.',
+        'walkthrough.step4Title': 'Tu semana completa',
+        'walkthrough.step4Text': 'Todo lo que registras en Hoy también aparece aquí, en tu semana completa - así puedes ver qué has estado haciendo, y también planificar actividades que todavía no has hecho. Para agregar una, haz doble clic en cualquier parte del calendario y escribe la categoría y el nombre de esa actividad. Esa categoría queda guardada, así no tienes que volver a escribirla la próxima vez.',
+        'walkthrough.step5Title': 'Otra forma de agregar una actividad',
+        'walkthrough.step5Text': 'Si prefieres no hacerlo directamente sobre el calendario, puedes usar este formulario: escribe cuántas horas tomó, o una hora exacta de inicio y fin, y márcala como Planeada o Completada.',
+        'walkthrough.step6Title': 'Kanban: para organizar tareas',
+        'walkthrough.step6Text': 'Kanban es un método que usan muchas empresas para organizar tareas. Se divide en tres columnas: Pendientes, con lo que quieres hacer; En curso, con lo que estás haciendo ahora; y Hecho, con lo que ya terminaste. A diferencia de las actividades del calendario, las tareas de aquí no tienen una hora fija - las vas moviendo de una columna a otra a medida que avanzas. Un consejo: mantén como máximo tres tareas en En curso a la vez, así te mantienes enfocado y terminas lo que empiezas, en lugar de acumular tareas sin terminar.',
+        'walkthrough.step7Title': 'Notas',
+        'walkthrough.step7Text': 'Escribe notas, adjunta fotos o notas de voz, y organízalas en cuadernos.',
+        'walkthrough.step8Title': 'Metas y estadísticas',
+        'walkthrough.step8Text': 'Establece una meta semanal por categoría y sigue tu progreso aquí, además de un desglose de en qué se te va el tiempo.',
+        'walkthrough.step9Title': 'Eso es todo',
+        'walkthrough.step9Text': 'Puedes volver a ver este recorrido cuando quieras desde el botón Ayuda, arriba.',
+        'walkthrough.skip': 'Saltar',
+        'walkthrough.back': 'Atrás',
+        'walkthrough.next': 'Siguiente',
+        'walkthrough.done': 'Listo',
+        'walkthrough.stepOf': 'Paso {current} de {total}',
+        'months.0': 'enero', 'months.1': 'febrero', 'months.2': 'marzo', 'months.3': 'abril',
+        'months.4': 'mayo', 'months.5': 'junio', 'months.6': 'julio', 'months.7': 'agosto',
+        'months.8': 'septiembre', 'months.9': 'octubre', 'months.10': 'noviembre', 'months.11': 'diciembre',
+        'weekdays.0': 'dom', 'weekdays.1': 'lun', 'weekdays.2': 'mar', 'weekdays.3': 'mié',
+        'weekdays.4': 'jue', 'weekdays.5': 'vie', 'weekdays.6': 'sáb'
+    }
+};
+
+// Defaults to Spanish if the browser itself is set to Spanish and
+// nothing's been chosen yet - just a starting guess, and only on a
+// person's very first visit; their own choice (once made) always wins
+// from then on via localStorage.
+let currentLang = localStorage.getItem('appLang')
+    || (navigator.language && navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en');
+
+// Looks up `key` in the current language, falling back to English if
+// it's missing there (covers the first-pass gap honestly instead of
+// showing a blank string), and finally to the key itself as a last
+// resort so a typo'd key is at least visible/debuggable rather than
+// silently empty. `vars` fills in {placeholders} like {date} or {hours}.
+function t(key, vars) {
+    let str = (LANG_STRINGS[currentLang] && LANG_STRINGS[currentLang][key])
+        || LANG_STRINGS.en[key]
+        || key;
+    if (vars) {
+        Object.keys(vars).forEach(k => {
+            str = str.replace(`{${k}}`, vars[k]);
+        });
+    }
+    return str;
+}
+
+// Walks every element carrying a data-i18n[-title/-placeholder]
+// attribute and fills it in from the current language - this is what
+// actually re-paints the static parts of the page instantly when the
+// language is switched, with no reload. Called once on boot and again
+// every time toggleLanguage() runs.
+function applyTranslations() {
+    // Re-render dynamic content FIRST - several things (the calendar
+    // grid, Today strip, Notes list, Kanban) are rebuilt from scratch
+    // with English text baked in at creation time, including this
+    // button's title attribute. Doing this before the data-i18n-title
+    // pass below means freshly-created elements get corrected in the
+    // same pass instead of showing English until the next toggle.
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderVisualMatrix === 'function') renderVisualMatrix();
+    if (typeof renderTodayStrip === 'function') renderTodayStrip();
+    if (typeof renderDayScheduleStack === 'function') renderDayScheduleStack();
+    if (typeof renderBoardSection === 'function') renderBoardSection();
+    if (typeof renderCategoryStats === 'function') renderCategoryStats();
+    if (typeof renderNotebookSelector === 'function') renderNotebookSelector();
+    if (typeof renderNotesList === 'function') renderNotesList();
+    if (typeof renderNoteBlocks === 'function') {
+        const openNote = (typeof notesData !== 'undefined') ? notesData.find(n => n.id === currentNoteId) : null;
+        if (openNote) renderNoteBlocks(openNote);
+    }
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder')));
+    });
+
+    const langLabel = document.getElementById('lang-toggle-label');
+    if (langLabel) langLabel.innerText = currentLang === 'es' ? 'EN' : 'ES';
+    document.documentElement.lang = currentLang;
+
+    // If the walkthrough is open when the language changes, re-run its
+    // own render too - otherwise the data-i18n pass above would reset
+    // its Next/Done button back to the generic label even on the last
+    // step, where it should say "Done" instead.
+    const walkthroughPop = document.getElementById('walkthrough-popover');
+    if (walkthroughPop && walkthroughPop.style.display !== 'none' && typeof showWalkthroughStep === 'function') {
+        showWalkthroughStep(walkthroughIndex);
+    }
+}
+
+function toggleLanguage() {
+    currentLang = currentLang === 'es' ? 'en' : 'es';
+    localStorage.setItem('appLang', currentLang);
+    applyTranslations();
+}
+
 // --- ALWAYS START BLANK ---
 // The app used to hydrate itself from whatever was left in localStorage
 // from a previous visit, so a guest device kept showing old time blocks,
@@ -618,12 +975,12 @@ function renderCategoryStats() {
 
     const data = getCategoryTotalsForPeriod(statsPeriod);
     const totalHours = data.reduce((sum, d) => sum + d.hours, 0);
-    const periodLabel = statsPeriod === 'day' ? 'today' : statsPeriod === 'week' ? 'this week' : 'this month';
+    const periodLabel = statsPeriod === 'day' ? t('stats.periodToday') : statsPeriod === 'week' ? t('stats.periodWeek') : t('stats.periodMonth');
 
     if (totalHours === 0) {
         donut.style.background = 'var(--input-bg)';
-        donut.innerHTML = `<div class="category-stats-donut-center">0h<br><small>logged</small></div>`;
-        legend.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem; padding:8px 4px;">Nothing logged ${periodLabel} yet.</div>`;
+        donut.innerHTML = `<div class="category-stats-donut-center">0h<br><small>${t('stats.logged')}</small></div>`;
+        legend.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem; padding:8px 4px;">${t('stats.nothingLogged', { period: periodLabel })}</div>`;
         return;
     }
 
@@ -637,7 +994,7 @@ function renderCategoryStats() {
     });
 
     donut.style.background = `conic-gradient(${gradientStops.join(', ')})`;
-    donut.innerHTML = `<div class="category-stats-donut-center">${totalHours.toFixed(1)}h<br><small>total</small></div>`;
+    donut.innerHTML = `<div class="category-stats-donut-center">${totalHours.toFixed(1)}h<br><small>${t('stats.total')}</small></div>`;
 
     legend.innerHTML = data.map(d => {
         const pct = ((d.hours / totalHours) * 100).toFixed(1);
@@ -1007,7 +1364,7 @@ function closeHeaderMenu() {
     const wrap = document.getElementById('header-actions-wrap');
     if (!wrap) return;
     wrap.addEventListener('click', (e) => {
-        if (e.target.closest('.theme-toggle-btn') && isMobileNavViewport()) {
+        if (e.target.closest('.theme-toggle-btn')) {
             setTimeout(closeHeaderMenu, 150); // small delay so the actual click (e.g. theme swap) visibly registers first
         }
     });
@@ -1317,16 +1674,15 @@ function renderCalendar() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    title.innerText = `${monthNames[month]} ${year}`;
+    const monthName = t(`months.${month}`);
+    title.innerText = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${year}`;
 
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    weekdays.forEach(day => {
+    for (let d = 0; d < 7; d++) {
         const dayHeader = document.createElement('div');
         dayHeader.className = 'weekday';
-        dayHeader.innerText = day;
+        dayHeader.innerText = t(`weekdays.${d}`);
         grid.appendChild(dayHeader);
-    });
+    }
 
     const firstDayIndex = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
@@ -1420,7 +1776,7 @@ function renderDayScheduleStack() {
     const mobileSummary = document.getElementById('mobile-hours-summary');
     const mobileFilterInput = document.getElementById('mobile-day-category-filter');
 
-    if (desktopTitle) desktopTitle.innerText = `Add Activity - ${selectedDateStr}`;
+    if (desktopTitle) desktopTitle.innerText = t('activity.addTimeBlockTitle', { date: selectedDateStr });
     
     if (desktopContainer) desktopContainer.innerHTML = '';
     if (mobileContainer) mobileContainer.innerHTML = '';
@@ -1498,7 +1854,7 @@ function renderDayScheduleStack() {
         if (summaryEl) {
             summaryEl.innerText = filterText
                 ? `${filterInput.value.trim()}: ${filteredTotalHrs.toFixed(2)} hrs`
-                : `Logged Today: ${filteredTotalHrs.toFixed(2)} hrs`;
+                : t('log.loggedToday', { hours: filteredTotalHrs.toFixed(2) });
         }
 
         // Category pills only make sense for the unfiltered ("show
@@ -2758,6 +3114,7 @@ function openGapFillModal(dateKey, startMinutes, endMinutes) {
 // does.
 function renderTodayStrip() {
     const timeCol = document.getElementById('today-strip-time-col');
+    const timeColRight = document.getElementById('today-strip-time-col-right');
     const dayWrap = document.getElementById('today-strip-day-wrap');
     const dateLabel = document.getElementById('today-strip-date-label');
     const nowLine = document.getElementById('today-now-line');
@@ -2779,6 +3136,19 @@ function renderTodayStrip() {
             slot.className = 'time-slot-label';
             slot.innerText = `${String(h).padStart(2, '0')}:00`;
             timeCol.appendChild(slot);
+        }
+    }
+    // Mirrors the left-hand hour labels on the right edge too - same
+    // reasoning as the big calendar (see renderVisualMatrix): once
+    // this strip is scrolled or a phone screen is narrow, having hour
+    // context on both sides means you're never without it.
+    if (timeColRight && timeColRight.children.length !== 24) {
+        timeColRight.innerHTML = '';
+        for (let h = 0; h < 24; h++) {
+            const slot = document.createElement('div');
+            slot.className = 'time-slot-label';
+            slot.innerText = `${String(h).padStart(2, '0')}:00`;
+            timeColRight.appendChild(slot);
         }
     }
 
@@ -2871,16 +3241,20 @@ function renderVisualMatrix() {
         matrixGrid.appendChild(header);
     }
 
-    // Time Column
-    const timeCol = document.createElement('div');
-    timeCol.className = 'matrix-time-col';
-    for (let h = 0; h < 24; h++) {
-        const slot = document.createElement('div');
-        slot.className = 'time-slot-label';
-        slot.innerText = `${String(h).padStart(2, '0')}:00`;
-        timeCol.appendChild(slot);
-    }
-    matrixGrid.appendChild(timeCol);
+    // Matching header cell for the right-hand hour column below (see
+    // buildTimeColEl) - the grid has one extra column now, so this needs
+    // to exist even empty or every column after it would shift over by
+    // one on the content row.
+    const timeHeaderRight = document.createElement('div');
+    timeHeaderRight.className = 'matrix-header';
+    timeHeaderRight.innerText = 'Time';
+    matrixGrid.appendChild(timeHeaderRight);
+
+    // Time Column - sticky to the left edge of the scroll container (see
+    // .matrix-time-col in the CSS), so it's still visible however far
+    // right you've scrolled instead of disappearing off-screen with
+    // everything else.
+    matrixGrid.appendChild(buildTimeColEl('left'));
 
     // 7 Day Columns
     for (let i = 0; i < 7; i++) {
@@ -2890,6 +3264,29 @@ function renderVisualMatrix() {
 
         matrixGrid.appendChild(buildDayColumnEl(dateKey));
     }
+
+    // Hour labels again on the right edge, sticky to THAT edge instead -
+    // between the two, one of them is always in view no matter where
+    // you've scrolled to, so you're never looking at a block without
+    // knowing what hour it's at.
+    matrixGrid.appendChild(buildTimeColEl('right'));
+}
+
+// The hour-label column (06:00, 07:00, ...) - built once and reused for
+// both edges of the calendar grid (see renderVisualMatrix). Each side
+// is sticky to its own edge of the scrolling container (see
+// .matrix-time-col/.matrix-time-col-right in the CSS), so at least one
+// of them stays on screen at any horizontal scroll position.
+function buildTimeColEl(side) {
+    const timeCol = document.createElement('div');
+    timeCol.className = side === 'right' ? 'matrix-time-col matrix-time-col-right' : 'matrix-time-col';
+    for (let h = 0; h < 24; h++) {
+        const slot = document.createElement('div');
+        slot.className = 'time-slot-label';
+        slot.innerText = `${String(h).padStart(2, '0')}:00`;
+        timeCol.appendChild(slot);
+    }
+    return timeCol;
 }
 
 // --- KEYBOARD LISTENER FOR DELETE / SUPR KEY / COPY / PASTE ---
@@ -3198,7 +3595,7 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     const submitBtn = document.getElementById('modal-submit-btn');
     const deleteBtn = document.getElementById('modal-delete-btn');
     const chronoBtn = document.getElementById('modal-start-chronometer-btn');
-    if (label) label.innerText = 'Add Activity';
+    if (label) label.innerText = t('activity.addTitle');
     if (submitBtn) { submitBtn.innerText = '+'; submitBtn.title = 'Add Time Block'; }
     if (deleteBtn) deleteBtn.style.display = 'none';
     if (chronoBtn) chronoBtn.style.display = activeLiveTimerRef ? 'none' : 'flex';
@@ -3242,7 +3639,7 @@ function openEditModal(dateKey, index, clickEvent) {
     const submitBtn = document.getElementById('modal-submit-btn');
     const deleteBtn = document.getElementById('modal-delete-btn');
     const chronoBtn = document.getElementById('modal-start-chronometer-btn');
-    if (label) label.innerText = 'Edit Activity';
+    if (label) label.innerText = t('activity.editTitle');
     if (submitBtn) { submitBtn.innerText = '✓'; submitBtn.title = 'Save changes'; }
     if (deleteBtn) deleteBtn.style.display = 'flex';
     if (chronoBtn) chronoBtn.style.display = 'none';
@@ -3293,7 +3690,7 @@ function openBacklogEditModal(backlogId, clickEvent) {
     const submitBtn = document.getElementById('modal-submit-btn');
     const deleteBtn = document.getElementById('modal-delete-btn');
     const chronoBtn = document.getElementById('modal-start-chronometer-btn');
-    if (label) label.innerText = 'Edit Backlog Item';
+    if (label) label.innerText = t('activity.editBacklogTitle');
     if (submitBtn) { submitBtn.innerText = '✓'; submitBtn.title = 'Save changes'; }
     if (deleteBtn) deleteBtn.style.display = 'flex';
     if (chronoBtn) chronoBtn.style.display = 'none';
@@ -4426,7 +4823,7 @@ function renderBoardSection() {
         if (items.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'board-empty-msg';
-            empty.textContent = col.status === 'todo' ? 'Nothing here yet.' : 'Drag a card here.';
+            empty.textContent = col.status === 'todo' ? t('kanban.emptyTodo') : t('kanban.emptyOther');
             listEl.appendChild(empty);
             return;
         }
@@ -4896,9 +5293,24 @@ document.addEventListener('focusout', (e) => {
 
 let noteMediaRecorder = null;
 let noteRecordingChunks = [];
+// Kept alive and REUSED across multiple recordings in the same session
+// instead of being requested fresh every time - see startNoteRecording
+// and releaseNoteRecordingStreamForGood below for why: re-calling
+// getUserMedia() for every single recording is what was causing the
+// permission prompt to reappear over and over on some phones, even
+// though the site already had permission. Only released when you
+// actually leave Notes (or the page unloads) via
+// releaseNoteRecordingStreamForGood.
 let noteRecordingStream = null;
 let noteRecordingStartTime = null;
 let noteRecordingTimerInterval = null;
+// True only for the brief window between tapping the record button and
+// getUserMedia() actually resolving - guards against a second tap in
+// that window starting a second, orphaned stream (which was producing
+// occasional corrupt/silent recordings on phones, since the SECOND
+// stream's recorder would overwrite noteMediaRecorder while the FIRST
+// one's mic was still open and unused).
+let noteRecordingIsStarting = false;
 // Snapshot of the recording's duration, taken the instant stop() is
 // requested - see stopNoteRecordingIfActive for why this can't just be
 // recalculated from noteRecordingStartTime later on.
@@ -4989,6 +5401,7 @@ function toggleNoteRecording() {
 
 async function startNoteRecording() {
     if (!currentNoteId) return;
+    if (noteRecordingIsStarting) return; // already mid-request from a previous tap - don't spawn a second stream
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
         setVoiceStatus("This browser can't record audio here - try a different browser, or make sure the page is loaded over https.");
         return;
@@ -5003,37 +5416,53 @@ async function startNoteRecording() {
         return;
     }
 
-    let stream;
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                channelCount: 1,
-                // Opus (what MediaRecorder encodes to in Chrome/Edge) is
-                // natively 48kHz. Some laptop/webcam mics default to
-                // 44.1kHz or something odd, and letting that mismatch
-                // slide is what causes the classic "chipmunk" sped-up
-                // playback bug - so we ask for 48kHz explicitly instead
-                // of trusting the device's own rate.
-                sampleRate: { ideal: 48000 },
-                echoCancellation: true,
-                noiseSuppression: true
-            }
-        });
-    } catch (err) {
-        // A number of phones (older Android WebViews especially) throw
-        // an OverconstrainedError on the detailed request above even
-        // though the mic itself is perfectly usable - so retry once
-        // with the plainest possible request before giving up.
+    // Reuse an already-open mic stream from an earlier recording this
+    // session, if its tracks are all still live - this is the actual
+    // fix for the permission prompt reappearing on every single
+    // recording: each fresh getUserMedia() call is a brand new
+    // permission request as far as several mobile browsers are
+    // concerned, even when the site already has permission. Only ask
+    // again when there's genuinely no usable stream left (first
+    // recording ever, or the mic was revoked/disconnected since).
+    let stream = (noteRecordingStream && noteRecordingStream.getAudioTracks().every(tr => tr.readyState === 'live'))
+        ? noteRecordingStream
+        : null;
+
+    if (!stream) {
+        noteRecordingIsStarting = true;
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (err2) {
-            setVoiceStatus("Couldn't access the microphone - check that this site has mic permission.");
-            return;
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    // Opus (what MediaRecorder encodes to in Chrome/Edge) is
+                    // natively 48kHz. Some laptop/webcam mics default to
+                    // 44.1kHz or something odd, and letting that mismatch
+                    // slide is what causes the classic "chipmunk" sped-up
+                    // playback bug - so we ask for 48kHz explicitly instead
+                    // of trusting the device's own rate.
+                    sampleRate: { ideal: 48000 },
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
+            });
+        } catch (err) {
+            // A number of phones (older Android WebViews especially) throw
+            // an OverconstrainedError on the detailed request above even
+            // though the mic itself is perfectly usable - so retry once
+            // with the plainest possible request before giving up.
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err2) {
+                noteRecordingIsStarting = false;
+                setVoiceStatus("Couldn't access the microphone - check that this site has mic permission.");
+                return;
+            }
         }
+        noteRecordingIsStarting = false;
+        noteRecordingStream = stream;
     }
 
     try {
-        noteRecordingStream = stream;
         noteRecordingChunks = [];
 
         // Pin down an explicit, known-good mimeType instead of letting
@@ -5093,7 +5522,7 @@ async function startNoteRecording() {
         updateNoteRecordingTimerLabel();
     } catch (err) {
         setVoiceStatus("Couldn't start recording - try again.");
-        stream.getTracks().forEach(t => t.stop());
+        releaseNoteRecordingStreamForGood();
     }
 }
 
@@ -5122,8 +5551,6 @@ function stopNoteRecordingIfActive() {
     if (noteMediaRecorder && noteMediaRecorder.state === 'recording') {
         pendingRecordingDurationSec = noteRecordingStartTime ? (Date.now() - noteRecordingStartTime) / 1000 : 0;
         noteMediaRecorder.stop();
-    } else {
-        releaseNoteRecordingStream();
     }
     if (noteRecordingTimerInterval) {
         clearInterval(noteRecordingTimerInterval);
@@ -5133,7 +5560,18 @@ function stopNoteRecordingIfActive() {
     updateVoiceRecordButtonUI(false);
 }
 
-function releaseNoteRecordingStream() {
+// The mic itself is kept open for a little while after a recording
+// ends (see handleNoteRecordingStop) so recording a second or third
+// voice note right after doesn't ask for permission all over again.
+// This is what actually turns that "keep it open" grace period back
+// off - stopping the tracks for real and clearing the idle timer that
+// would otherwise do it automatically a little later.
+let noteRecordingIdleReleaseTimer = null;
+function releaseNoteRecordingStreamForGood() {
+    if (noteRecordingIdleReleaseTimer) {
+        clearTimeout(noteRecordingIdleReleaseTimer);
+        noteRecordingIdleReleaseTimer = null;
+    }
     if (noteRecordingStream) {
         noteRecordingStream.getTracks().forEach(t => t.stop());
         noteRecordingStream = null;
@@ -5153,7 +5591,14 @@ async function handleNoteRecordingStop() {
     const durationSec = pendingRecordingDurationSec;
     pendingRecordingDurationSec = 0;
     noteMediaRecorder = null;
-    releaseNoteRecordingStream(); // safe now - the recorder has finished flushing its data
+
+    // Leave the mic open for a minute in case another voice note gets
+    // recorded right after this one - releaseNoteRecordingStreamForGood
+    // cancels this and shuts it down properly the moment you actually
+    // leave Notes (see setMobileSection/showMobileNotesList) or close
+    // the tab, so it's never left running indefinitely.
+    if (noteRecordingIdleReleaseTimer) clearTimeout(noteRecordingIdleReleaseTimer);
+    noteRecordingIdleReleaseTimer = setTimeout(releaseNoteRecordingStreamForGood, 60000);
 
     const note = notesData.find(n => n.id === currentNoteId);
     if (!note || blob.size === 0) {
@@ -5616,7 +6061,7 @@ function buildTextBlockEl(block, index) {
     const ta = document.createElement('textarea');
     ta.className = 'note-text-block';
     ta.dataset.blockId = block.id;
-    ta.placeholder = index === 0 ? 'Write here...' : '';
+    ta.placeholder = index === 0 ? t('notes.writeHere') : '';
     ta.value = block.content || '';
     ta.rows = 1;
 
@@ -5742,6 +6187,16 @@ function buildAudioBlockEl(block) {
             if (durEl) durEl.innerText = formatAudioDuration(block.duration);
         }
     });
+    // Surfaces a real error instead of a recording that just silently
+    // never plays - the file itself failing to load/decode (a broken
+    // upload, a format this browser can't play, a dead link) shows up
+    // here even when play() itself didn't reject.
+    audioEl.addEventListener('error', () => {
+        const btn = document.getElementById(`play-btn-${block.id}`);
+        if (btn) btn.innerText = '▶';
+        setVoiceStatus("This recording couldn't be loaded - it may be corrupted or in a format this browser can't play.");
+        setTimeout(() => setVoiceStatus(''), 4000);
+    });
 
     return wrap;
 }
@@ -5761,8 +6216,22 @@ function toggleAudioBlockPlay(blockId) {
     });
 
     if (audioEl.paused) {
-        audioEl.play();
+        // play() returns a Promise that can reject (blocked by the
+        // browser, or the file failing to decode) - previously this
+        // wasn't checked at all, so the button flipped to "playing"
+        // even when nothing actually played, which is exactly what
+        // made failed playback look like nothing happened. Now a
+        // failure shows an actual message and puts the button back.
+        const playPromise = audioEl.play();
         if (btn) btn.innerText = '⏸';
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(err => {
+                if (btn) btn.innerText = '▶';
+                console.error('Voice note playback failed:', err);
+                setVoiceStatus("Couldn't play that recording - it may not have saved correctly.");
+                setTimeout(() => setVoiceStatus(''), 3000);
+            });
+        }
     } else {
         audioEl.pause();
         if (btn) btn.innerText = '▶';
@@ -6242,7 +6711,10 @@ function deleteNoteBlock(blockId) {
 }
 
 // Belt-and-suspenders: don't leave the mic hot if the tab closes mid-recording.
-window.addEventListener('beforeunload', stopNoteRecordingIfActive);
+window.addEventListener('beforeunload', () => {
+    stopNoteRecordingIfActive();
+    releaseNoteRecordingStreamForGood();
+});
 
 // "+ New" makes a blank note, drops it at the top of the list, selects
 // it, and focuses the title field - no category prompt, no confirm step.
@@ -6294,7 +6766,7 @@ function renderNotebookSelector() {
     const select = document.getElementById('notebook-filter-select');
     if (!select) return;
 
-    select.innerHTML = ['<option value="">All Notes</option>']
+    select.innerHTML = [`<option value="">${t('notes.allNotesOption')}</option>`]
         .concat(notesNotebooks.map(nb => `<option value="${escapeHtml(nb)}">${escapeHtml(nb)}</option>`))
         .join('');
     select.value = activeNotebookFilter;
@@ -6385,11 +6857,11 @@ function renderNotesList() {
         const empty = document.createElement('div');
         empty.className = 'notes-empty-msg';
         if (notesData.length === 0) {
-            empty.innerText = 'No notes yet. Click "+ New" to start writing.';
+            empty.innerText = t('notes.emptyNoNotes');
         } else if (notesSearchQuery) {
-            empty.innerText = 'No notes match your search.';
+            empty.innerText = t('notes.emptySearch');
         } else {
-            empty.innerText = 'No notes in this notebook yet.';
+            empty.innerText = t('notes.emptyNotebook');
         }
         list.appendChild(empty);
         return;
@@ -7057,6 +7529,7 @@ document.addEventListener('visibilitychange', () => {
         flushNoteSave();
         flushCloudSync();
         emergencySaveOnExit();
+        releaseNoteRecordingStreamForGood(); // don't leave the mic open while the tab is backgrounded
     } else if (document.visibilityState === 'visible') {
         pullLatestCloudData();
     }
@@ -7565,6 +8038,7 @@ async function bootAppWithSession(session) {
     try {
         await handleAuthSession(session);
         refreshApp();
+        applyTranslations(); // re-paint the just-loaded dynamic content (calendar, notes, Kanban) in the current language
         refreshCardStartTimeSuggestion(); // real data just loaded - make sure the suggested Start Time reflects it, not the pre-load default
         renderNotebookSelector();
         initBacklogPanel();
@@ -7728,6 +8202,13 @@ function isMobileNavViewport() {
 
 function setMobileSection(section) {
     const isTabSwitch = !!section && section !== currentMobileSection;
+    // Leaving Notes for a different tab means genuinely done recording
+    // for now - release the mic right away instead of waiting out the
+    // idle timer, so the phone's "mic in use" indicator doesn't linger
+    // once you've moved on to the calendar, Kanban, etc.
+    if (isTabSwitch && currentMobileSection === 'notes' && section !== 'notes') {
+        releaseNoteRecordingStreamForGood();
+    }
     if (section) {
         currentMobileSection = section;
         localStorage.setItem(MOBILE_NAV_STORAGE_KEY, section);
@@ -7942,6 +8423,7 @@ window.addEventListener('resize', refreshMobileNavForViewport);
 refreshMobileNavForViewport();
 setMobileNotesView('list'); // starting screen for the mobile Notes tab - the full list, not a note
 refreshCardStartTimeSuggestion(); // Log Time card opens in Hours mode by default - give Start Time a sensible first value
+applyTranslations(); // paint the static UI in the saved/detected language immediately, before auth/cloud data even arrives
 
 // --- FIRST-TIME WALKTHROUGH / REPLAYABLE TOUR ---
 // Auto-starts once for a genuinely fresh install (see
@@ -7950,48 +8432,54 @@ refreshCardStartTimeSuggestion(); // Log Time card opens in Hours mode by defaul
 // again afterward via the ❓ Help button in the header.
 const walkthroughSteps = [
     {
-        title: 'Welcome to Nabu 👋',
-        text: "Here's a 60-second tour of the main things you can do. Skip anytime - you can always replay this later from the ❓ Help button."
+        titleKey: 'walkthrough.step1Title',
+        textKey: 'walkthrough.step1Text'
     },
     {
         target: '.live-timer-bar',
         mobileSection: 'timer',
-        title: 'Start a live timer',
-        text: 'Working on something right now? Type what it is and hit Start - it tracks the time automatically while you work.'
+        titleKey: 'walkthrough.step2Title',
+        textKey: 'walkthrough.step2Text'
     },
     {
-        target: '#log-time-card',
-        mobileSection: 'log',
-        title: 'Log or plan time',
-        text: 'Already know how long something took, or want to plan ahead? Add it here - switch between Hours and Exact Times, and mark it Planned or Completed.'
+        target: '#today-strip-section',
+        mobileSection: 'timer',
+        titleKey: 'walkthrough.step3Title',
+        textKey: 'walkthrough.step3Text'
     },
     {
         target: '#planner-section',
         mobileSection: 'plan',
-        title: 'Your week at a glance',
-        text: 'Everything you log or plan shows up here as color-coded blocks across your week.'
+        titleKey: 'walkthrough.step4Title',
+        textKey: 'walkthrough.step4Text'
+    },
+    {
+        target: '#log-time-card',
+        mobileSection: 'log',
+        titleKey: 'walkthrough.step5Title',
+        textKey: 'walkthrough.step5Text'
     },
     {
         target: '#kanban-section',
         mobileSection: 'board',
-        title: 'Backlog & Kanban',
-        text: "Things you want to do but haven't scheduled go in Backlog. Drag them into Doing, then Done, as you work through them."
+        titleKey: 'walkthrough.step6Title',
+        textKey: 'walkthrough.step6Text'
     },
     {
         target: '#notes-section',
         mobileSection: 'notes',
-        title: 'Notes',
-        text: 'Write notes, attach photos or voice memos, and organize them into notebooks.'
+        titleKey: 'walkthrough.step7Title',
+        textKey: 'walkthrough.step7Text'
     },
     {
         target: '#goals-section',
         mobileSection: 'stats',
-        title: 'Goals & stats',
-        text: 'Set a weekly goal per category and track your progress here, plus a full breakdown of where your time actually goes.'
+        titleKey: 'walkthrough.step8Title',
+        textKey: 'walkthrough.step8Text'
     },
     {
-        title: "That's it! 🎉",
-        text: 'You can replay this tour anytime from the ❓ Help button in the header.'
+        titleKey: 'walkthrough.step9Title',
+        textKey: 'walkthrough.step9Text'
     }
 ];
 
@@ -8078,11 +8566,11 @@ function showWalkthroughStep(i) {
     const backBtn = document.getElementById('walkthrough-back-btn');
     const nextBtn = document.getElementById('walkthrough-next-btn');
 
-    if (progress) progress.innerText = `Step ${i + 1} of ${walkthroughSteps.length}`;
-    if (title) title.innerText = step.title;
-    if (text) text.innerText = step.text;
+    if (progress) progress.innerText = t('walkthrough.stepOf', { current: i + 1, total: walkthroughSteps.length });
+    if (title) title.innerText = t(step.titleKey);
+    if (text) text.innerText = t(step.textKey);
     if (backBtn) backBtn.disabled = i === 0;
-    if (nextBtn) nextBtn.innerText = i === walkthroughSteps.length - 1 ? 'Done' : 'Next';
+    if (nextBtn) nextBtn.innerText = i === walkthroughSteps.length - 1 ? t('walkthrough.done') : t('walkthrough.next');
 
     if (overlay) overlay.style.display = targetEl ? 'none' : 'block';
     if (pop) pop.style.display = 'block';

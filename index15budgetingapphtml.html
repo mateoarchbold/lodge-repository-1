@@ -28,49 +28,67 @@
          stay put across tabs. -->
     <div class="user-avatar-circle" id="user-avatar-circle" title="Logged in"></div>
 
-    <div class="header-container">
-        <button type="button" class="header-menu-btn" id="header-menu-btn" onclick="toggleHeaderMenu()" title="Menu" aria-label="Menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-        <h1 class="header-title"><img src="nabu-favicon.svg" alt="" class="header-logo-icon">NABU</h1>
-        
-        <div class="header-actions-wrap" id="header-actions-wrap">
+    <!-- Hamburger menu + the dropdown it opens - deliberately OUTSIDE
+         .header-container for the same reason as the avatar circle
+         above: that container hides on phones whenever you're not on
+         the Timer tab (to give content back the space it used to have,
+         instead of reserving room for a header that isn't shown), and
+         a hidden ancestor takes even a fixed-position child down with
+         it. Living out here as its own fixed overlay, it floats on top
+         of whatever's on screen and stays reachable on every tab
+         without pushing any page content down to make room for it. -->
+    <button type="button" class="header-menu-btn" id="header-menu-btn" onclick="toggleHeaderMenu()" title="Menu" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="header-actions-wrap" id="header-actions-wrap">
         <div class="header-actions" id="header-actions">
-            <a href="index.html" class="theme-toggle-btn" title="Home" style="text-decoration: none;">
-                <span class="icon-badge icon-badge-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span> <span>Home</span>
+            <a href="index.html" class="theme-toggle-btn" title="Home" data-i18n-title="header.home" style="text-decoration: none;">
+                <span class="icon-badge icon-badge-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span> <span data-i18n="header.home">Home</span>
             </a>
-            <button class="theme-toggle-btn" id="manual-save-btn" onclick="manualSave()" title="Save now (Ctrl+S)">
-                <span class="icon-badge icon-badge-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></span> <span>Save</span>
+            <button class="theme-toggle-btn" id="manual-save-btn" onclick="manualSave()" title="Save now (Ctrl+S)" data-i18n-title="header.saveTitle">
+                <span class="icon-badge icon-badge-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></span> <span data-i18n="header.save">Save</span>
             </button>
-            <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()" title="Account">
-                <span class="icon-badge icon-badge-account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></span> <span id="auth-btn-label">Account</span>
+            <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()" title="Account" data-i18n-title="header.account">
+                <span class="icon-badge icon-badge-account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></span> <span id="auth-btn-label" data-i18n="header.account">Account</span>
             </button>
-            <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+            <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" data-i18n-title="header.themeTitle">
                 <span class="icon-badge icon-badge-theme" id="theme-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-                </span> <span id="theme-text">Theme</span>
+                </span> <span id="theme-text" data-i18n="header.theme">Theme</span>
             </button>
             <!-- Replays the walkthrough tour on demand - the one place it's
                  reachable after the first time, since a first-time visitor
                  gets it automatically (see maybeAutoStartWalkthrough() in
                  the JS) but everyone else only sees it if they ask. -->
-            <button class="theme-toggle-btn" id="walkthrough-help-btn" onclick="startWalkthrough()" title="Show me around">
-                <span class="icon-badge icon-badge-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.6 1.4c0 1.6-2.1 1.9-2.1 3.3"/><circle cx="12" cy="17" r="0.3" fill="currentColor"/></svg></span> <span>Help</span>
+            <button class="theme-toggle-btn" id="walkthrough-help-btn" onclick="startWalkthrough()" title="Show me around" data-i18n-title="header.helpTitle">
+                <span class="icon-badge icon-badge-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.6 1.4c0 1.6-2.1 1.9-2.1 3.3"/><circle cx="12" cy="17" r="0.3" fill="currentColor"/></svg></span> <span data-i18n="header.help">Help</span>
+            </button>
+            <!-- Language switcher - EN/ES only for now (see LANG_STRINGS in
+                 the JS). Persists to localStorage and re-runs
+                 applyTranslations() across the whole page immediately,
+                 no reload needed. Defaults to Spanish on first visit if
+                 the browser itself is set to Spanish, English otherwise -
+                 either way it's just a starting guess, never forced. -->
+            <button class="theme-toggle-btn" id="lang-toggle-btn" onclick="toggleLanguage()" title="Switch language / Cambiar idioma">
+                <span class="icon-badge icon-badge-lang">🌐</span> <span id="lang-toggle-label">ES</span>
             </button>
             <!-- Compact Dropbox status/link button, mirrors the one in the
                  Analytics/Export section (see updateDropboxUI() in JS,
                  which now updates both) - kept up here too since this
                  header row is the one place visible from every tab. -->
-            <button class="theme-toggle-btn" id="dropbox-header-link-btn" onclick="linkDropboxAccount()" title="Link Dropbox for automatic backups">
+            <button class="theme-toggle-btn" id="dropbox-header-link-btn" onclick="linkDropboxAccount()" title="Link Dropbox for automatic backups" data-i18n-title="header.dropboxTitle">
                 <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span>Dropbox</span>
             </button>
             <button class="theme-toggle-btn" id="dropbox-header-status-btn" onclick="backupNowToDropbox()" title="Click to back up now" style="display:none;">
                 <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span id="dropbox-header-status-text">Dropbox</span>
             </button>
         </div>
-        </div>
     </div>
     <div class="header-menu-backdrop" id="header-menu-backdrop" onclick="closeHeaderMenu()"></div>
+
+    <div class="header-container">
+        <h1 class="header-title"><img src="nabu-favicon.svg" alt="" class="header-logo-icon">NABU</h1>
+    </div>
 
     <div class="container">
         
@@ -86,7 +104,7 @@
         <div id="timer-page-top">
         <!-- STOPWATCH CARD -->
         <div class="card stopwatch">
-            <h2>Chronometer</h2>
+            <h2 data-i18n="section.chronometer">Chronometer</h2>
 
             <!-- Simple on/off switch, not a form to fill in - toggling
                  this determines what pressing the SAME Start button
@@ -102,29 +120,29 @@
                  just reflects the same underlying session, no separate
                  "linking" step needed beyond this one switch. -->
             <div class="stopwatch-link-toggle-row">
-                <span class="stopwatch-link-toggle-label">Independent</span>
+                <span class="stopwatch-link-toggle-label" data-i18n="timer.independent">Independent</span>
                 <label class="stopwatch-toggle-switch">
                     <input type="checkbox" id="stopwatch-link-toggle" onchange="setStopwatchLinkedToToday(this.checked)">
                     <span class="stopwatch-toggle-slider"></span>
                 </label>
-                <span class="stopwatch-link-toggle-label">Linked <span id="stopwatch-link-now-label" class="stopwatch-link-now-label"></span></span>
+                <span class="stopwatch-link-toggle-label" data-i18n="timer.linked">Linked</span> <span id="stopwatch-link-now-label" class="stopwatch-link-now-label"></span>
             </div>
 
             <div class="display" id="stopwatch-display">00:00:00.00</div>
             <div class="controls">
-                <button class="btn-start" id="start-btn">Start</button>
-                <button class="btn-split" id="split-btn" disabled>Split</button>
-                <button class="btn-stop" id="stop-btn" disabled>Stop</button>
-                <button class="btn-reset" id="reset-btn">Reset</button>
+                <button class="btn-start" id="start-btn" data-i18n="timer.startBtn">Start</button>
+                <button class="btn-split" id="split-btn" disabled data-i18n="timer.splitBtn">Split</button>
+                <button class="btn-stop" id="stop-btn" disabled data-i18n="timer.stopBtn">Stop</button>
+                <button class="btn-reset" id="reset-btn" data-i18n="timer.resetBtn">Reset</button>
             </div>
             
             <div class="split-container" id="split-container" style="display: none;">
                 <table class="split-table">
                     <thead>
                         <tr>
-                            <th>Split #</th>
-                            <th>Split Time</th>
-                            <th>Total Time</th>
+                            <th data-i18n="timer.splitNum">Split #</th>
+                            <th data-i18n="timer.splitTime">Split Time</th>
+                            <th data-i18n="timer.totalTime">Total Time</th>
                         </tr>
                     </thead>
                     <tbody id="split-log"></tbody>
@@ -144,9 +162,9 @@
         <div class="live-timer-bar">
             <div class="live-timer-idle" data-role="idle">
                 <span class="live-timer-idle-icon">⏱️</span>
-                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
-                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
-                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)">▶ Start</button>
+                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" data-i18n-placeholder="timer.descPlaceholder" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)" data-i18n="timer.start">▶ Start</button>
             </div>
             <div class="live-timer-active" data-role="active" style="display:none;">
                 <span class="live-timer-pulse-dot"></span>
@@ -173,9 +191,9 @@
              them. Open by default (not collapsed) since it's meant to
              teach new users what the big calendar does before they ever
              see it - see renderTodayStrip() in the JS. -->
-        <details class="details-section" open>
+        <details class="details-section" open id="today-strip-section">
             <summary class="details-summary">
-                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Today</span>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg><span data-i18n="section.today">Today</span></span>
                 <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" id="today-strip-date-label">Click to expand / collapse</span>
             </summary>
             <div class="details-content">
@@ -184,6 +202,7 @@
                     <div class="today-strip-day-wrap" id="today-strip-day-wrap">
                         <div class="today-now-line" id="today-now-line"><span class="today-now-line-label" id="today-now-line-label"></span></div>
                     </div>
+                    <div class="matrix-time-col" id="today-strip-time-col-right"></div>
                 </div>
             </div>
         </details>
@@ -193,13 +212,13 @@
     <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
 <details class="details-section" open style="position: relative;" data-mobile-section="plan" id="planner-section">
     <summary class="details-summary">
-        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>Visual Weekly Time-Block Planner</span>
+        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg><span data-i18n="section.planner">Visual Weekly Time-Block Planner</span></span>
         <div style="display: flex; align-items: center; gap: 14px;">
             <!-- Backlog Toggle Button -->
             <button type="button" class="backlog-toggle-btn" onclick="toggleBacklogDrawer(event)">
-                <svg class="section-icon" style="margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Backlog <span id="backlog-badge-count" class="backlog-count-badge">0</span>
+                <svg class="section-icon" style="margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><span data-i18n="section.backlog">Backlog</span> <span id="backlog-badge-count" class="backlog-count-badge">0</span>
             </button>
-            <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+            <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
         </div>
     </summary>
     
@@ -214,9 +233,9 @@
         <div id="live-timer-bar" class="live-timer-bar">
             <div class="live-timer-idle" data-role="idle">
                 <span class="live-timer-idle-icon">⏱️</span>
-                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
-                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
-                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)">▶ Start</button>
+                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" data-i18n-placeholder="timer.descPlaceholder" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)" data-i18n="timer.start">▶ Start</button>
             </div>
             <div class="live-timer-active" data-role="active" style="display:none;">
                 <span class="live-timer-pulse-dot"></span>
@@ -263,17 +282,17 @@
                      next to this column can be much taller, so putting this
                      outside/after the whole row left a big gap here). -->
                 <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
-                    <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg>Filters &amp; Categories</span>
+                    <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg><span data-i18n="section.filters">Filters &amp; Categories</span></span>
                     <span class="planner-header-toggle-arrow">▾</span>
                 </button>
 
                 <div class="planner-header-collapsible" id="planner-header-collapsible">
                     <!-- VIEW PLANE FILTER TOGGLE BAR -->
                     <div class="plane-toggle-bar">
-                        <span class="plane-label">View Plane:</span>
-                        <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')">🌐 All</button>
-                        <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')">🌫️ Planned</button>
-                        <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')">🎯 Completed</button>
+                        <span class="plane-label" data-i18n="plane.viewPlane">View Plane:</span>
+                        <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')" data-i18n="plane.all">🌐 All</button>
+                        <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')" data-i18n="activity.planned">🌫️ Planned</button>
+                        <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')" data-i18n="activity.completed">🎯 Completed</button>
                     </div>
 
                     <!-- Category manager - a dropdown instead of an always-on
@@ -283,12 +302,12 @@
                     <div class="category-manager" id="category-manager">
                         <button type="button" class="category-manager-trigger" onclick="toggleCategoryManagerDropdown()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
-                            Categories
+                            <span data-i18n="categories.manageTrigger">Categories</span>
                             <span class="category-manager-arrow">▾</span>
                         </button>
                         <div class="category-manager-panel" id="category-manager-panel">
                             <div class="category-manager-add-row">
-                                <input type="text" id="category-manager-add-input" placeholder="Add a category..." onkeydown="if(event.key==='Enter') submitAddKnownCategory();">
+                                <input type="text" id="category-manager-add-input" placeholder="Add a category..." data-i18n-placeholder="categories.addPlaceholder" onkeydown="if(event.key==='Enter') submitAddKnownCategory();">
                                 <button type="button" onclick="submitAddKnownCategory()">+</button>
                             </div>
                             <div class="category-manager-list" id="category-manager-list"></div>
@@ -312,15 +331,15 @@
                 <div class="input-box backlog-add-form">
                     <div class="category-select-row">
                         <div class="category-combo-wrap">
-                            <input type="text" id="backlog-category" class="category-combo-input" placeholder="Category (e.g. coding)" autocomplete="off" oninput="showCategoryCombo('backlog-category')" onfocus="showCategoryCombo('backlog-category')">
+                            <input type="text" id="backlog-category" class="category-combo-input" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" autocomplete="off" oninput="showCategoryCombo('backlog-category')" onfocus="showCategoryCombo('backlog-category')">
                             <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('backlog-category')" title="Show all categories">▾</button>
                             <div id="backlog-category-combo-list" class="category-combo-list"></div>
                         </div>
                         <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
                     </div>
-                    <input type="text" id="backlog-name" placeholder="Notes / topic (optional)">
-                    <input type="number" id="backlog-hours" min="0.25" step="0.25" value="1" placeholder="Hours">
-                    <button class="btn-add" onclick="addBacklogItem()">+ Add to Backlog</button>
+                    <input type="text" id="backlog-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
+                    <input type="number" id="backlog-hours" min="0.25" step="0.25" value="1" placeholder="Hours" data-i18n-placeholder="activity.hoursLabel">
+                    <button class="btn-add" onclick="addBacklogItem()" data-i18n="backlog.add">+ Add to Backlog</button>
                 </div>
 
                 <div class="backlog-scroll-wrap">
@@ -352,7 +371,7 @@
                     <div class="activity-combo-field">
                         <div class="category-select-row">
                             <div class="category-combo-wrap">
-                                <input type="text" id="category-name" class="category-combo-input" placeholder="Category" autocomplete="off" oninput="showCategoryCombo('category-name')" onfocus="showCategoryCombo('category-name')">
+                                <input type="text" id="category-name" class="category-combo-input" placeholder="Category" data-i18n-placeholder="activity.categoryPlaceholder" autocomplete="off" oninput="showCategoryCombo('category-name')" onfocus="showCategoryCombo('category-name')">
                                 <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('category-name')" title="Show all categories">▾</button>
                                 <div id="category-name-combo-list" class="category-combo-list"></div>
                             </div>
@@ -361,33 +380,33 @@
                     </div>
                     <div class="activity-combo-divider"></div>
                     <div class="activity-combo-field">
-                        <input type="text" id="activity-name" placeholder="Notes / topic (optional)">
+                        <input type="text" id="activity-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
                     </div>
                 </div>
                 <datalist id="category-list"></datalist>
                 <datalist id="notebook-list"></datalist>
 
                 <div class="toggle-container">
-                    <button class="toggle-btn" id="type-projected" onclick="setEntryType('projected')">🌫️ Planned</button>
-                    <button class="toggle-btn active" id="type-actual" onclick="setEntryType('actual')">🎯 Completed</button>
+                    <button class="toggle-btn" id="type-projected" onclick="setEntryType('projected')" data-i18n="activity.planned">🌫️ Planned</button>
+                    <button class="toggle-btn active" id="type-actual" onclick="setEntryType('actual')" data-i18n="activity.completed">🎯 Completed</button>
                 </div>
 
                 <div class="toggle-container">
-                    <button class="toggle-btn active" id="mode-simple" onclick="setMode('simple')">Hours</button>
-                    <button class="toggle-btn" id="mode-exact" onclick="setMode('exact')">Exact Times</button>
+                    <button class="toggle-btn active" id="mode-simple" onclick="setMode('simple')" data-i18n="activity.hoursMode">Hours</button>
+                    <button class="toggle-btn" id="mode-exact" onclick="setMode('exact')" data-i18n="activity.exactTimes">Exact Times</button>
                 </div>
 
                 <div class="activity-time-row">
                     <div class="activity-time-field">
-                        <label>Start Time</label>
+                        <label data-i18n="activity.startTime">Start Time</label>
                         <input type="time" id="start-time" value="09:00">
                     </div>
                     <div class="activity-time-field" id="hours-field-group">
-                        <label>Hours</label>
+                        <label data-i18n="activity.hoursLabel">Hours</label>
                         <input type="number" id="duration-hours" min="0.25" step="0.25" placeholder="e.g. 1.5, 2">
                     </div>
                     <div class="activity-time-field" id="end-time-field-group" style="display:none;">
-                        <label>End Time</label>
+                        <label data-i18n="activity.endTime">End Time</label>
                         <input type="time" id="end-time" value="11:00">
                     </div>
                 </div>
@@ -400,8 +419,8 @@
 
             <!-- DAILY SCHEDULE STACK -->
             <div class="card" id="day-schedule-card">
-                <h2>Day Activities</h2>
-                <input type="text" id="day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." list="category-list" oninput="renderDayScheduleStack()">
+                <h2 data-i18n="section.dayActivities">Day Activities</h2>
+                <input type="text" id="day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." data-i18n-placeholder="log.filterPlaceholder" list="category-list" oninput="renderDayScheduleStack()">
                 <div class="hours-summary" id="hours-summary">Logged Today: 0 hrs</div>
                 <!-- Auto-summed totals per category for this day (e.g.
                      three separate Coding sessions adding up to one
@@ -418,8 +437,8 @@
         <!-- SECTION 1: COLLAPSIBLE DETAILS & ANALYTICS -->
         <details class="details-section" open id="analytics-details-section" data-mobile-section="stats">
             <summary class="details-summary">
-                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>Category Analytics</span>
-                <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg><span data-i18n="section.analytics">Category Analytics</span></span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
             </summary>
             
             <div class="details-content">
@@ -442,22 +461,22 @@
                 <!-- SUB-SECTION: everything else, tucked away so it doesn't crowd the main view -->
                 <details class="details-section nested-details" id="all-sessions-details-section" style="margin-top:16px;">
                     <summary class="details-summary">
-                        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg>All Sessions & Export</span>
-                        <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+                        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg><span data-i18n="section.export">All Sessions &amp; Export</span></span>
+                        <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
                     </summary>
                     <div class="details-content">
                         <div class="analytics-controls">
                             <div class="range-bar">
-                                <button class="range-btn active" onclick="setRangeFilter('day', this)">Day</button>
-                                <button class="range-btn" onclick="setRangeFilter('week', this)">Week</button>
-                                <button class="range-btn" onclick="setRangeFilter('month', this)">Month</button>
-                                <button class="range-btn" onclick="setRangeFilter('all', this)">All Time</button>
+                                <button class="range-btn active" onclick="setRangeFilter('day', this)" data-i18n="stats.day">Day</button>
+                                <button class="range-btn" onclick="setRangeFilter('week', this)" data-i18n="stats.week">Week</button>
+                                <button class="range-btn" onclick="setRangeFilter('month', this)" data-i18n="stats.month">Month</button>
+                                <button class="range-btn" onclick="setRangeFilter('all', this)" data-i18n="stats.allTime">All Time</button>
                             </div>
 
                             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                <button onclick="exportData()" class="backup-btn">💾 Export everything</button>
-                                <button onclick="document.getElementById('import-file').click()" class="backup-btn">📂 Import backup</button>
-                                <button onclick="exportAllNotes()" class="backup-btn" title="Just the notes, not the calendar/backlog/goals data">📝 Download just notes</button>
+                                <button onclick="exportData()" class="backup-btn" data-i18n="export.everything">💾 Export everything</button>
+                                <button onclick="document.getElementById('import-file').click()" class="backup-btn" data-i18n="export.importBackup">📂 Import backup</button>
+                                <button onclick="exportAllNotes()" class="backup-btn" title="Just the notes, not the calendar/backlog/goals data" data-i18n="export.downloadNotes">📝 Download just notes</button>
                                 <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
                             </div>
 
@@ -466,18 +485,18 @@
                                  on purpose: a bug or outage on one side can't touch the
                                  other, so there's always a second copy somewhere else. -->
                             <div class="dropbox-backup-row" id="dropbox-backup-row">
-                                <button class="backup-btn" id="dropbox-link-btn" onclick="linkDropboxAccount()">📦 Link Dropbox for automatic backups</button>
+                                <button class="backup-btn" id="dropbox-link-btn" onclick="linkDropboxAccount()" data-i18n="export.linkDropbox">📦 Link Dropbox for automatic backups</button>
                                 <span class="dropbox-status" id="dropbox-status" style="display:none;"></span>
                                 <button class="backup-btn" id="dropbox-backup-now-btn" onclick="backupNowToDropbox()" style="display:none;">Backup now</button>
                                 <button class="backup-btn" id="dropbox-unlink-btn" onclick="unlinkDropboxAccount()" style="display:none;">Unlink</button>
                             </div>
 
                             <div>
-                                <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" oninput="handleCategorySearch(this.value)">
+                                <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" data-i18n-placeholder="export.filterPlaceholder" oninput="handleCategorySearch(this.value)">
                             </div>
                         </div>
 
-                        <small class="table-edit-hint">Click any row to edit or delete that entry.</small>
+                        <small class="table-edit-hint" data-i18n="export.clickRowHint">Click any row to edit or delete that entry.</small>
 
                         <!-- Shown when a goal history bar was clicked - tells you what
                              you're looking at and lets you get back to the full list. -->
@@ -487,9 +506,9 @@
                             <table class="details-table">
                                 <thead>
                                     <tr>
-                                        <th>Date</th>
-                                        <th>Category</th>
-                                        <th>Description</th>
+                                        <th data-i18n="export.colDate">Date</th>
+                                        <th data-i18n="export.colCategory">Category</th>
+                                        <th data-i18n="export.colDescription">Description</th>
                                         <th style="text-align: center;">Plane</th>
                                         <th style="text-align: right;">Hrs</th>
                                     </tr>
@@ -497,7 +516,7 @@
                                 <tbody id="details-table-body"></tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="4" id="table-total-label" style="text-align: right; color: var(--text-muted);">Total Hours:</td>
+                                        <td colspan="4" id="table-total-label" style="text-align: right; color: var(--text-muted);" data-i18n="export.totalHours">Total Hours:</td>
                                         <td id="table-total-value" style="text-align: right; font-family: monospace; font-size: 1.1rem; color: var(--accent);">0.0</td>
                                     </tr>
                                 </tfoot>
@@ -511,16 +530,16 @@
         <!-- SECTION: GOAL TRACKING (own collapsible section) -->
         <details class="details-section" open data-mobile-section="stats" id="goals-section">
             <summary class="details-summary">
-                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Goal Tracking</span>
-                <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span data-i18n="section.goals">Goal Tracking</span></span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
             </summary>
 
             <div class="details-content">
                 <div class="goal-controls">
-                    <input type="text" id="goal-category" list="category-list" placeholder="Category (e.g. coding)" autocomplete="off">
-                    <input type="number" id="goal-weekly-hours" min="0" step="0.5" placeholder="Weekly target (hrs)">
-                    <input type="number" id="goal-monthly-hours" min="0" step="0.5" placeholder="Monthly target (hrs)">
-                    <button class="btn-add" onclick="setCategoryGoal()">Set Goal</button>
+                    <input type="text" id="goal-category" list="category-list" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" autocomplete="off">
+                    <input type="number" id="goal-weekly-hours" min="0" step="0.5" placeholder="Weekly target (hrs)" data-i18n-placeholder="goals.weeklyPlaceholder">
+                    <input type="number" id="goal-monthly-hours" min="0" step="0.5" placeholder="Monthly target (hrs)" data-i18n-placeholder="goals.monthlyPlaceholder">
+                    <button class="btn-add" onclick="setCategoryGoal()" data-i18n="goals.setGoal">Set Goal</button>
                 </div>
                 <div class="goals-grid" id="goals-grid"></div>
             </div>
@@ -537,8 +556,8 @@
              work-in-progress limit of 3. -->
         <details class="details-section" open data-mobile-section="board" id="kanban-section">
             <summary class="details-summary">
-                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>Kanban Board</span>
-                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Click to expand / collapse</span>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg><span data-i18n="section.kanban">Kanban Board</span></span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" data-i18n="common.clickToExpand">Click to expand / collapse</span>
             </summary>
             <div class="details-content">
                 <div class="board-columns">
@@ -560,10 +579,10 @@
                              nothing to "start" partway done). -->
                         <div class="input-box backlog-add-form board-quick-add">
                             <div class="category-combo-wrap">
-                                <input type="text" id="board-add-category" class="category-combo-input" placeholder="Category (e.g. coding)" autocomplete="off" oninput="showCategoryCombo('board-add-category')" onfocus="showCategoryCombo('board-add-category')">
+                                <input type="text" id="board-add-category" class="category-combo-input" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" autocomplete="off" oninput="showCategoryCombo('board-add-category')" onfocus="showCategoryCombo('board-add-category')">
                                 <div id="board-add-category-combo-list" class="category-combo-list"></div>
                             </div>
-                            <input type="text" id="board-add-name" placeholder="Notes / topic (optional)">
+                            <input type="text" id="board-add-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
                         </div>
                         <div class="board-column-list" id="board-col-todo"></div>
                         <!-- Circular "+" at the bottom instead of a text
@@ -575,14 +594,14 @@
                     </div>
                     <div class="board-column">
                         <div class="board-column-header">
-                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Doing</span>
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="kanban.doing">Doing</span></span>
                             <span class="board-count" id="board-count-doing">0/3</span>
                         </div>
                         <div class="board-column-list" id="board-col-doing"></div>
                     </div>
                     <div class="board-column">
                         <div class="board-column-header">
-                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>Done</span>
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><span data-i18n="kanban.done">Done</span></span>
                             <span class="board-count" id="board-count-done">0</span>
                         </div>
                         <div class="board-column-list" id="board-col-done"></div>
@@ -594,8 +613,8 @@
         <!-- SECTION 3: NOTES -->
         <details class="details-section" open id="notes-section" data-mobile-section="notes">
             <summary class="details-summary">
-                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>Notes</span>
-                <small style="color:var(--text-muted); font-size: 0.85rem;">Click to expand / collapse</small>
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg><span data-i18n="notes.sectionTitle">Notes</span></span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
             </summary>
 
             <div class="details-content">
@@ -603,9 +622,9 @@
                     <!-- LEFT: vertical list of notes (small preview each) -->
                     <div class="notes-sidebar">
                         <div class="notes-sidebar-header">
-                            <span class="notes-sidebar-title">Notes <span class="notes-count" id="notes-count-badge">0</span></span>
+                            <span class="notes-sidebar-title"><span data-i18n="notes.sectionTitle">Notes</span> <span class="notes-count" id="notes-count-badge">0</span></span>
                             <button class="notes-new-btn" onclick="openTrashModal()" title="Trash" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color); position:relative;"><svg style="width:15px; height:15px; vertical-align:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg><span id="trash-badge-count" class="trash-header-badge">0</span></button>
-                            <button class="notes-new-btn" onclick="createNote()" title="New note">+ New</button>
+                            <button class="notes-new-btn" onclick="createNote()" title="New note" data-i18n-title="notes.newTitle" data-i18n="notes.new">+ New</button>
                         </div>
 
                         <!-- Notebook picker: groups notes (e.g. "Coding"),
@@ -618,7 +637,7 @@
                         </div>
 
                         <div class="notes-search-wrap">
-                            <input type="text" id="notes-search-input" class="notes-search-input" placeholder="🔎 Search notes..." oninput="handleNotesSearch(this.value)">
+                            <input type="text" id="notes-search-input" class="notes-search-input" placeholder="🔎 Search notes..." data-i18n-placeholder="notes.searchPlaceholder" oninput="handleNotesSearch(this.value)">
                         </div>
 
                         <!-- Sort/order control - "My order" keeps whatever
@@ -629,8 +648,8 @@
                              without touching that underlying order. -->
                         <div class="notes-sort-row">
                             <select id="notes-sort-select" class="notebook-filter-select" onchange="handleNotesSortChange(this.value)" title="Sort notes">
-                                <option value="custom">My order (drag to reorder)</option>
-                                <option value="alpha">Alphabetical (A–Z)</option>
+                                <option value="custom" data-i18n="notes.sortCustom">My order (drag to reorder)</option>
+                                <option value="alpha" data-i18n="notes.sortAlpha">Alphabetical (A–Z)</option>
                             </select>
                         </div>
 
@@ -647,9 +666,9 @@
                             <div class="notes-editor-topbar">
                                 <button type="button" class="notes-back-btn" onclick="showMobileNotesList()" title="Back to notes list">←</button>
                                 <div class="note-title-notebook-row">
-                                    <input type="text" id="note-title-input" class="note-title-input" placeholder="Untitled note" oninput="handleNoteEdited()">
+                                    <input type="text" id="note-title-input" class="note-title-input" placeholder="Untitled note" data-i18n-placeholder="notes.untitled" oninput="handleNoteEdited()">
                                     <div class="note-title-notebook-divider"></div>
-                                    <input type="text" id="note-category-input" class="note-notebook-inline-input" list="notebook-list" placeholder="Notebook" autocomplete="off" oninput="handleNoteEdited()" onchange="commitNoteNotebook()">
+                                    <input type="text" id="note-category-input" class="note-notebook-inline-input" list="notebook-list" placeholder="Notebook" data-i18n-placeholder="notes.notebookPlaceholder" autocomplete="off" oninput="handleNoteEdited()" onchange="commitNoteNotebook()">
                                 </div>
                                 <!-- "More options" - Delete, Download, Copy, and
                                      Duplicate all live here now instead of being
@@ -801,7 +820,7 @@
                          just that category, with its own total - clearing
                          it goes back to showing everything and the full-day
                          total. See renderDayScheduleStack() in the JS. -->
-                    <input type="text" id="mobile-day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." list="category-list" oninput="renderDayScheduleStack()">
+                    <input type="text" id="mobile-day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." data-i18n-placeholder="log.filterPlaceholder" list="category-list" oninput="renderDayScheduleStack()">
 
                     <div class="hours-summary" id="mobile-hours-summary">Logged Today: 0 hrs</div>
                     <div class="category-day-totals" id="mobile-category-day-totals"></div>
@@ -856,7 +875,7 @@
                      since its date already comes from the mini calendar next
                      to it - everything else below is identical to that card. -->
                 <div class="form-group" id="modal-date-group">
-                    <label>Date <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">(optional — leave blank to send to Backlog)</span></label>
+                    <label><span data-i18n="activity.dateLabel">Date</span> <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;" data-i18n="activity.dateHint">(optional — leave blank to send to Backlog)</span></label>
                     <input type="date" id="modal-date-input">
                 </div>
 
@@ -864,7 +883,7 @@
                     <div class="activity-combo-field">
                         <div class="category-select-row">
                             <div class="category-combo-wrap">
-                                <input type="text" id="modal-category-name" class="category-combo-input" placeholder="Category" autocomplete="off" oninput="showCategoryCombo('modal-category-name')" onfocus="showCategoryCombo('modal-category-name')">
+                                <input type="text" id="modal-category-name" class="category-combo-input" placeholder="Category" data-i18n-placeholder="activity.categoryPlaceholder" autocomplete="off" oninput="showCategoryCombo('modal-category-name')" onfocus="showCategoryCombo('modal-category-name')">
                                 <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('modal-category-name')" title="Show all categories">▾</button>
                                 <div id="modal-category-name-combo-list" class="category-combo-list"></div>
                             </div>
@@ -873,31 +892,31 @@
                     </div>
                     <div class="activity-combo-divider"></div>
                     <div class="activity-combo-field">
-                        <input type="text" id="modal-activity-name" placeholder="Notes / topic (optional)">
+                        <input type="text" id="modal-activity-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
                     </div>
                 </div>
 
                 <div class="toggle-container">
-                    <button id="modal-type-projected" class="toggle-btn" onclick="setModalType('projected')">🌫️ Planned</button>
-                    <button id="modal-type-actual" class="toggle-btn active" onclick="setModalType('actual')">🎯 Completed</button>
+                    <button id="modal-type-projected" class="toggle-btn" onclick="setModalType('projected')" data-i18n="activity.planned">🌫️ Planned</button>
+                    <button id="modal-type-actual" class="toggle-btn active" onclick="setModalType('actual')" data-i18n="activity.completed">🎯 Completed</button>
                 </div>
 
                 <div class="toggle-container">
-                    <button class="toggle-btn" id="modal-mode-hours" onclick="setModalTimeMode('hours')">Hours</button>
-                    <button class="toggle-btn active" id="modal-mode-exact" onclick="setModalTimeMode('exact')">Exact Times</button>
+                    <button class="toggle-btn" id="modal-mode-hours" onclick="setModalTimeMode('hours')" data-i18n="activity.hoursMode">Hours</button>
+                    <button class="toggle-btn active" id="modal-mode-exact" onclick="setModalTimeMode('exact')" data-i18n="activity.exactTimes">Exact Times</button>
                 </div>
 
                 <div class="activity-time-row">
                     <div class="activity-time-field">
-                        <label>Start Time</label>
+                        <label data-i18n="activity.startTime">Start Time</label>
                         <input type="time" id="modal-start-time" value="09:00">
                     </div>
                     <div class="activity-time-field" id="modal-hours-group" style="display:none;">
-                        <label>Hours</label>
+                        <label data-i18n="activity.hoursLabel">Hours</label>
                         <input type="number" id="modal-duration-hours" min="0.25" step="0.25" placeholder="e.g. 1.5, 2">
                     </div>
                     <div class="activity-time-field" id="modal-end-time-group">
-                        <label>End Time</label>
+                        <label data-i18n="activity.endTime">End Time</label>
                         <input type="time" id="modal-end-time" value="10:00">
                     </div>
                 </div>
@@ -962,10 +981,10 @@
             <div class="walkthrough-popover-title" id="walkthrough-title"></div>
             <div class="walkthrough-popover-text" id="walkthrough-text"></div>
             <div class="walkthrough-popover-actions">
-                <button type="button" class="walkthrough-skip-btn" onclick="endWalkthrough()">Skip</button>
+                <button type="button" class="walkthrough-skip-btn" onclick="endWalkthrough()" data-i18n="walkthrough.skip">Skip</button>
                 <div class="walkthrough-popover-actions-right">
-                    <button type="button" class="walkthrough-back-btn" id="walkthrough-back-btn" onclick="walkthroughBack()">Back</button>
-                    <button type="button" class="walkthrough-next-btn" id="walkthrough-next-btn" onclick="walkthroughNext()">Next</button>
+                    <button type="button" class="walkthrough-back-btn" id="walkthrough-back-btn" onclick="walkthroughBack()" data-i18n="walkthrough.back">Back</button>
+                    <button type="button" class="walkthrough-next-btn" id="walkthrough-next-btn" onclick="walkthroughNext()" data-i18n="walkthrough.next">Next</button>
                 </div>
             </div>
         </div>
@@ -998,37 +1017,37 @@
                 <span class="mobile-tab-icon icon-badge icon-badge-timer">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/><path d="M12 2v2"/></svg>
                 </span>
-                <span class="mobile-tab-label">Timer</span>
+                <span class="mobile-tab-label" data-i18n="nav.timer">Timer</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="plan" onclick="setMobileSection('plan')">
                 <span class="mobile-tab-icon icon-badge icon-badge-plan">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>
                 </span>
-                <span class="mobile-tab-label">Plan</span>
+                <span class="mobile-tab-label" data-i18n="nav.plan">Plan</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="log" onclick="setMobileSection('log')">
                 <span class="mobile-tab-icon icon-badge icon-badge-log">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
                 </span>
-                <span class="mobile-tab-label">Log</span>
+                <span class="mobile-tab-label" data-i18n="nav.log">Log</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="stats" onclick="setMobileSection('stats')">
                 <span class="mobile-tab-icon icon-badge icon-badge-stats">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
                 </span>
-                <span class="mobile-tab-label">Stats</span>
+                <span class="mobile-tab-label" data-i18n="nav.stats">Stats</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="board" onclick="setMobileSection('board')">
                 <span class="mobile-tab-icon icon-badge icon-badge-board">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
                 </span>
-                <span class="mobile-tab-label">Kanban</span>
+                <span class="mobile-tab-label" data-i18n="nav.board">Kanban</span>
             </button>
             <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
                 <span class="mobile-tab-icon icon-badge icon-badge-notes">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
                 </span>
-                <span class="mobile-tab-label">Notes</span>
+                <span class="mobile-tab-label" data-i18n="nav.notes">Notes</span>
             </button>
         </nav>
 
