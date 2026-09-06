@@ -350,8 +350,17 @@
     </div>
 </details>
 
-        <!-- MAIN 3-COLUMN GRID -->
-        <div class="grid-3col" data-mobile-section="log">
+        <!-- SUMMARY: mini calendar, Add Activity form, and today's logged
+             activities - grouped as one collapsible section like every
+             other part of the page, instead of sitting bare with no way
+             to minimize it. -->
+        <details class="details-section" open id="summary-section" data-mobile-section="log">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h5M3 15h5"/></svg><span data-i18n="section.summary">Summary</span></span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" data-i18n="common.clickToExpand">Click to expand / collapse</span>
+            </summary>
+            <div class="details-content">
+        <div class="grid-3col">
             
             <!-- MONTHLY MINI CALENDAR -->
             <div class="card" id="calendar-card">
@@ -433,6 +442,8 @@
             </div>
 
         </div>
+            </div>
+        </details>
 
         <!-- SECTION 1: COLLAPSIBLE DETAILS & ANALYTICS -->
         <details class="details-section" open id="analytics-details-section" data-mobile-section="stats">
@@ -623,34 +634,71 @@
                     <div class="notes-sidebar">
                         <div class="notes-sidebar-header">
                             <span class="notes-sidebar-title"><span data-i18n="notes.sectionTitle">Notes</span> <span class="notes-count" id="notes-count-badge">0</span></span>
-                            <button class="notes-new-btn" onclick="openTrashModal()" title="Trash" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border-color); position:relative;"><svg style="width:15px; height:15px; vertical-align:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg><span id="trash-badge-count" class="trash-header-badge">0</span></button>
-                            <button class="notes-new-btn" onclick="createNote()" title="New note" data-i18n-title="notes.newTitle" data-i18n="notes.new">+ New</button>
+                            <!-- Trash and "delete this notebook" tucked into one
+                                 small overflow menu instead of two separate
+                                 always-visible icons - both are occasional
+                                 actions, not things you need reaching for
+                                 constantly. -->
+                            <div class="notes-header-menu-wrap">
+                                <button type="button" class="notes-header-menu-btn" onclick="toggleNotesHeaderMenu()" title="More">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                                </button>
+                                <div class="notes-header-menu-panel" id="notes-header-menu-panel">
+                                    <button type="button" onclick="openTrashModal(); closeNotesHeaderMenu();">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+                                        <span data-i18n="notes.trash">Trash</span>
+                                        <span id="trash-badge-count" class="trash-header-badge">0</span>
+                                    </button>
+                                    <button type="button" id="notebook-del-menu-item" onclick="deleteCurrentNotebook(); closeNotesHeaderMenu();">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                                        <span data-i18n="notes.deleteNotebook">Delete this notebook</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Notebook picker: groups notes (e.g. "Coding"),
-                             and new notes created while one is selected get
-                             auto-numbered into it (Coding 1, Coding 2...). -->
-                        <div class="notebook-picker-row">
-                            <select id="notebook-filter-select" class="notebook-filter-select" onchange="handleNotebookFilterChange(this.value)" title="Filter by notebook"></select>
-                            <button type="button" class="notebook-new-btn" onclick="createNotebook()" title="New notebook">+ <svg style="width:13px; height:13px; vertical-align:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></button>
-                            <button type="button" class="notebook-del-btn" onclick="deleteCurrentNotebook()" title="Delete this notebook">🗑️</button>
+                        <!-- Notebook + Search merged into one bordered box, same
+                             "one box, two rows, split by a line" treatment as
+                             the Add Activity form's Category/Notes box - each
+                             row has its own "+" for the action it starts
+                             (a new notebook, a new note), instead of buttons
+                             scattered separately around the sidebar. -->
+                        <div class="notes-combo-box">
+                            <div class="notes-combo-row">
+                                <!-- Notebooks: a plain button instead of a native
+                                     select with its own dropdown arrow - click it,
+                                     it shows every notebook to filter by (see
+                                     toggleNotebookFilterDropdown/renderNotebookSelector
+                                     in the JS), same "click and see a list" pattern
+                                     as the header's own overflow menu. -->
+                                <button type="button" class="notes-combo-select" id="notebook-filter-trigger" onclick="toggleNotebookFilterDropdown()" data-i18n="notes.notebooksLabel">Notebooks</button>
+                                <button type="button" class="board-add-fab notes-combo-fab" onclick="createNotebook()" title="New notebook">+</button>
+                                <div class="notes-header-menu-panel" id="notebook-filter-panel"></div>
+                            </div>
+                            <div class="notes-combo-divider"></div>
+                            <div class="notes-combo-row">
+                                <input type="text" id="notes-search-input" class="notes-combo-input" placeholder="Notes" data-i18n-placeholder="notes.searchPlaceholder" oninput="handleNotesSearch(this.value)">
+                                <button type="button" class="board-add-fab notes-combo-fab" onclick="createNote()" title="New note" data-i18n-title="notes.newTitle">+</button>
+                            </div>
                         </div>
 
-                        <div class="notes-search-wrap">
-                            <input type="text" id="notes-search-input" class="notes-search-input" placeholder="🔎 Search notes..." data-i18n-placeholder="notes.searchPlaceholder" oninput="handleNotesSearch(this.value)">
-                        </div>
-
-                        <!-- Sort/order control - "My order" keeps whatever
-                             sequence you've dragged notes into (drag any
-                             row in the list below to rearrange, only
-                             active while this is selected and nothing's
-                             filtered/searched); "A-Z" sorts by title
-                             without touching that underlying order. -->
-                        <div class="notes-sort-row">
-                            <select id="notes-sort-select" class="notebook-filter-select" onchange="handleNotesSortChange(this.value)" title="Sort notes">
-                                <option value="custom" data-i18n="notes.sortCustom">My order (drag to reorder)</option>
-                                <option value="alpha" data-i18n="notes.sortAlpha">Alphabetical (A–Z)</option>
-                            </select>
+                        <!-- "Custom" keeps whatever order notes sit in (drag to
+                             reorder any row below); "A-Z" sorts by title
+                             without touching that underlying order - same
+                             sort modes as before, just a toggle pair now
+                             instead of a dropdown. "Show notes" collapses the
+                             list itself away by default, since you don't
+                             necessarily want the full list taking up space
+                             every time you're just here to open the one note
+                             you already have selected. -->
+                        <div class="notes-list-controls-row">
+                            <div class="toggle-container notes-sort-toggle">
+                                <button type="button" class="toggle-btn" id="notes-sort-alpha-btn" onclick="handleNotesSortChange('alpha')" data-i18n="notes.sortAlphaShort">A-Z</button>
+                                <button type="button" class="toggle-btn active" id="notes-sort-custom-btn" onclick="handleNotesSortChange('custom')" data-i18n="notes.sortCustomShort">Custom</button>
+                            </div>
+                            <button type="button" class="notes-show-toggle-btn" id="notes-show-toggle-btn" onclick="toggleNotesListVisible()">
+                                <span data-i18n="notes.showNotes">Show Notes</span> <span class="notes-show-toggle-arrow">▾</span>
+                            </button>
                         </div>
 
                         <div class="notes-list" id="notes-list"></div>

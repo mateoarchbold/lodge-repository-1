@@ -2444,25 +2444,6 @@ summary.details-summary:hover {
     font-size: 0.75rem;
 }
 
-/* Small red badge on the header Trash button, only shown once there's
-   something in it - mirrors familiar "unread count" badge patterns. */
-.trash-header-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: var(--danger);
-    color: #fff;
-    font-size: 0.62rem;
-    font-weight: 700;
-    min-width: 15px;
-    height: 15px;
-    border-radius: 999px;
-    align-items: center;
-    justify-content: center;
-    padding: 0 3px;
-    display: none; /* toggled to 'flex' in JS (renderTrashModal) when count > 0 */
-}
-
 .modal-close-btn {
     position: absolute;
     top: 12px;
@@ -3754,76 +3735,205 @@ summary.details-summary:hover {
     font-size: 0.8rem;
 }
 
-.notes-new-btn {
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 10px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
+/* Overflow menu (Trash, Delete this notebook) - tucked behind one
+   small icon instead of separate always-visible buttons, since both
+   are occasional actions rather than everyday ones. */
+.notes-header-menu-wrap {
+    position: relative;
 }
 
-.notes-new-btn:hover {
-    opacity: 0.9;
-}
-
-/* Notebook picker: dropdown to filter/file notes into groups, + New and
-   Delete buttons alongside it. */
-.notebook-picker-row {
+.notes-header-menu-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.notebook-filter-select {
-    flex: 1;
-    min-width: 0;
-    background: var(--input-bg);
-    color: var(--text);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    padding: 5px 6px;
-    font-size: 0.78rem;
-    cursor: pointer;
-}
-
-.notebook-new-btn,
-.notebook-del-btn {
-    background: var(--input-bg);
-    color: var(--text);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    padding: 5px 8px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
 }
 
-.notebook-new-btn:hover,
-.notebook-del-btn:hover {
+.notes-header-menu-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+.notes-header-menu-btn:hover,
+.notes-header-menu-btn.open {
     border-color: var(--accent);
 }
 
-.notebook-del-btn {
-    display: none; /* toggled on via JS only when a notebook is selected */
+.notes-header-menu-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 40;
+    min-width: 190px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    padding: 0 6px;
 }
 
-/* Search bar above the notes list - filters by title or note content. */
-.notes-search-wrap {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-color);
+.notes-header-menu-panel.open {
+    max-height: 200px;
+    overflow-y: auto;
+    opacity: 1;
+    pointer-events: auto;
+    padding: 6px;
 }
 
-.notes-sort-row {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-color);
+.notes-header-menu-panel button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.85rem;
+    padding: 9px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.notes-header-menu-panel button:hover {
+    background: var(--input-bg);
+}
+
+.notes-header-menu-panel button.active {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.trash-header-badge {
+    margin-left: auto;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 1px 6px;
+    min-width: 16px;
+    text-align: center;
+    display: none; /* toggled to 'flex' in JS (renderTrashModal) when count > 0 */
+}
+
+/* Notebook + Search merged into one bordered box, split by a line -
+   same treatment as the Add Activity form's Category/Notes box, each
+   row ending in the "+" that starts the action it's next to (a new
+   notebook, a new note). */
+.notes-combo-box {
+    margin: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--input-bg);
+}
+
+.notes-combo-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    position: relative; /* anchors the notebook dropdown panel (position:absolute) to this row specifically */
+}
+
+.notes-combo-select,
+.notes-combo-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.82rem;
+    padding: 8px 6px;
+}
+
+.notes-combo-select {
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+}
+
+.notes-combo-select:focus,
+.notes-combo-input:focus {
+    outline: none;
+}
+
+/* The "+" buttons here reuse .board-add-fab (the same circular FAB
+   used for Kanban's "+ Add to Backlog" and the Add Activity form) so
+   every "+" in the app looks the same - just scaled down to fit this
+   compact row instead of the 44px original. */
+.notes-combo-fab {
+    width: 28px;
+    height: 28px;
+    font-size: 1.1rem;
+    margin: 0;
+    box-shadow: none;
+}
+
+.notes-combo-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0 6px;
+}
+
+/* Sort toggle (A-Z / Custom) + the "Show Notes" collapse toggle -
+   same row, sort choice on the left, whether the list itself is even
+   showing on the right. */
+.notes-list-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 12px 10px;
+}
+
+.notes-sort-toggle {
+    margin-bottom: 0;
+    width: auto;
+}
+
+.notes-sort-toggle .toggle-btn {
+    padding: 5px 12px;
+    font-size: 0.76rem;
+}
+
+.notes-show-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 2px;
+}
+
+.notes-show-toggle-btn:hover {
+    color: var(--text);
+}
+
+.notes-show-toggle-arrow {
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.notes-show-toggle-btn.open .notes-show-toggle-arrow {
+    transform: rotate(180deg);
 }
 
 .notes-search-input {

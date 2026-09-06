@@ -64,6 +64,7 @@ const LANG_STRINGS = {
         'section.backlog': 'Backlog',
         'section.filters': 'Filters & Categories',
         'section.dayActivities': 'Day Activities',
+        'section.summary': 'Summary',
         'section.analytics': 'Category Analytics',
         'section.goals': 'Goal Tracking',
         'section.kanban': 'Kanban Board',
@@ -105,7 +106,14 @@ const LANG_STRINGS = {
         'goals.setGoal': 'Set Goal',
         'notes.newTitle': 'New note',
         'notes.new': '+ New',
-        'notes.searchPlaceholder': '🔎 Search notes...',
+        'notes.notebooksLabel': 'Notebooks',
+        'notes.trash': 'Trash',
+        'notes.deleteNotebook': 'Delete this notebook',
+        'notes.sortAlphaShort': 'A-Z',
+        'notes.sortCustomShort': 'Custom',
+        'notes.showNotes': 'Show Notes',
+        'notes.hideNotes': 'Hide Notes',
+        'notes.searchPlaceholder': 'Notes',
         'notes.sortCustom': 'My order (drag to reorder)',
         'notes.sortAlpha': 'Alphabetical (A–Z)',
         'notes.untitled': 'Untitled note',
@@ -114,6 +122,15 @@ const LANG_STRINGS = {
         'notes.emptyNoNotes': 'No notes yet. Click "+ New" to start writing.',
         'notes.emptySearch': 'No notes match your search.',
         'notes.emptyNotebook': 'No notes in this notebook yet.',
+        'sync.saveFailed': '⚠️ Could not save - check your connection',
+        'sync.voiceSavedCloud': 'Voice note saved - available on all your devices.',
+        'sync.voiceSavedLocalOnly': '⚠️ Saved on this device only - {reason}',
+        'sync.voiceSavedGuest': 'Voice note saved on this device.',
+        'sync.photoSavedCloud': 'Photo added - available on all your devices.',
+        'sync.photosSavedCloud': 'Photos added - available on all your devices.',
+        'sync.photoSavedLocalOnly': '⚠️ Saved on this device only - {reason}',
+        'sync.photoSavedGuest': 'Photo saved on this device.',
+        'sync.photosSavedGuest': 'Photos saved on this device.',
         'log.filterPlaceholder': 'Filter by category...',
         'log.loggedToday': 'Logged Today: {hours} hrs',
         'stats.day': 'Day',
@@ -196,6 +213,7 @@ const LANG_STRINGS = {
         'section.backlog': 'Pendientes',
         'section.filters': 'Filtros y categorías',
         'section.dayActivities': 'Actividades del día',
+        'section.summary': 'Resumen',
         'section.analytics': 'Análisis por categoría',
         'section.goals': 'Seguimiento de metas',
         'section.kanban': 'Tablero Kanban',
@@ -237,7 +255,14 @@ const LANG_STRINGS = {
         'goals.setGoal': 'Establecer meta',
         'notes.newTitle': 'Nota nueva',
         'notes.new': '+ Nueva',
-        'notes.searchPlaceholder': '🔎 Buscar notas...',
+        'notes.notebooksLabel': 'Cuadernos',
+        'notes.trash': 'Papelera',
+        'notes.deleteNotebook': 'Eliminar este cuaderno',
+        'notes.sortAlphaShort': 'A-Z',
+        'notes.sortCustomShort': 'Personalizado',
+        'notes.showNotes': 'Mostrar notas',
+        'notes.hideNotes': 'Ocultar notas',
+        'notes.searchPlaceholder': 'Notas',
         'notes.sortCustom': 'Mi orden (arrastra para reordenar)',
         'notes.sortAlpha': 'Alfabético (A–Z)',
         'notes.untitled': 'Nota sin título',
@@ -246,6 +271,15 @@ const LANG_STRINGS = {
         'notes.emptyNoNotes': 'Aún no hay notas. Toca "+ Nueva" para empezar a escribir.',
         'notes.emptySearch': 'Ninguna nota coincide con tu búsqueda.',
         'notes.emptyNotebook': 'Aún no hay notas en este cuaderno.',
+        'sync.saveFailed': '⚠️ No se pudo guardar - revisa tu conexión',
+        'sync.voiceSavedCloud': 'Nota de voz guardada - disponible en todos tus dispositivos.',
+        'sync.voiceSavedLocalOnly': '⚠️ Guardada solo en este dispositivo - {reason}',
+        'sync.voiceSavedGuest': 'Nota de voz guardada en este dispositivo.',
+        'sync.photoSavedCloud': 'Foto agregada - disponible en todos tus dispositivos.',
+        'sync.photosSavedCloud': 'Fotos agregadas - disponibles en todos tus dispositivos.',
+        'sync.photoSavedLocalOnly': '⚠️ Guardada solo en este dispositivo - {reason}',
+        'sync.photoSavedGuest': 'Foto guardada en este dispositivo.',
+        'sync.photosSavedGuest': 'Fotos guardadas en este dispositivo.',
         'log.filterPlaceholder': 'Filtrar por categoría...',
         'log.loggedToday': 'Registrado hoy: {hours} hrs',
         'stats.day': 'Día',
@@ -403,6 +437,7 @@ function toggleLanguage() {
 ['flexibleTimeData', 'backlogItems', 'categoryGoals', 'customCategoryColors',
  'manualCategories', 'notesData', 'notesNotebooks', 'activeNotebookFilter']
     .forEach(key => localStorage.removeItem(key));
+
 
 // --- DATA STATE & INITIALIZATION ---
 let timeData = {};
@@ -5645,8 +5680,8 @@ async function handleNoteRecordingStop() {
         const uploaded = await uploadNoteMediaBlob(blob, ext);
         if (uploaded.url) {
             insertAudioBlockAfterFocus(note, uploaded.url, durationSec, uploaded.path);
-            setVoiceStatus('Voice note saved.');
-            setTimeout(() => setVoiceStatus(''), 1500);
+            setVoiceStatus(t('sync.voiceSavedCloud'));
+            setTimeout(() => setVoiceStatus(''), 2200);
         } else {
             // Guest (no account) or the upload failed - fall back to
             // storing it locally exactly like before, rather than
@@ -5658,11 +5693,11 @@ async function handleNoteRecordingStop() {
                 // actual reason (uploaded.error) now, not just a
                 // generic guess, so a repeat of this is immediately
                 // diagnosable instead of needing a full re-investigation.
-                setVoiceStatus(`⚠️ Saved on this device only - ${uploaded.error || 'cloud upload failed'}`);
+                setVoiceStatus(t('sync.voiceSavedLocalOnly', { reason: uploaded.error || 'cloud upload failed' }));
                 setTimeout(() => setVoiceStatus(''), 5000);
             } else {
-                setVoiceStatus('Voice note saved.');
-                setTimeout(() => setVoiceStatus(''), 1500);
+                setVoiceStatus(t('sync.voiceSavedGuest'));
+                setTimeout(() => setVoiceStatus(''), 2200);
             }
         }
     } catch (err) {
@@ -6378,9 +6413,13 @@ async function addPhotoFilesToCurrentNote(files) {
             // than needing a full re-investigation. This photo will
             // still auto-migrate to Storage next time uploads do work
             // (see migrateBase64MediaToStorage).
-            setVoiceStatus(`⚠️ Saved on this device only - ${lastUploadError || 'cloud upload failed'}`);
+            setVoiceStatus(t('sync.voiceSavedLocalOnly', { reason: lastUploadError || 'cloud upload failed' }));
+        } else if (usedFallback) {
+            // Guest (no account) - there's genuinely nowhere to upload
+            // to yet, so this is expected, not an error.
+            setVoiceStatus(files.length > 1 ? t('sync.photosSavedGuest') : t('sync.photoSavedGuest'));
         } else {
-            setVoiceStatus(files.length > 1 ? 'Photos added.' : 'Photo added.');
+            setVoiceStatus(files.length > 1 ? t('sync.photosSavedCloud') : t('sync.photoSavedCloud'));
         }
     } catch (err) {
         setVoiceStatus("Couldn't add that photo - try a different one.");
@@ -6795,22 +6834,46 @@ function renderNotebookSelector() {
         datalist.innerHTML = notesNotebooks.map(nb => `<option value="${escapeHtml(nb)}"></option>`).join('');
     }
 
-    const select = document.getElementById('notebook-filter-select');
-    if (!select) return;
+    const panel = document.getElementById('notebook-filter-panel');
+    if (panel) {
+        const items = [{ value: '', label: t('notes.allNotesOption') }]
+            .concat(notesNotebooks.map(nb => ({ value: nb, label: nb })));
+        panel.innerHTML = items.map(item => `
+            <button type="button" class="${item.value === activeNotebookFilter ? 'active' : ''}" onclick="handleNotebookFilterChange('${item.value.replace(/'/g, "\\'")}'); closeNotebookFilterDropdown();">${escapeHtml(item.label)}</button>
+        `).join('');
+    }
 
-    select.innerHTML = [`<option value="">${t('notes.allNotesOption')}</option>`]
-        .concat(notesNotebooks.map(nb => `<option value="${escapeHtml(nb)}">${escapeHtml(nb)}</option>`))
-        .join('');
-    select.value = activeNotebookFilter;
-
-    const delBtn = document.querySelector('.notebook-del-btn');
-    if (delBtn) delBtn.style.display = activeNotebookFilter ? 'inline-flex' : 'none';
+    const delBtn = document.getElementById('notebook-del-menu-item');
+    if (delBtn) delBtn.style.display = activeNotebookFilter ? 'flex' : 'none';
 }
+
+// The "Notebooks" trigger button + the panel it opens - a plain click
+// showing every notebook, instead of a native <select> with its own
+// dropdown arrow.
+function toggleNotebookFilterDropdown() {
+    const panel = document.getElementById('notebook-filter-panel');
+    const trigger = document.getElementById('notebook-filter-trigger');
+    if (!panel) return;
+    const opening = !panel.classList.contains('open');
+    panel.classList.toggle('open', opening);
+    if (trigger) trigger.classList.toggle('open', opening);
+}
+function closeNotebookFilterDropdown() {
+    document.getElementById('notebook-filter-panel')?.classList.remove('open');
+    document.getElementById('notebook-filter-trigger')?.classList.remove('open');
+}
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('notebook-filter-panel');
+    const trigger = document.getElementById('notebook-filter-trigger');
+    if (!panel || !panel.classList.contains('open')) return;
+    if (!panel.contains(e.target) && e.target !== trigger) closeNotebookFilterDropdown();
+});
 
 function handleNotebookFilterChange(value) {
     activeNotebookFilter = value;
     localStorage.setItem('activeNotebookFilter', activeNotebookFilter);
     renderNotesList();
+    renderNotebookSelector(); // refresh which item shows as active in the panel
 }
 
 // Prompts for a new notebook name (e.g. "Coding") and switches the list to
@@ -6856,13 +6919,57 @@ function handleNotesSearch(value) {
     renderNotesList();
 }
 
+function toggleNotesHeaderMenu() {
+    const panel = document.getElementById('notes-header-menu-panel');
+    const trigger = document.querySelector('.notes-header-menu-btn');
+    if (!panel) return;
+    const opening = !panel.classList.contains('open');
+    panel.classList.toggle('open', opening);
+    if (trigger) trigger.classList.toggle('open', opening);
+}
+function closeNotesHeaderMenu() {
+    document.getElementById('notes-header-menu-panel')?.classList.remove('open');
+    document.querySelector('.notes-header-menu-btn')?.classList.remove('open');
+}
+document.addEventListener('click', (e) => {
+    const wrap = document.querySelector('.notes-header-menu-wrap');
+    const panel = document.getElementById('notes-header-menu-panel');
+    if (!wrap || !panel || !panel.classList.contains('open')) return;
+    if (!wrap.contains(e.target)) closeNotesHeaderMenu();
+});
+
+// The note list itself is collapsed by default (see notesListVisible)
+// so opening the Notes tab doesn't necessarily dump the full list on
+// screen every time - press "Show Notes" to reveal it, remembered
+// across sessions via localStorage the same way notesSortMode is.
+let notesListVisible = localStorage.getItem('notesListVisible') !== '0';
+function toggleNotesListVisible() {
+    notesListVisible = !notesListVisible;
+    localStorage.setItem('notesListVisible', notesListVisible ? '1' : '0');
+    applyNotesListVisibility();
+}
+function applyNotesListVisibility() {
+    const list = document.getElementById('notes-list');
+    const btn = document.getElementById('notes-show-toggle-btn');
+    if (list) list.style.display = notesListVisible ? '' : 'none';
+    if (btn) {
+        btn.classList.toggle('open', notesListVisible);
+        const label = btn.querySelector('span[data-i18n]');
+        if (label) {
+            label.setAttribute('data-i18n', notesListVisible ? 'notes.hideNotes' : 'notes.showNotes');
+            label.textContent = t(notesListVisible ? 'notes.hideNotes' : 'notes.showNotes');
+        }
+    }
+}
+
 function renderNotesList() {
     const list = document.getElementById('notes-list');
     const badge = document.getElementById('notes-count-badge');
     if (!list) return;
 
-    const sortSelect = document.getElementById('notes-sort-select');
-    if (sortSelect) sortSelect.value = notesSortMode;
+    applyNotesListVisibility();
+    document.getElementById('notes-sort-alpha-btn')?.classList.toggle('active', notesSortMode === 'alpha');
+    document.getElementById('notes-sort-custom-btn')?.classList.toggle('active', notesSortMode === 'custom');
 
     let visibleNotes = notesData;
     if (activeNotebookFilter) {
@@ -7504,6 +7611,25 @@ function applyCloudSnapshot(cloudData) {
     localStorage.setItem('manualCategories', JSON.stringify(manualCategories));
     localStorage.setItem('hiddenCategories', JSON.stringify(hiddenCategories));
 
+    // Refreshes the instant-load cache (see hydrateInstantlyFromLastKnownCache
+    // near the bottom of this file) so the NEXT time this same account
+    // opens the app, it can paint immediately with what's current as of
+    // right now, instead of last time's snapshot.
+    if (currentUser) {
+        try {
+            localStorage.setItem('lastCloudUserId', currentUser.id);
+            localStorage.setItem('cloudCache_' + currentUser.id, JSON.stringify({
+                timeData, backlogItems, categoryGoals, customCategoryColors,
+                notesData, notesNotebooks, trashedItems, hiddenCategories
+            }));
+        } catch (err) {
+            // Quota exceeded or similar - non-fatal, this cache is purely
+            // an optimization; the real cloud data is what actually
+            // matters and is unaffected.
+            console.error('Could not refresh instant-load cache (non-fatal):', err);
+        }
+    }
+
     purgeExpiredTrash(); // quietly cleans out anything past the 30-day window, and its media, on every fresh load
 
     refreshApp();
@@ -7572,6 +7698,24 @@ window.addEventListener('pagehide', () => {
     emergencySaveOnExit();
 });
 
+// Catches the case visibilitychange above doesn't: two devices open and
+// BOTH left visible the whole time (e.g. this app up on a desktop
+// monitor while a phone is used to snap a photo into a note). Without
+// this, the desktop tab would only ever notice that photo after being
+// backgrounded and refocused, or manually reloaded - which is exactly
+// what looked like "I uploaded it on my phone but it's not showing up
+// on my desktop." This polls every 20 seconds while the tab is
+// actually visible (paused otherwise, so a backgrounded tab isn't
+// hammering the network for no reason) and pulls in whatever the other
+// device saved since - not truly instant, but never more than 20
+// seconds behind instead of "not until something else happens to
+// refresh it."
+setInterval(() => {
+    if (document.visibilityState === 'visible' && currentUser && !isLoadingCloudData) {
+        pullLatestCloudData();
+    }
+}, 20000);
+
 function openAuthModal() {
     const modal = document.getElementById('auth-modal');
     const errorEl = document.getElementById('auth-error-msg');
@@ -7619,6 +7763,7 @@ async function handleSignUpClick() {
 }
 
 async function logOutUser() {
+    const loggedOutUserId = currentUser ? currentUser.id : null;
     await supabaseClient.auth.signOut();
     unsubscribeFromRealtimeSync();
 
@@ -7650,6 +7795,18 @@ async function logOutUser() {
     localStorage.removeItem('notesData');
     localStorage.removeItem('notesNotebooks');
     localStorage.removeItem('activeNotebookFilter');
+
+    // Also clear the instant-load cache (see hydrateInstantlyFromLastKnownCache
+    // near the bottom of this file) - without this, the next person to
+    // open the app on this same device/browser would briefly flash this
+    // account's data on screen for a moment before the real (correctly
+    // empty, logged-out) state took over, which is exactly the kind of
+    // shared-computer privacy slip the wipe above already exists to
+    // prevent for everything else.
+    if (loggedOutUserId) {
+        localStorage.removeItem('cloudCache_' + loggedOutUserId);
+    }
+    localStorage.removeItem('lastCloudUserId');
 
     // Reset the notes pane itself, not just the underlying data - otherwise
     // whatever note was open stays visible on screen until something else
@@ -7695,13 +7852,24 @@ async function saveUserData(userId, payload) {
     // by manually pressing Save later, or worse, not until the change
     // was already gone. Now any failed save says so, the same way,
     // regardless of what triggered it.
-    showSaveToast('⚠️ Could not save - check your connection', false);
+    showSaveToast(t('sync.saveFailed'), false);
+    lastCloudSyncOk = false;
   } else {
     lastLocalSaveAt = Date.now();
+    lastCloudSyncOk = true;
     maybeAutoBackupToDropbox();
   }
   return { data, error };
 }
+// Tracks whether the MOST RECENT save actually reached the cloud -
+// read by the photo/voice-note status messages (see
+// insertAudioBlockAfterFocus and the photo equivalent) so they can say
+// specifically whether that photo or recording is now available on
+// your other devices too, or only saved on this one for now. General
+// text edits don't announce this on every keystroke - it'd be a nag -
+// but the two actions people actually asked to be sure crossed devices
+// (photos, voice notes) say it plainly every time.
+let lastCloudSyncOk = true;
 
 // --- NOTE MEDIA STORAGE (Supabase Storage) ---
 // Photos and voice notes used to be embedded as base64 text directly
@@ -8150,6 +8318,50 @@ function showBootErrorBanner(err) {
 //    in case getSession() is ever slower or fails outright, not as the
 //    thing actually deciding what gets painted first.
 let didInitialBoot = false;
+
+// Paints the app INSTANTLY from whatever this exact account last saw,
+// before the real auth check + cloud fetch even resolves - this is
+// what actually fixes a slow-feeling load on a phone: without it, the
+// loading overlay stayed up for the entire network round-trip (auth
+// check, then a separate fetch for the data itself) before anything
+// appeared at all, which on a slower mobile connection is genuinely
+// noticeable. This cache is deliberately separate from the
+// "ALWAYS START BLANK" wipe above - that one exists to stop a GUEST
+// device from ever showing stale data with no account behind it; this
+// one only ever fires for a specific, already-known account id, and
+// gets silently overwritten the moment the real fetch below completes
+// (see the cache-writing side of this in applyCloudSnapshot) - so it's
+// never the source of truth, just a instant first paint while the real
+// one is still in flight. If the account logged out or switched since
+// the cache was written, the real fetch corrects it a moment later
+// exactly like it always did.
+function hydrateInstantlyFromLastKnownCache() {
+    try {
+        const lastUserId = localStorage.getItem('lastCloudUserId');
+        if (!lastUserId) return;
+        const cached = localStorage.getItem('cloudCache_' + lastUserId);
+        if (!cached) return;
+        const data = JSON.parse(cached);
+        timeData = data.timeData || {};
+        backlogItems = data.backlogItems || [];
+        categoryGoals = data.categoryGoals || {};
+        customCategoryColors = data.customCategoryColors || {};
+        notesData = data.notesData || [];
+        notesNotebooks = data.notesNotebooks || [];
+        trashedItems = data.trashedItems || [];
+        hiddenCategories = data.hiddenCategories || [];
+        refreshApp();
+        const overlay = document.getElementById('initial-load-overlay');
+        if (overlay) overlay.classList.add('hidden');
+    } catch (err) {
+        // Corrupt/outdated cache shape - harmless to skip; the real
+        // fetch below still runs normally and paints everything
+        // correctly a moment later regardless.
+        console.error('Could not paint instant-load cache (non-fatal):', err);
+    }
+}
+hydrateInstantlyFromLastKnownCache();
+
 supabaseClient.auth.getSession().then(({ data }) => {
     bootAppWithSession(data.session);
 }).catch((err) => {
