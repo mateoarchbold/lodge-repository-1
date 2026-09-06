@@ -3241,20 +3241,16 @@ function renderVisualMatrix() {
         matrixGrid.appendChild(header);
     }
 
-    // Matching header cell for the right-hand hour column below (see
-    // buildTimeColEl) - the grid has one extra column now, so this needs
-    // to exist even empty or every column after it would shift over by
-    // one on the content row.
-    const timeHeaderRight = document.createElement('div');
-    timeHeaderRight.className = 'matrix-header';
-    timeHeaderRight.innerText = 'Time';
-    matrixGrid.appendChild(timeHeaderRight);
-
-    // Time Column - sticky to the left edge of the scroll container (see
-    // .matrix-time-col in the CSS), so it's still visible however far
-    // right you've scrolled instead of disappearing off-screen with
-    // everything else.
-    matrixGrid.appendChild(buildTimeColEl('left'));
+    // Time Column
+    const timeCol = document.createElement('div');
+    timeCol.className = 'matrix-time-col';
+    for (let h = 0; h < 24; h++) {
+        const slot = document.createElement('div');
+        slot.className = 'time-slot-label';
+        slot.innerText = `${String(h).padStart(2, '0')}:00`;
+        timeCol.appendChild(slot);
+    }
+    matrixGrid.appendChild(timeCol);
 
     // 7 Day Columns
     for (let i = 0; i < 7; i++) {
@@ -3264,29 +3260,6 @@ function renderVisualMatrix() {
 
         matrixGrid.appendChild(buildDayColumnEl(dateKey));
     }
-
-    // Hour labels again on the right edge, sticky to THAT edge instead -
-    // between the two, one of them is always in view no matter where
-    // you've scrolled to, so you're never looking at a block without
-    // knowing what hour it's at.
-    matrixGrid.appendChild(buildTimeColEl('right'));
-}
-
-// The hour-label column (06:00, 07:00, ...) - built once and reused for
-// both edges of the calendar grid (see renderVisualMatrix). Each side
-// is sticky to its own edge of the scrolling container (see
-// .matrix-time-col/.matrix-time-col-right in the CSS), so at least one
-// of them stays on screen at any horizontal scroll position.
-function buildTimeColEl(side) {
-    const timeCol = document.createElement('div');
-    timeCol.className = side === 'right' ? 'matrix-time-col matrix-time-col-right' : 'matrix-time-col';
-    for (let h = 0; h < 24; h++) {
-        const slot = document.createElement('div');
-        slot.className = 'time-slot-label';
-        slot.innerText = `${String(h).padStart(2, '0')}:00`;
-        timeCol.appendChild(slot);
-    }
-    return timeCol;
 }
 
 // --- KEYBOARD LISTENER FOR DELETE / SUPR KEY / COPY / PASTE ---
@@ -5291,8 +5264,29 @@ document.addEventListener('focusout', (e) => {
 });
 
 
-let noteMediaRecorder = null;
-let noteRecordingChunks = [];
+// Recording is done via the raw Web Audio API (capturing PCM samples
+// directly) and encoded to a plain WAV file ourselves, instead of
+// leaning on MediaRecorder's own choice of container format. That
+// choice is the actual reason recordings didn't reliably play back
+// across devices: MediaRecorder only ever produces WebM/Opus in
+// Chrome/Firefox/Android, and only ever MP4/AAC in Safari/iOS - and
+// neither platform can PLAY the other's format at all, no matter what
+// this code does, since that's a decoder limitation of the browser
+// itself. WAV has no such split: every browser on every platform can
+// play a WAV file natively, so a note recorded on a phone plays on a
+// desktop and vice versa, every time. The one real trade-off is file
+// size - WAV is uncompressed, so a voice note here is roughly 5-8x
+// larger than the old compressed formats. For typical voice-note
+// lengths (seconds to a couple minutes) that's still small in
+// absolute terms, and it's a trade worth making for actually reliable
+// playback everywhere.
+let noteRecordingAudioContext = null;
+let noteRecordingSourceNode = null;
+let noteRecordingProcessorNode = null;
+let noteRecordingMuteNode = null;
+let noteRecordingPCMChunks = []; // array of Float32Array, one per audio buffer callback
+let noteRecordingSampleRate = 48000;
+let noteRecordingIsActive = false;
 // Kept alive and REUSED across multiple recordings in the same session
 // instead of being requested fresh every time - see startNoteRecording
 // and releaseNoteRecordingStreamForGood below for why: re-calling
@@ -5308,7 +5302,7 @@ let noteRecordingTimerInterval = null;
 // getUserMedia() actually resolving - guards against a second tap in
 // that window starting a second, orphaned stream (which was producing
 // occasional corrupt/silent recordings on phones, since the SECOND
-// stream's recorder would overwrite noteMediaRecorder while the FIRST
+// stream's capture graph would overwrite the shared state while the FIRST
 // one's mic was still open and unused).
 let noteRecordingIsStarting = false;
 // Snapshot of the recording's duration, taken the instant stop() is
@@ -5392,7 +5386,7 @@ function updateVoiceRecordButtonUI(isRecording) {
 }
 
 function toggleNoteRecording() {
-    if (noteMediaRecorder && noteMediaRecorder.state === 'recording') {
+    if (noteRecordingIsActive) {
         stopNoteRecordingIfActive();
     } else {
         startNoteRecording();
@@ -5402,7 +5396,8 @@ function toggleNoteRecording() {
 async function startNoteRecording() {
     if (!currentNoteId) return;
     if (noteRecordingIsStarting) return; // already mid-request from a previous tap - don't spawn a second stream
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AudioContextClass) {
         setVoiceStatus("This browser can't record audio here - try a different browser, or make sure the page is loaded over https.");
         return;
     }
@@ -5434,12 +5429,6 @@ async function startNoteRecording() {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
-                    // Opus (what MediaRecorder encodes to in Chrome/Edge) is
-                    // natively 48kHz. Some laptop/webcam mics default to
-                    // 44.1kHz or something odd, and letting that mismatch
-                    // slide is what causes the classic "chipmunk" sped-up
-                    // playback bug - so we ask for 48kHz explicitly instead
-                    // of trusting the device's own rate.
                     sampleRate: { ideal: 48000 },
                     echoCancellation: true,
                     noiseSuppression: true
@@ -5463,59 +5452,40 @@ async function startNoteRecording() {
     }
 
     try {
-        noteRecordingChunks = [];
-
-        // Pin down an explicit, known-good mimeType instead of letting
-        // the browser guess - keeps the encoder consistent with the
-        // 48kHz we requested above. iOS/iPadOS Safari never supports
-        // webm at all, only audio/mp4 - that's still covered here.
-        const preferredMimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4;codecs=mp4a.40.2', 'audio/mp4']
-            .find(t => typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(t));
-
-        const recorderOptions = preferredMimeType ? { mimeType: preferredMimeType } : {};
-        // Voice notes don't need music-quality bitrate, and keeping the
-        // encoded size down matters a lot more on mobile - localStorage
-        // quotas there are typically a fraction of desktop, and this is
-        // stored as base64 (roughly +33% size) right inside the notes
-        // JSON, so oversized clips are the single biggest cause of
-        // saves silently failing on a phone.
-        recorderOptions.audioBitsPerSecond = 64000;
-
-        try {
-            noteMediaRecorder = new MediaRecorder(stream, recorderOptions);
-        } catch (e) {
-            // Some mobile browsers reject option combos they'd otherwise
-            // accept individually - fall back to letting the browser
-            // pick everything itself rather than failing to record.
-            noteMediaRecorder = new MediaRecorder(stream);
+        // ScriptProcessorNode is technically deprecated in favor of
+        // AudioWorklet, but it's still supported everywhere that
+        // matters here and needs no separate worklet file to load and
+        // manage - for a one-off capture like this, the simpler,
+        // universally-working option wins over the newer one.
+        noteRecordingAudioContext = new AudioContextClass();
+        if (noteRecordingAudioContext.state === 'suspended') {
+            await noteRecordingAudioContext.resume();
         }
+        noteRecordingSampleRate = noteRecordingAudioContext.sampleRate;
+        noteRecordingPCMChunks = [];
 
-        noteMediaRecorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) noteRecordingChunks.push(e.data);
-        };
-        noteMediaRecorder.onstop = handleNoteRecordingStop;
-        noteMediaRecorder.onerror = () => {
-            setVoiceStatus("Recording stopped unexpectedly - try again.");
-            stopNoteRecordingIfActive();
+        noteRecordingSourceNode = noteRecordingAudioContext.createMediaStreamSource(stream);
+        noteRecordingProcessorNode = noteRecordingAudioContext.createScriptProcessor(4096, 1, 1);
+        noteRecordingProcessorNode.onaudioprocess = (e) => {
+            // Copy the samples out - the buffer this came in on gets
+            // reused by the browser for the next callback, so holding
+            // onto it directly would mean every chunk silently turns
+            // into a copy of the LAST chunk instead of its own audio.
+            noteRecordingPCMChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
         };
 
-        // A timeslice makes the recorder flush chunks periodically
-        // instead of only at stop(). That's safe (and needed) for
-        // WebM/Opus, which is a segmented container designed to be
-        // concatenated chunk by chunk - it's what keeps mobile
-        // Chrome/Android reliably producing audio at all. Safari's
-        // audio/mp4, however, emits fragmented-MP4 chunks that don't
-        // always splice back together correctly when just concatenated
-        // - this is exactly what was causing clips to report the right
-        // duration and a non-empty file, yet play back silent past the
-        // first second or so. So mp4 recordings ask for one single
-        // chunk at the end instead, which always decodes correctly.
-        const isFragmentedMp4 = !!(preferredMimeType && preferredMimeType.indexOf('mp4') !== -1);
-        if (isFragmentedMp4) {
-            noteMediaRecorder.start();
-        } else {
-            noteMediaRecorder.start(1000);
-        }
+        // ScriptProcessorNode only actually fires its callback once
+        // it's connected all the way to a destination - route it
+        // through a silent (gain 0) node instead of straight to the
+        // speakers, so recording doesn't also play your own voice back
+        // out loud in real time while you talk.
+        noteRecordingMuteNode = noteRecordingAudioContext.createGain();
+        noteRecordingMuteNode.gain.value = 0;
+        noteRecordingSourceNode.connect(noteRecordingProcessorNode);
+        noteRecordingProcessorNode.connect(noteRecordingMuteNode);
+        noteRecordingMuteNode.connect(noteRecordingAudioContext.destination);
+
+        noteRecordingIsActive = true;
         noteRecordingStartTime = Date.now();
         updateVoiceRecordButtonUI(true);
         noteRecordingTimerInterval = setInterval(updateNoteRecordingTimerLabel, 250);
@@ -5548,9 +5518,22 @@ async function startNoteRecording() {
 //    or doesn't play at all. Tracks are now released inside
 //    handleNoteRecordingStop instead, once onstop has actually fired.
 function stopNoteRecordingIfActive() {
-    if (noteMediaRecorder && noteMediaRecorder.state === 'recording') {
+    if (noteRecordingIsActive) {
         pendingRecordingDurationSec = noteRecordingStartTime ? (Date.now() - noteRecordingStartTime) / 1000 : 0;
-        noteMediaRecorder.stop();
+        noteRecordingIsActive = false;
+
+        // Disconnect the capture graph before encoding - nothing more
+        // should come in once stop is pressed.
+        try { noteRecordingProcessorNode.disconnect(); } catch (e) {}
+        try { noteRecordingSourceNode.disconnect(); } catch (e) {}
+        try { noteRecordingMuteNode.disconnect(); } catch (e) {}
+        try { noteRecordingAudioContext.close(); } catch (e) {}
+        noteRecordingProcessorNode = null;
+        noteRecordingSourceNode = null;
+        noteRecordingMuteNode = null;
+        noteRecordingAudioContext = null;
+
+        handleNoteRecordingStop();
     }
     if (noteRecordingTimerInterval) {
         clearInterval(noteRecordingTimerInterval);
@@ -5584,13 +5567,62 @@ function updateNoteRecordingTimerLabel() {
     setVoiceStatus(`Recording… ${formatAudioDuration(secs)}`);
 }
 
+// Merges the captured PCM chunks into one WAV file - see the note on
+// noteRecordingAudioContext above for why WAV specifically (universal
+// playback everywhere, at the cost of a bigger file than a compressed
+// format would produce).
+function encodeWAV(pcmChunks, sampleRate) {
+    let totalLength = 0;
+    pcmChunks.forEach(c => { totalLength += c.length; });
+
+    const merged = new Float32Array(totalLength);
+    let mergeOffset = 0;
+    pcmChunks.forEach(c => {
+        merged.set(c, mergeOffset);
+        mergeOffset += c.length;
+    });
+
+    // 16-bit PCM is plenty for a spoken voice note and keeps the file
+    // half the size of 32-bit float would be, with no audible loss.
+    const pcm16 = new Int16Array(merged.length);
+    for (let i = 0; i < merged.length; i++) {
+        const s = Math.max(-1, Math.min(1, merged[i]));
+        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+
+    const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+    const view = new DataView(buffer);
+    const writeString = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + pcm16.length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);       // fmt chunk size
+    view.setUint16(20, 1, true);        // PCM format
+    view.setUint16(22, 1, true);        // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); // byte rate (sampleRate * blockAlign)
+    view.setUint16(32, 2, true);        // block align (channels * bytes/sample)
+    view.setUint16(34, 16, true);       // bits per sample
+    writeString(36, 'data');
+    view.setUint32(40, pcm16.length * 2, true);
+
+    let idx = 44;
+    for (let i = 0; i < pcm16.length; i++, idx += 2) {
+        view.setInt16(idx, pcm16[i], true);
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+}
+
 async function handleNoteRecordingStop() {
-    const mimeType = (noteMediaRecorder && noteMediaRecorder.mimeType) || 'audio/webm';
-    const blob = new Blob(noteRecordingChunks, { type: mimeType });
-    noteRecordingChunks = [];
+    const blob = encodeWAV(noteRecordingPCMChunks, noteRecordingSampleRate);
+    noteRecordingPCMChunks = [];
     const durationSec = pendingRecordingDurationSec;
     pendingRecordingDurationSec = 0;
-    noteMediaRecorder = null;
 
     // Leave the mic open for a minute in case another voice note gets
     // recorded right after this one - releaseNoteRecordingStreamForGood
@@ -5601,13 +5633,13 @@ async function handleNoteRecordingStop() {
     noteRecordingIdleReleaseTimer = setTimeout(releaseNoteRecordingStreamForGood, 60000);
 
     const note = notesData.find(n => n.id === currentNoteId);
-    if (!note || blob.size === 0) {
-        setVoiceStatus(blob && blob.size === 0 ? "Didn't catch any audio there - try recording again." : '');
+    if (!note || blob.size <= 44) { // 44 bytes = just the WAV header, i.e. zero actual samples captured
+        setVoiceStatus(blob ? "Didn't catch any audio there - try recording again." : '');
         return;
     }
 
     setVoiceStatus('Saving voice note…');
-    const ext = mimeType.indexOf('mp4') !== -1 ? 'm4a' : 'webm';
+    const ext = 'wav';
 
     try {
         const uploaded = await uploadNoteMediaBlob(blob, ext);
@@ -7997,7 +8029,7 @@ async function migrateBase64MediaToStorage() {
             const blob = await (await fetch(dataUrl)).blob();
             const ext = block.type === 'image'
                 ? 'jpg'
-                : (blob.type.indexOf('mp4') !== -1 ? 'm4a' : 'webm');
+                : (blob.type.indexOf('wav') !== -1 ? 'wav' : blob.type.indexOf('mp4') !== -1 ? 'm4a' : 'webm');
             const uploaded = await uploadNoteMediaBlob(blob, ext);
             if (uploaded.url) {
                 block[field] = uploaded.url;

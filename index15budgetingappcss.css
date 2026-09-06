@@ -1741,7 +1741,7 @@ summary.details-summary:hover {
 
 .matrix-grid {
     display: grid;
-    grid-template-columns: 60px repeat(7, 1fr) 60px;
+    grid-template-columns: 60px repeat(7, 1fr);
     min-width: 800px;
 }
 
@@ -1759,18 +1759,6 @@ summary.details-summary:hover {
 .matrix-time-col {
     display: grid;
     grid-template-rows: repeat(24, 40px);
-    position: sticky;
-    left: 0;
-    z-index: 6;
-    background: var(--bg-color);
-}
-
-/* The right-edge copy sticks to the opposite side instead - between
-   the two, at least one hour column is always somewhere on screen
-   regardless of how far the grid has been scrolled horizontally. */
-.matrix-time-col-right {
-    left: auto;
-    right: 0;
 }
 
 .time-slot-label {
