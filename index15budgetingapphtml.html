@@ -10,7 +10,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="index15budgetingappcss.css">
+    <!-- The "?v=" on these two lines is a cache-buster: browsers (and
+         some hosts) cache .css/.js files by their exact filename, much
+         more aggressively than they cache the HTML itself - so after a
+         deploy, a visitor's browser can end up loading the NEW HTML
+         but an OLD cached copy of the JS/CSS, since as far as the
+         browser's cache is concerned, "index15budgetingappjs.js" is
+         the exact same file it already has saved. Bumping this number
+         after every deploy forces every browser to treat it as a brand
+         new file and fetch the real latest version instead of serving
+         a stale one from cache. -->
+    <link rel="stylesheet" href="index15budgetingappcss.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -1228,6 +1238,6 @@
         <div>Loading your data…</div>
     </div>
 
-    <script src="index15budgetingappjs.js"></script>
+    <script src="index15budgetingappjs.js?v=2"></script>
 </body>
 </html>
