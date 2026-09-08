@@ -7398,12 +7398,26 @@ function emergencySaveOnExit() {
     }
 }
 
+// True for the whole span between clicking a password-reset email link
+// and actually setting the new password - updateAuthUI() checks this
+// to avoid showing the normal "Logged in as..." view on top of the
+// reset form, since the temporary recovery session Supabase attaches
+// during this flow otherwise looks just like an ordinary login to the
+// rest of the app.
+let isPasswordRecoveryFlow = false;
+
 function updateAuthUI(user) {
     const label = document.getElementById('auth-btn-label');
     const guestView = document.getElementById('auth-guest-view');
     const userView = document.getElementById('auth-user-view');
     const userEmail = document.getElementById('auth-user-email');
     const avatar = document.getElementById('user-avatar-circle');
+
+    if (isPasswordRecoveryFlow) {
+        if (guestView) guestView.style.display = 'none';
+        if (userView) userView.style.display = 'none';
+        return;
+    }
 
     if (user) {
         if (label) label.innerText = 'Synced';
@@ -7720,12 +7734,24 @@ function openAuthModal() {
     const modal = document.getElementById('auth-modal');
     const errorEl = document.getElementById('auth-error-msg');
     if (errorEl) errorEl.style.display = 'none';
+    // Always reopens on the normal login/signup view, not wherever the
+    // modal was last left (e.g. mid password-reset) - the recovery flow
+    // below opens its own view explicitly when it actually needs to.
+    if (!currentUser) showAuthGuestView();
     if (modal) modal.style.display = 'block';
 }
 
 function closeAuthModal() {
     const modal = document.getElementById('auth-modal');
     if (modal) modal.style.display = 'none';
+    // Closing without finishing the reset still leaves a valid
+    // (recovery) session behind - from here on treat it like any other
+    // login rather than leaving the account modal stuck hiding the
+    // normal "Logged in as..." view indefinitely.
+    if (isPasswordRecoveryFlow) {
+        isPasswordRecoveryFlow = false;
+        updateAuthUI(currentUser);
+    }
 }
 
 function showAuthError(message) {
@@ -7733,6 +7759,115 @@ function showAuthError(message) {
     if (!el) return;
     el.innerText = message;
     el.style.display = 'block';
+}
+
+// Switches between the three logged-out views (normal login/signup,
+// "send me a reset link", and "set a new password") - only one is ever
+// visible at a time, all living in the same modal.
+function showAuthGuestView() {
+    const guestView = document.getElementById('auth-guest-view');
+    const forgotView = document.getElementById('auth-forgot-view');
+    const resetView = document.getElementById('auth-reset-password-view');
+    if (guestView) guestView.style.display = 'block';
+    if (forgotView) forgotView.style.display = 'none';
+    if (resetView) resetView.style.display = 'none';
+}
+function showAuthForgotView() {
+    const guestView = document.getElementById('auth-guest-view');
+    const forgotView = document.getElementById('auth-forgot-view');
+    const resetView = document.getElementById('auth-reset-password-view');
+    if (guestView) guestView.style.display = 'none';
+    if (forgotView) forgotView.style.display = 'block';
+    if (resetView) resetView.style.display = 'none';
+    const msg = document.getElementById('auth-forgot-msg');
+    if (msg) msg.style.display = 'none';
+    // Carries over whatever was already typed on the login screen, so
+    // someone who tried logging in, failed, and clicked "Forgot
+    // password?" doesn't have to retype their email.
+    const prefill = document.getElementById('auth-email-input')?.value.trim();
+    const forgotInput = document.getElementById('auth-forgot-email-input');
+    if (forgotInput && prefill) forgotInput.value = prefill;
+}
+function showAuthResetPasswordView() {
+    const guestView = document.getElementById('auth-guest-view');
+    const forgotView = document.getElementById('auth-forgot-view');
+    const resetView = document.getElementById('auth-reset-password-view');
+    if (guestView) guestView.style.display = 'none';
+    if (forgotView) forgotView.style.display = 'none';
+    if (resetView) resetView.style.display = 'block';
+    const modal = document.getElementById('auth-modal');
+    if (modal) modal.style.display = 'block';
+}
+
+// Step 1 of the reset flow: emails a link. redirectTo brings them back
+// to this exact page (not some other URL) with a temporary recovery
+// session Supabase attaches automatically - the PASSWORD_RECOVERY
+// branch in onAuthStateChange further down is what actually notices
+// that and opens the "set a new password" view when they land back
+// here.
+async function handleForgotPasswordClick() {
+    const email = document.getElementById('auth-forgot-email-input').value.trim();
+    const msg = document.getElementById('auth-forgot-msg');
+    if (!email) {
+        msg.style.color = 'var(--danger)';
+        msg.innerText = 'Enter your email first.';
+        msg.style.display = 'block';
+        return;
+    }
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
+    });
+
+    // Deliberately shows the same success message whether or not that
+    // email actually has an account - confirming "no account with that
+    // email" here would let anyone check which emails are registered,
+    // just by trying them.
+    if (error) {
+        msg.style.color = 'var(--danger)';
+        msg.innerText = error.message;
+    } else {
+        msg.style.color = 'var(--text)';
+        msg.innerText = "If an account exists for that email, a reset link is on its way - check your inbox (and spam folder).";
+    }
+    msg.style.display = 'block';
+}
+
+// Step 2: only reachable via the emailed link (see PASSWORD_RECOVERY
+// below), which is what gives Supabase the temporary session this
+// needs - updateUser() here just sets the new password on it.
+async function handleSetNewPasswordClick() {
+    const pw = document.getElementById('auth-new-password-input').value;
+    const pwConfirm = document.getElementById('auth-new-password-confirm-input').value;
+    const msg = document.getElementById('auth-reset-msg');
+
+    if (!pw || pw.length < 6) {
+        msg.innerText = 'Password must be at least 6 characters.';
+        msg.style.display = 'block';
+        return;
+    }
+    if (pw !== pwConfirm) {
+        msg.innerText = "Those passwords don't match.";
+        msg.style.display = 'block';
+        return;
+    }
+
+    const { error } = await supabaseClient.auth.updateUser({ password: pw });
+    if (error) {
+        msg.innerText = error.message;
+        msg.style.display = 'block';
+        return;
+    }
+
+    msg.style.display = 'none';
+    document.getElementById('auth-new-password-input').value = '';
+    document.getElementById('auth-new-password-confirm-input').value = '';
+    // The recovery flow is done - let updateAuthUI show the normal
+    // "Logged in as..." view from here on, same as any other login.
+    isPasswordRecoveryFlow = false;
+    updateAuthUI(currentUser);
+    closeAuthModal();
+    showSaveToast('Password updated - you\'re logged in.', false);
 }
 
 async function handleLoginClick() {
@@ -8372,7 +8507,15 @@ supabaseClient.auth.getSession().then(({ data }) => {
     bootAppWithSession(null);
 });
 
-supabaseClient.auth.onAuthStateChange((_event, session) => {
+supabaseClient.auth.onAuthStateChange((event, session) => {
+    // Landed here via the password-reset email link - Supabase has
+    // already verified the link and attached a temporary session by
+    // this point, so this just needs to show the "set a new password"
+    // form rather than going through the normal boot/login flow.
+    if (event === 'PASSWORD_RECOVERY') {
+        isPasswordRecoveryFlow = true;
+        showAuthResetPasswordView();
+    }
     if (!didInitialBoot) {
         bootAppWithSession(session);
         return;

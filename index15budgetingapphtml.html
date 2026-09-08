@@ -897,7 +897,46 @@
                         <button class="btn-primary" style="margin:0; flex:1;" onclick="handleLoginClick()">LOG IN</button>
                         <button class="btn-primary" style="margin:0; flex:1; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="handleSignUpClick()">SIGN UP</button>
                     </div>
+                    <button type="button" onclick="showAuthForgotView()" style="background:none; border:none; color:var(--text-muted); font-size:0.78rem; margin-top:10px; padding:0; cursor:pointer; text-decoration:underline;">Forgot your password?</button>
                     <p style="font-size:0.75rem; color:var(--text-muted); margin-top:12px; line-height:1.4;">You're browsing as a guest - nothing is saved between visits. Log in or sign up to save your data to the cloud so it's there next time and on any device you use.</p>
+                </div>
+
+                <!-- Step 1 of password reset: just asks for the email and
+                     sends the reset link - handleForgotPasswordClick() in
+                     the JS calls supabaseClient.auth.resetPasswordForEmail().
+                     Supabase itself sends the email and handles the token;
+                     this app only needs to ask for the address and later
+                     show the "set a new password" form the link lands on. -->
+                <div id="auth-forgot-view" style="display:none;">
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">Enter your account email and we'll send you a link to reset your password.</p>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="auth-forgot-email-input" placeholder="you@example.com" autocomplete="username">
+                    </div>
+                    <div id="auth-forgot-msg" style="font-size: 0.8rem; margin-top: 4px; display: none;"></div>
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="btn-primary" style="margin:0; flex:1; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="showAuthGuestView()">BACK</button>
+                        <button class="btn-primary" style="margin:0; flex:1;" onclick="handleForgotPasswordClick()">SEND RESET LINK</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: shown automatically when someone arrives via the
+                     reset-link email (see the PASSWORD_RECOVERY branch in
+                     onAuthStateChange) - Supabase has already verified the
+                     link and issued a temporary recovery session by this
+                     point, so this just needs the new password itself. -->
+                <div id="auth-reset-password-view" style="display:none;">
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">Choose a new password for your account.</p>
+                    <div class="form-group">
+                        <label>New password</label>
+                        <input type="password" id="auth-new-password-input" placeholder="At least 6 characters" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm new password</label>
+                        <input type="password" id="auth-new-password-confirm-input" placeholder="Re-enter the password" autocomplete="new-password">
+                    </div>
+                    <div id="auth-reset-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 4px; display: none;"></div>
+                    <button class="btn-primary" style="margin-top:14px; width:100%;" onclick="handleSetNewPasswordClick()">SET NEW PASSWORD</button>
                 </div>
 
                 <div id="auth-user-view" style="display:none;">
