@@ -10,17 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- The "?v=" on these two lines is a cache-buster: browsers (and
-         some hosts) cache .css/.js files by their exact filename, much
-         more aggressively than they cache the HTML itself - so after a
-         deploy, a visitor's browser can end up loading the NEW HTML
-         but an OLD cached copy of the JS/CSS, since as far as the
-         browser's cache is concerned, "index15budgetingappjs.js" is
-         the exact same file it already has saved. Bumping this number
-         after every deploy forces every browser to treat it as a brand
-         new file and fetch the real latest version instead of serving
-         a stale one from cache. -->
-    <link rel="stylesheet" href="index15budgetingappcss.css?v=2">
+    <link rel="stylesheet" href="index15budgetingappcss.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -91,6 +81,55 @@
             </button>
             <button class="theme-toggle-btn" id="dropbox-header-status-btn" onclick="backupNowToDropbox()" title="Click to back up now" style="display:none;">
                 <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span id="dropbox-header-status-text">Dropbox</span>
+            </button>
+            <button class="theme-toggle-btn" id="dropbox-unlink-btn" onclick="unlinkDropboxAccount()" title="Unlink Dropbox" style="display:none;">
+                <span class="icon-badge">🔗</span> <span data-i18n="header.unlinkDropbox">Unlink</span>
+            </button>
+
+            <div class="header-actions-divider"></div>
+
+            <!-- Whole-app backup/restore - moved here from the Analytics
+                 section, which now only shows the actual session data
+                 (the Day/Week/Month/All Time table) instead of also
+                 hosting administrative buttons that had nothing to do
+                 with looking at your sessions. -->
+            <button class="theme-toggle-btn" onclick="exportData()" title="Export everything">
+                <span class="icon-badge">💾</span> <span data-i18n="export.everythingShort">Export all</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="document.getElementById('import-file').click()" title="Import backup">
+                <span class="icon-badge">📂</span> <span data-i18n="export.importShort">Import</span>
+            </button>
+            <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
+
+            <div class="header-actions-divider"></div>
+
+            <!-- Everything below is Notes-specific - merged into this same
+                 menu instead of Notes having its own separate "≡" button,
+                 since that second button ended up visually landing right
+                 on top of this one whenever the Notes section scrolled
+                 near the top of the screen. One menu, reachable from
+                 anywhere, instead of two competing for the same corner. -->
+            <button class="theme-toggle-btn" id="header-trash-btn" onclick="openTrashModal()" title="Trash" style="position:relative;">
+                <span class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></span>
+                <span id="trash-badge-count" class="trash-header-badge">0</span>
+                <span data-i18n="notes.trash">Trash</span>
+            </button>
+            <button class="theme-toggle-btn" id="notebook-del-menu-item" onclick="deleteCurrentNotebook()" title="Delete this notebook">
+                <span class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span> <span data-i18n="notes.deleteNotebook">Delete notebook</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="exportAllNotes()" title="Just the notes, not the calendar/backlog/goals data" data-i18n-title="header.downloadNotesTitle">
+                <span class="icon-badge">📝</span> <span data-i18n="notes.downloadShort">Download</span>
+            </button>
+            <!-- Shares whichever note is CURRENTLY OPEN - not the whole
+                 notes list - so it's always "just that one" note, exactly
+                 as typed/recorded, sent through WhatsApp or your email app
+                 the same way you'd share anything else from your phone or
+                 browser. -->
+            <button class="theme-toggle-btn" onclick="shareCurrentNoteVia('whatsapp')" title="Share the open note via WhatsApp">
+                <span class="icon-badge">💬</span> <span data-i18n="notes.shareWhatsApp">WhatsApp</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="shareCurrentNoteVia('email')" title="Share the open note via email">
+                <span class="icon-badge">✉️</span> <span data-i18n="notes.shareEmail">Email</span>
             </button>
         </div>
     </div>
@@ -452,6 +491,75 @@
             </div>
 
         </div>
+
+            <!-- Realized this table is really just more detail on the same
+                 day/week/month you're already looking at above, not a
+                 separate "sessions" concept of its own - nested here as
+                 its own collapsible sub-section (can still be closed
+                 independently) instead of sitting apart as its own
+                 top-level page section. Placed AFTER the 3-column grid
+                 (not inside it) so it spans full width below those cards
+                 instead of being squeezed into the grid as a 4th column
+                 item. No data-mobile-section of its own needed either -
+                 it's inside Summary's own details now, so it shows/hides
+                 right along with that (the "Log" tab on a phone), rather
+                 than needing its own separate visibility rule that could
+                 drift out of sync with its parent's. -->
+            <details class="details-section nested-details" id="all-sessions-details-section" style="margin-top:16px;">
+                <summary class="details-summary">
+                    <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg><span data-i18n="section.export">Details</span></span>
+                    <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
+                </summary>
+                <div class="details-content">
+                    <div class="analytics-controls">
+                        <div class="range-bar">
+                            <button class="range-btn active" onclick="setRangeFilter('day', this)" data-i18n="stats.day">Day</button>
+                            <button class="range-btn" onclick="setRangeFilter('week', this)" data-i18n="stats.week">Week</button>
+                            <button class="range-btn" onclick="setRangeFilter('month', this)" data-i18n="stats.month">Month</button>
+                            <button class="range-btn" onclick="setRangeFilter('all', this)" data-i18n="stats.allTime">All Time</button>
+                            <!-- Lets this table jump to any specific day/week/
+                                 month directly, instead of needing to go
+                                 change the mini calendar's selected date
+                                 elsewhere on the page first. -->
+                            <input type="date" id="table-day-picker" class="stats-period-picker" onchange="handleTableDatePicked(this.value)">
+                            <input type="date" id="table-week-picker" class="stats-period-picker" style="display:none;" onchange="handleTableWeekPicked(this.value)">
+                            <input type="month" id="table-month-picker" class="stats-period-picker" style="display:none;" onchange="handleTableMonthPicked(this.value)">
+                        </div>
+
+                        <div>
+                            <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" data-i18n-placeholder="export.filterPlaceholder" oninput="handleCategorySearch(this.value)">
+                        </div>
+                    </div>
+
+                    <small class="table-edit-hint" data-i18n="export.clickRowHint">Click any row to edit or delete that entry.</small>
+
+                    <!-- Shown when a goal history bar was clicked - tells you what
+                         you're looking at and lets you get back to the full list. -->
+                    <div id="table-filter-indicator" class="table-filter-indicator" style="display:none;"></div>
+
+                    <div class="details-table-container" id="details-table-container">
+                        <table class="details-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="export.colDate">Date</th>
+                                    <th data-i18n="export.colCategory">Category</th>
+                                    <th data-i18n="export.colDescription">Description</th>
+                                    <th style="text-align: center;">Plane</th>
+                                    <th style="text-align: right;">Hrs</th>
+                                </tr>
+                            </thead>
+                            <tbody id="details-table-body"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" id="table-total-label" style="text-align: right; color: var(--text-muted);" data-i18n="export.totalHours">Total Hours:</td>
+                                    <td id="table-total-value" style="text-align: right; font-family: monospace; font-size: 1.1rem; color: var(--accent);">0.0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
             </div>
         </details>
 
@@ -468,9 +576,18 @@
                      session log, backup/restore, search) is one tap away
                      in "More" below instead of stacked on top of this. -->
                 <div class="range-bar" style="margin-bottom:16px;">
-                    <button class="range-btn" id="stats-period-day" onclick="setStatsPeriod('day')">Day</button>
-                    <button class="range-btn active" id="stats-period-week" onclick="setStatsPeriod('week')">Week</button>
-                    <button class="range-btn" id="stats-period-month" onclick="setStatsPeriod('month')">Month</button>
+                    <button class="range-btn" id="stats-period-day" onclick="setStatsPeriod('day')" data-i18n="stats.day">Day</button>
+                    <button class="range-btn active" id="stats-period-week" onclick="setStatsPeriod('week')" data-i18n="stats.week">Week</button>
+                    <button class="range-btn" id="stats-period-month" onclick="setStatsPeriod('month')" data-i18n="stats.month">Month</button>
+                    <!-- Only one of these shows at a time, matching whichever
+                         button above is active - Day and Month used to
+                         always mean "today"/"this month" specifically, with
+                         no way to look at any other single day or month
+                         from here (you'd have to go change the selected
+                         date somewhere else on the page instead). -->
+                    <input type="date" id="stats-day-picker" class="stats-period-picker" style="display:none;" onchange="handleStatsDayPicked(this.value)">
+                    <input type="date" id="stats-week-picker" class="stats-period-picker" style="display:none;" onchange="handleStatsWeekPicked(this.value)">
+                    <input type="month" id="stats-month-picker" class="stats-period-picker" style="display:none;" onchange="handleStatsMonthPicked(this.value)">
                 </div>
                 <div class="category-stats-wrap">
                     <div class="category-stats-chart-col">
@@ -478,73 +595,6 @@
                     </div>
                     <div class="category-stats-legend" id="category-stats-legend"></div>
                 </div>
-
-                <!-- SUB-SECTION: everything else, tucked away so it doesn't crowd the main view -->
-                <details class="details-section nested-details" id="all-sessions-details-section" style="margin-top:16px;">
-                    <summary class="details-summary">
-                        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg><span data-i18n="section.export">All Sessions &amp; Export</span></span>
-                        <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
-                    </summary>
-                    <div class="details-content">
-                        <div class="analytics-controls">
-                            <div class="range-bar">
-                                <button class="range-btn active" onclick="setRangeFilter('day', this)" data-i18n="stats.day">Day</button>
-                                <button class="range-btn" onclick="setRangeFilter('week', this)" data-i18n="stats.week">Week</button>
-                                <button class="range-btn" onclick="setRangeFilter('month', this)" data-i18n="stats.month">Month</button>
-                                <button class="range-btn" onclick="setRangeFilter('all', this)" data-i18n="stats.allTime">All Time</button>
-                            </div>
-
-                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                <button onclick="exportData()" class="backup-btn" data-i18n="export.everything">💾 Export everything</button>
-                                <button onclick="document.getElementById('import-file').click()" class="backup-btn" data-i18n="export.importBackup">📂 Import backup</button>
-                                <button onclick="exportAllNotes()" class="backup-btn" title="Just the notes, not the calendar/backlog/goals data" data-i18n="export.downloadNotes">📝 Download just notes</button>
-                                <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
-                            </div>
-
-                            <!-- Dropbox auto-backup - see dropbox-*() functions in JS.
-                                 A completely independent backup destination from Supabase
-                                 on purpose: a bug or outage on one side can't touch the
-                                 other, so there's always a second copy somewhere else. -->
-                            <div class="dropbox-backup-row" id="dropbox-backup-row">
-                                <button class="backup-btn" id="dropbox-link-btn" onclick="linkDropboxAccount()" data-i18n="export.linkDropbox">📦 Link Dropbox for automatic backups</button>
-                                <span class="dropbox-status" id="dropbox-status" style="display:none;"></span>
-                                <button class="backup-btn" id="dropbox-backup-now-btn" onclick="backupNowToDropbox()" style="display:none;">Backup now</button>
-                                <button class="backup-btn" id="dropbox-unlink-btn" onclick="unlinkDropboxAccount()" style="display:none;">Unlink</button>
-                            </div>
-
-                            <div>
-                                <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" data-i18n-placeholder="export.filterPlaceholder" oninput="handleCategorySearch(this.value)">
-                            </div>
-                        </div>
-
-                        <small class="table-edit-hint" data-i18n="export.clickRowHint">Click any row to edit or delete that entry.</small>
-
-                        <!-- Shown when a goal history bar was clicked - tells you what
-                             you're looking at and lets you get back to the full list. -->
-                        <div id="table-filter-indicator" class="table-filter-indicator" style="display:none;"></div>
-
-                        <div class="details-table-container" id="details-table-container">
-                            <table class="details-table">
-                                <thead>
-                                    <tr>
-                                        <th data-i18n="export.colDate">Date</th>
-                                        <th data-i18n="export.colCategory">Category</th>
-                                        <th data-i18n="export.colDescription">Description</th>
-                                        <th style="text-align: center;">Plane</th>
-                                        <th style="text-align: right;">Hrs</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="details-table-body"></tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td colspan="4" id="table-total-label" style="text-align: right; color: var(--text-muted);" data-i18n="export.totalHours">Total Hours:</td>
-                                        <td id="table-total-value" style="text-align: right; font-family: monospace; font-size: 1.1rem; color: var(--accent);">0.0</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                </details>
             </div>
         </details>
 
@@ -581,6 +631,20 @@
                 <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" data-i18n="common.clickToExpand">Click to expand / collapse</span>
             </summary>
             <div class="details-content">
+                <!-- Project pills: "All" (default) plus every named
+                     project you've created - clicking one filters the
+                     exact same three columns below down to just that
+                     project's items. Not a separate board underneath;
+                     an item tagged to a project is the same item you'd
+                     see on "All" too. -->
+                <div class="board-projects-row">
+                    <div class="board-projects-pills" id="board-projects-pills"></div>
+                    <button type="button" class="board-project-add-btn" onclick="toggleNewProjectInput()" title="New project">+</button>
+                </div>
+                <div class="board-project-new-row" id="board-project-new-row" style="display:none;">
+                    <input type="text" id="board-project-new-input" class="notes-combo-input" placeholder="New project name..." data-i18n-placeholder="kanban.newProjectPlaceholder" onkeydown="if(event.key==='Enter') submitNewBoardProject(); if(event.key==='Escape') toggleNewProjectInput(false);">
+                    <button type="button" class="notes-combo-confirm-btn" onclick="submitNewBoardProject()" title="Create">✓</button>
+                </div>
                 <div class="board-columns">
                     <div class="board-column">
                         <div class="board-column-header">
@@ -605,13 +669,15 @@
                             </div>
                             <input type="text" id="board-add-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
                         </div>
+                        <!-- Circular "+" right under the fields instead of
+                             at the bottom of the column - with a long
+                             Backlog list, the bottom was scrolled well out
+                             of reach, meaning adding a new item meant
+                             scrolling all the way down first every time.
+                             Fields stay right above it either way, so
+                             nothing about typing into them changed. -->
+                        <button type="button" class="board-add-fab board-add-fab-top" onclick="addBoardItem()" title="Add to Backlog">+</button>
                         <div class="board-column-list" id="board-col-todo"></div>
-                        <!-- Circular "+" at the bottom instead of a text
-                             button squeezed between the fields and the
-                             list - the familiar "add" pattern from most
-                             apps. Fields stay up top so you can see what
-                             you're typing; this just submits them. -->
-                        <button type="button" class="board-add-fab" onclick="addBoardItem()" title="Add to Backlog">+</button>
                     </div>
                     <div class="board-column">
                         <div class="board-column-header">
@@ -644,27 +710,6 @@
                     <div class="notes-sidebar">
                         <div class="notes-sidebar-header">
                             <span class="notes-sidebar-title"><span data-i18n="notes.sectionTitle">Notes</span> <span class="notes-count" id="notes-count-badge">0</span></span>
-                            <!-- Trash and "delete this notebook" tucked into one
-                                 small overflow menu instead of two separate
-                                 always-visible icons - both are occasional
-                                 actions, not things you need reaching for
-                                 constantly. -->
-                            <div class="notes-header-menu-wrap">
-                                <button type="button" class="notes-header-menu-btn" onclick="toggleNotesHeaderMenu()" title="More">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-                                </button>
-                                <div class="notes-header-menu-panel" id="notes-header-menu-panel">
-                                    <button type="button" onclick="openTrashModal(); closeNotesHeaderMenu();">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
-                                        <span data-i18n="notes.trash">Trash</span>
-                                        <span id="trash-badge-count" class="trash-header-badge">0</span>
-                                    </button>
-                                    <button type="button" id="notebook-del-menu-item" onclick="deleteCurrentNotebook(); closeNotesHeaderMenu();">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                                        <span data-i18n="notes.deleteNotebook">Delete this notebook</span>
-                                    </button>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- Notebook + Search merged into one bordered box, same
@@ -682,8 +727,16 @@
                                      in the JS), same "click and see a list" pattern
                                      as the header's own overflow menu. -->
                                 <button type="button" class="notes-combo-select" id="notebook-filter-trigger" onclick="toggleNotebookFilterDropdown()" data-i18n="notes.notebooksLabel">Notebooks</button>
-                                <button type="button" class="board-add-fab notes-combo-fab" onclick="createNotebook()" title="New notebook">+</button>
+                                <button type="button" class="board-add-fab notes-combo-fab" onclick="toggleNewNotebookInput()" title="New notebook">+</button>
                                 <div class="notes-header-menu-panel" id="notebook-filter-panel"></div>
+                            </div>
+                            <!-- Inline "new notebook" row instead of a native
+                                 browser prompt() popup - tapping the "+" above
+                                 reveals this row right in place instead of
+                                 interrupting with a separate dialog box. -->
+                            <div class="notes-combo-new-row" id="new-notebook-row" style="display:none;">
+                                <input type="text" id="new-notebook-input" class="notes-combo-input" placeholder="New notebook name..." data-i18n-placeholder="notes.newNotebookPlaceholder" onkeydown="if(event.key==='Enter') submitNewNotebook(); if(event.key==='Escape') toggleNewNotebookInput(false);">
+                                <button type="button" class="notes-combo-confirm-btn" onclick="submitNewNotebook()" title="Create">✓</button>
                             </div>
                             <div class="notes-combo-divider"></div>
                             <div class="notes-combo-row">
@@ -706,6 +759,14 @@
                                 <button type="button" class="toggle-btn" id="notes-sort-alpha-btn" onclick="handleNotesSortChange('alpha')" data-i18n="notes.sortAlphaShort">A-Z</button>
                                 <button type="button" class="toggle-btn active" id="notes-sort-custom-btn" onclick="handleNotesSortChange('custom')" data-i18n="notes.sortCustomShort">Custom</button>
                             </div>
+                            <!-- Switches the list below between individual
+                                 notes and a plain list of notebook names -
+                                 tap a notebook there and it jumps back to
+                                 the notes view already filtered to it, like
+                                 opening a folder. -->
+                            <button type="button" class="notes-show-toggle-btn" id="notes-browse-mode-btn" onclick="toggleNotesBrowseMode()" title="Browse by notebook">
+                                <span id="notes-browse-mode-label" data-i18n="notes.viewNotebooks">📁 Notebooks</span>
+                            </button>
                             <button type="button" class="notes-show-toggle-btn" id="notes-show-toggle-btn" onclick="toggleNotesListVisible()">
                                 <span data-i18n="notes.showNotes">Show Notes</span> <span class="notes-show-toggle-arrow">▾</span>
                             </button>
@@ -976,6 +1037,18 @@
                     <input type="date" id="modal-date-input">
                 </div>
 
+                <!-- Only shown when editing an existing backlog/Kanban card
+                     (see openBacklogEditModal) - assigns it to a named
+                     project, the same one Kanban's own project pills
+                     filter by. Not relevant for a calendar activity, so
+                     hidden the rest of the time. -->
+                <div class="form-group" id="modal-project-group" style="display:none;">
+                    <label data-i18n="kanban.projectLabel">Project</label>
+                    <select id="modal-project-select">
+                        <option value="" data-i18n="kanban.noProject">No project</option>
+                    </select>
+                </div>
+
                 <div class="activity-combo-box">
                     <div class="activity-combo-field">
                         <div class="category-select-row">
@@ -1096,6 +1169,15 @@
              desktop behavior is completely unchanged. Hidden on desktop/
              tablet widths the same way the bottom nav is. -->
         <div id="mobile-global-undo" class="mobile-global-undo">
+            <!-- A permanent, always-reachable manual save - the header's
+                 own Save button now lives inside the collapsed hamburger
+                 menu, which is one extra tap away; this sits right next
+                 to the undo/redo pair instead so there's always a save
+                 within immediate reach without opening anything first.
+                 "Ghost" styled (outline only, no solid fill) so it reads
+                 as secondary next to undo/redo rather than competing
+                 with them for attention. -->
+            <button type="button" class="mobile-global-undo-btn ghost-save-btn" id="ghost-save-btn" onclick="manualSave()" title="Save now">💾</button>
             <button type="button" class="mobile-global-undo-btn" id="mobile-global-undo-btn" onclick="undoLastAction()" title="Undo last action" disabled>↺</button>
             <button type="button" class="mobile-global-undo-btn" id="mobile-global-redo-btn" onclick="redoLastAction()" title="Redo" disabled>↻</button>
         </div>
@@ -1238,6 +1320,6 @@
         <div>Loading your data…</div>
     </div>
 
-    <script src="index15budgetingappjs.js?v=2"></script>
+    <script src="index15budgetingappjs.js"></script>
 </body>
 </html>

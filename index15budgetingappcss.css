@@ -200,13 +200,19 @@ button, input, select, textarea {
     box-shadow: 0 8px 24px rgba(0,0,0,0.35);
     padding: 10px;
     max-height: 0;
-    overflow: hidden;
+    overflow-y: auto;
     opacity: 0;
     pointer-events: none;
     transition: max-height 0.2s ease, opacity 0.2s ease;
 }
 .header-actions-wrap.open {
-    max-height: 400px;
+    /* Grows to fit everything now that Trash/Download/Share etc. live in
+       here too, but never past what's actually left below the button on
+       a short phone screen - it scrolls internally instead of just
+       clipping the last row off the bottom edge with no way to reach it,
+       which is exactly what a fixed 400px cap was doing once this menu
+       grew past that height. */
+    max-height: min(520px, calc(100vh - 70px));
     opacity: 1;
     pointer-events: auto;
 }
@@ -232,6 +238,17 @@ button, input, select, textarea {
 }
 .header-actions .theme-toggle-btn span:first-child {
     font-size: 1.1rem;
+}
+
+/* Full-width break inside the wrapped grid of icon-boxes, separating
+   the general app actions above from the Notes-specific ones below
+   (Trash, Delete notebook, Download, Share) - still one menu, just
+   visually grouped instead of an undifferentiated wall of icons. */
+.header-actions-divider {
+    flex-basis: 100%;
+    height: 1px;
+    background: var(--border-color);
+    margin: 2px 0;
 }
 
 .theme-toggle-btn {
@@ -1312,6 +1329,19 @@ summary.details-summary:hover {
     flex-wrap: wrap;
 }
 
+/* The actual date/month picker that appears next to the Day/Month
+   toggle - lets you look at any single day or month's breakdown
+   directly from here instead of only ever the current one. */
+.stats-period-picker {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
 .range-btn {
     background: var(--input-bg);
     border: 1px solid var(--border-color);
@@ -2248,6 +2278,14 @@ summary.details-summary:hover {
     border: 1px solid var(--border-color);
     z-index: 10000;
     font-family: inherit;
+    /* Belt-and-suspenders alongside positionModalNearClick's own
+       measure-and-clamp logic in the JS: if the form itself is ever
+       taller than the browser window has room for (a short laptop
+       screen, a zoomed-in view), this scrolls internally instead of
+       silently rendering past the bottom edge with no way to reach the
+       rest of it. */
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
 }
 
 .modal-content h4 {
@@ -3232,6 +3270,68 @@ summary.details-summary:hover {
     margin-bottom: 16px;
 }
 
+/* Project pills - "All" plus every named project, filtering the same
+   three columns below down to just that project's items. */
+.board-projects-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.board-projects-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.board-project-pill {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.board-project-pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.board-project-add-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.board-project-add-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.board-project-new-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    max-width: 280px;
+}
+
+.board-project-new-row input {
+    flex: 1;
+}
+
 .board-columns {
     display: flex;
     gap: 14px;
@@ -3340,6 +3440,12 @@ summary.details-summary:hover {
     border-top: 2px solid var(--accent);
 }
 
+/* Drag-to-reorder feedback for note blocks (text, voice notes) - same
+   idea as the Kanban card drop indicator above. */
+.note-block-drop-target {
+    border-top: 2px solid var(--accent) !important;
+}
+
 .board-card-done {
     opacity: 0.6;
 }
@@ -3405,6 +3511,37 @@ summary.details-summary:hover {
     color: var(--text);
     margin-top: 3px;
     line-height: 1.3;
+}
+
+/* Explicit "move one column over" buttons - dragging never really
+   worked on touch (native HTML5 drag-and-drop only fires reliably from
+   a mouse on most mobile browsers), so this is the actual way to move
+   a card between Backlog/Doing/Done on a phone, not just a nicety. */
+.board-card-move-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+}
+
+.board-card-move-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    border-radius: 6px;
+    width: 30px;
+    height: 26px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.board-card-move-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.board-card-move-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
 }
 
 .board-card-hours {
@@ -3818,15 +3955,20 @@ summary.details-summary:hover {
 }
 
 .trash-header-badge {
-    margin-left: auto;
+    position: absolute;
+    top: 2px;
+    right: 10px;
     background: var(--danger);
     color: #fff;
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     font-weight: 700;
     border-radius: 999px;
-    padding: 1px 6px;
-    min-width: 16px;
+    padding: 1px 5px;
+    min-width: 14px;
+    line-height: 1.4;
     text-align: center;
+    align-items: center;
+    justify-content: center;
     display: none; /* toggled to 'flex' in JS (renderTrashModal) when count > 0 */
 }
 
@@ -3887,6 +4029,35 @@ summary.details-summary:hover {
     height: 1px;
     background: var(--border-color);
     margin: 0 6px;
+}
+
+/* Inline "new notebook" row - revealed in place instead of a native
+   prompt() popup, which looked jarring and out of place next to the
+   rest of the app's own styling. */
+.notes-combo-new-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 6px;
+}
+
+.notes-combo-confirm-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.notes-combo-confirm-btn:hover {
+    opacity: 0.88;
 }
 
 /* Sort toggle (A-Z / Custom) + the "Show Notes" collapse toggle -
@@ -4533,7 +4704,7 @@ summary.details-summary:hover {
     color: var(--text-muted);
     font-size: 0.7rem;
     letter-spacing: -1px;
-    cursor: pointer;
+    cursor: grab;
     opacity: 0;
     transition: opacity 0.15s ease;
     user-select: none;
@@ -4655,8 +4826,8 @@ summary.details-summary:hover {
     flex: 1;
     min-width: 0;
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .note-audio-label {
@@ -4675,10 +4846,59 @@ summary.details-summary:hover {
     border-bottom: 1px solid var(--accent);
 }
 
+.note-audio-seek-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Custom-styled range input so it matches the app's own look instead
+   of each browser's default slider - lets you click or drag anywhere
+   along the bar to jump playback straight there, not just play from
+   the start. */
+.note-audio-seek {
+    flex: 1;
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border-color);
+    cursor: pointer;
+    outline: none;
+}
+
+.note-audio-seek::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.note-audio-seek::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.note-audio-seek::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border-color);
+}
+
 .note-audio-duration {
     flex-shrink: 0;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .note-audio-actions {
@@ -5087,6 +5307,17 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     cursor: default;
 }
 
+/* Ghost variant for the save button in that same floating group -
+   outline only, no solid fill, so it visually reads as a secondary
+   action sitting next to undo/redo rather than competing with them. */
+.ghost-save-btn {
+    background: transparent;
+    box-shadow: none;
+}
+.ghost-save-btn:hover {
+    background: var(--header-bg);
+}
+
 /* --- FIRST-TIME WALKTHROUGH / REPLAYABLE TOUR ---
    Auto-starts once for genuinely new installs (see
    maybeAutoStartWalkthrough() in the JS, which skips it entirely for
@@ -5223,8 +5454,12 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     /* Notes already shows its own undo/redo pair in its own toolbar
        (#notes-undo-btn/#notes-redo-btn) - set by updateGlobalUndoBtn()
        in the JS whenever the Notes tab is the active mobile section, so
-       this floating one doesn't double up with it. */
-    .mobile-global-undo.hidden-for-notes {
+       this floating pair doesn't double up with it. Only the undo/redo
+       buttons themselves hide here, NOT the whole group - the save
+       button (.ghost-save-btn) is meant to be reachable on every
+       section including Notes, and hiding the entire wrap used to take
+       it down along with undo/redo by accident. */
+    .mobile-global-undo.hidden-for-notes .mobile-global-undo-btn:not(.ghost-save-btn) {
         display: none;
     }
 

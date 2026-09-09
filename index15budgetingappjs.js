@@ -69,6 +69,10 @@ const LANG_STRINGS = {
         'section.goals': 'Goal Tracking',
         'section.kanban': 'Kanban Board',
         'kanban.doing': 'Doing',
+        'kanban.allProjects': 'All',
+        'kanban.newProjectPlaceholder': 'New project name...',
+        'kanban.noProject': 'No project',
+        'kanban.projectLabel': 'Project',
         'kanban.done': 'Done',
         'kanban.emptyTodo': 'Nothing here yet.',
         'kanban.emptyOther': 'Drag a card here.',
@@ -107,11 +111,24 @@ const LANG_STRINGS = {
         'notes.newTitle': 'New note',
         'notes.new': '+ New',
         'notes.notebooksLabel': 'Notebooks',
+        'notes.newNotebookPlaceholder': 'New notebook name...',
         'notes.trash': 'Trash',
         'notes.deleteNotebook': 'Delete this notebook',
+        'header.unlinkDropbox': 'Unlink',
+        'export.everythingShort': 'Export all',
+        'export.importShort': 'Import',
+        'header.downloadNotesTitle': 'Just the notes, not the calendar/backlog/goals data',
+        'notes.downloadShort': 'Download',
+        'notes.shareWhatsApp': 'WhatsApp',
+        'notes.shareEmail': 'Email',
+        'notes.shareNoNoteOpen': 'Open a note first to share it.',
         'notes.sortAlphaShort': 'A-Z',
         'notes.sortCustomShort': 'Custom',
         'notes.showNotes': 'Show Notes',
+        'notes.viewNotebooks': '📁 Notebooks',
+        'notes.backToNotes': '📄 All Notes',
+        'notes.emptyNoNotebooks': 'No notebooks yet - create one from the Notebooks list.',
+        'notes.noteCountLabel': '{count} notes',
         'notes.hideNotes': 'Hide Notes',
         'notes.searchPlaceholder': 'Notes',
         'notes.sortCustom': 'My order (drag to reorder)',
@@ -144,10 +161,6 @@ const LANG_STRINGS = {
         'stats.periodWeek': 'this week',
         'stats.periodMonth': 'this month',
         'section.export': 'All Sessions & Export',
-        'export.everything': '💾 Export everything',
-        'export.importBackup': '📂 Import backup',
-        'export.downloadNotes': '📝 Download just notes',
-        'export.linkDropbox': '📦 Link Dropbox for automatic backups',
         'export.filterPlaceholder': '🔍 Filter category (e.g. coding)',
         'export.clickRowHint': 'Click any row to edit or delete that entry.',
         'export.colDate': 'Date',
@@ -218,6 +231,10 @@ const LANG_STRINGS = {
         'section.goals': 'Seguimiento de metas',
         'section.kanban': 'Tablero Kanban',
         'kanban.doing': 'En curso',
+        'kanban.allProjects': 'Todo',
+        'kanban.newProjectPlaceholder': 'Nombre del nuevo proyecto...',
+        'kanban.noProject': 'Sin proyecto',
+        'kanban.projectLabel': 'Proyecto',
         'kanban.done': 'Hecho',
         'kanban.emptyTodo': 'Nada por aquí todavía.',
         'kanban.emptyOther': 'Arrastra una tarjeta aquí.',
@@ -256,11 +273,24 @@ const LANG_STRINGS = {
         'notes.newTitle': 'Nota nueva',
         'notes.new': '+ Nueva',
         'notes.notebooksLabel': 'Cuadernos',
+        'notes.newNotebookPlaceholder': 'Nombre del nuevo cuaderno...',
         'notes.trash': 'Papelera',
         'notes.deleteNotebook': 'Eliminar este cuaderno',
+        'header.unlinkDropbox': 'Desvincular',
+        'export.everythingShort': 'Exportar todo',
+        'export.importShort': 'Importar',
+        'header.downloadNotesTitle': 'Solo las notas, sin los datos del calendario/pendientes/metas',
+        'notes.downloadShort': 'Descargar',
+        'notes.shareWhatsApp': 'WhatsApp',
+        'notes.shareEmail': 'Correo',
+        'notes.shareNoNoteOpen': 'Abre una nota primero para compartirla.',
         'notes.sortAlphaShort': 'A-Z',
         'notes.sortCustomShort': 'Personalizado',
         'notes.showNotes': 'Mostrar notas',
+        'notes.viewNotebooks': '📁 Cuadernos',
+        'notes.backToNotes': '📄 Todas las notas',
+        'notes.emptyNoNotebooks': 'Aún no hay cuadernos - crea uno desde la lista de Cuadernos.',
+        'notes.noteCountLabel': '{count} notas',
         'notes.hideNotes': 'Ocultar notas',
         'notes.searchPlaceholder': 'Notas',
         'notes.sortCustom': 'Mi orden (arrastra para reordenar)',
@@ -293,10 +323,6 @@ const LANG_STRINGS = {
         'stats.periodWeek': 'esta semana',
         'stats.periodMonth': 'este mes',
         'section.export': 'Sesiones y exportación',
-        'export.everything': '💾 Exportar todo',
-        'export.importBackup': '📂 Importar respaldo',
-        'export.downloadNotes': '📝 Descargar solo las notas',
-        'export.linkDropbox': '📦 Vincular Dropbox para respaldo automático',
         'export.filterPlaceholder': '🔍 Filtrar por categoría (ej. programación)',
         'export.clickRowHint': 'Toca cualquier fila para editar o eliminar esa entrada.',
         'export.colDate': 'Fecha',
@@ -448,6 +474,14 @@ let inputMode = 'simple';
 let defaultEntryType = 'actual'; // Default to Actual when adding block
 let modalEntryType = 'actual';
 let currentRangeFilter = 'day';
+// This table's own Day/Week/Month reference point - deliberately
+// separate from selectedDateStr (the mini calendar's selection), which
+// is what forced picking a day/week/month for this table to be done by
+// going and changing the calendar elsewhere on the page. Defaults to
+// today, but each is independently pickable right here.
+let tableSelectedDate = formatDateKey(new Date());
+let tableSelectedWeekAnchor = formatDateKey(new Date());
+let tableSelectedMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
 let activeCategoryFilter = '';
 // Set when a goal history bar is clicked: { start: Date, end: Date }. Lets
 // isDateInRange() filter the sessions table to that exact period instead of
@@ -962,16 +996,36 @@ function togglePlannerHeader() {
 
 // Sums logged "actual" hours per category within the current week/month —
 // powers the Category Stats donut + legend.
+let statsSelectedDate = formatDateKey(new Date()); // which day "Day" mode shows - defaults to today, but pickable
+let statsSelectedMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })(); // which month "Month" mode shows, "YYYY-MM"
+let statsSelectedWeekAnchor = formatDateKey(new Date()); // any date within the week "Week" mode shows - the week itself is derived from this (Sun-Sat), same as getWeekRangeOffset
+
+// Same Sunday-start week convention as getWeekRangeOffset, just
+// anchored to whatever date was picked instead of always today -
+// picking ANY day within a week shows that whole week, exactly like
+// clicking a day on a real calendar would. Pulled out on its own since
+// both the actual totals AND the "Sep 1 - Sep 7" label need the same
+// range.
+function getCategoryStatsWeekRange() {
+    const [y, m, d] = statsSelectedWeekAnchor.split('-').map(Number);
+    const anchor = new Date(y, m - 1, d);
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - anchor.getDay());
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999);
+    return { start, end };
+}
+
 function getCategoryTotalsForPeriod(rangeType) {
     let start, end;
     if (rangeType === 'day') {
-        const today = new Date();
-        start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+        const [y, m, d] = statsSelectedDate.split('-').map(Number);
+        start = new Date(y, m - 1, d);
+        end = new Date(y, m - 1, d, 23, 59, 59, 999);
     } else if (rangeType === 'month') {
-        ({ start, end } = getMonthRangeOffset(0));
+        const [y, m] = statsSelectedMonth.split('-').map(Number);
+        start = new Date(y, m - 1, 1);
+        end = new Date(y, m, 0, 23, 59, 59, 999);
     } else {
-        ({ start, end } = getWeekRangeOffset(0));
+        ({ start, end } = getCategoryStatsWeekRange());
     }
     const totals = {};
 
@@ -1003,14 +1057,65 @@ function setStatsPeriod(period) {
     renderCategoryStats();
 }
 
+function handleStatsDayPicked(value) {
+    if (!value) return;
+    statsSelectedDate = value;
+    renderCategoryStats();
+}
+
+function handleStatsWeekPicked(value) {
+    if (!value) return;
+    statsSelectedWeekAnchor = value;
+    renderCategoryStats();
+}
+
+function handleStatsMonthPicked(value) {
+    if (!value) return;
+    statsSelectedMonth = value;
+    renderCategoryStats();
+}
+
 function renderCategoryStats() {
     const donut = document.getElementById('category-stats-donut');
     const legend = document.getElementById('category-stats-legend');
     if (!donut || !legend) return;
 
+    // Shows/syncs whichever picker matches the active mode - Day, Week,
+    // and Month each get an actual picker now, letting you land on any
+    // specific one instead of always today/this week/this month. Week
+    // uses a plain date input too (rather than the native <input
+    // type="week">, which Safari doesn't support at all) - picking ANY
+    // day within a week shows that whole week, same as clicking a day
+    // on a real calendar would.
+    const dayPicker = document.getElementById('stats-day-picker');
+    const weekPicker = document.getElementById('stats-week-picker');
+    const monthPicker = document.getElementById('stats-month-picker');
+    if (dayPicker) {
+        dayPicker.style.display = statsPeriod === 'day' ? '' : 'none';
+        dayPicker.value = statsSelectedDate;
+    }
+    if (weekPicker) {
+        weekPicker.style.display = statsPeriod === 'week' ? '' : 'none';
+        weekPicker.value = statsSelectedWeekAnchor;
+    }
+    if (monthPicker) {
+        monthPicker.style.display = statsPeriod === 'month' ? '' : 'none';
+        monthPicker.value = statsSelectedMonth;
+    }
+
     const data = getCategoryTotalsForPeriod(statsPeriod);
     const totalHours = data.reduce((sum, d) => sum + d.hours, 0);
-    const periodLabel = statsPeriod === 'day' ? t('stats.periodToday') : statsPeriod === 'week' ? t('stats.periodWeek') : t('stats.periodMonth');
+    const periodLabel = statsPeriod === 'day'
+        ? new Date(statsSelectedDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : statsPeriod === 'week'
+        ? (() => {
+            const { start, end } = getCategoryStatsWeekRange();
+            return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+        })()
+        : (() => {
+            const [y, m] = statsSelectedMonth.split('-').map(Number);
+            return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        })();
 
     if (totalHours === 0) {
         donut.style.background = 'var(--input-bg)';
@@ -2251,8 +2356,26 @@ function setRangeFilter(range, btn) {
     currentRangeFilter = range;
     customRangeFilter = null;
     hideTableFilterIndicator();
-    document.querySelectorAll('.range-bar .range-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#all-sessions-details-section .range-bar .range-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    renderAnalytics();
+}
+
+function handleTableDatePicked(value) {
+    if (!value) return;
+    tableSelectedDate = value;
+    renderAnalytics();
+}
+
+function handleTableWeekPicked(value) {
+    if (!value) return;
+    tableSelectedWeekAnchor = value;
+    renderAnalytics();
+}
+
+function handleTableMonthPicked(value) {
+    if (!value) return;
+    tableSelectedMonth = value;
     renderAnalytics();
 }
 
@@ -2263,7 +2386,7 @@ function handleCategorySearch(val) {
 
 function isDateInRange(dateStr) {
     if (currentRangeFilter === 'all') return true;
-    if (currentRangeFilter === 'day') return dateStr === selectedDateStr;
+    if (currentRangeFilter === 'day') return dateStr === tableSelectedDate;
 
     const parts = dateStr.split('-');
     const itemDate = new Date(parts[0], parts[1] - 1, parts[2]);
@@ -2272,10 +2395,9 @@ function isDateInRange(dateStr) {
         return itemDate >= customRangeFilter.start && itemDate <= customRangeFilter.end;
     }
 
-    const selParts = selectedDateStr.split('-');
-    const refDate = new Date(selParts[0], selParts[1] - 1, selParts[2]);
-
     if (currentRangeFilter === 'week') {
+        const [wy, wm, wd] = tableSelectedWeekAnchor.split('-').map(Number);
+        const refDate = new Date(wy, wm - 1, wd);
         const sunday = new Date(refDate);
         sunday.setDate(refDate.getDate() - refDate.getDay());
         const saturday = new Date(sunday);
@@ -2284,7 +2406,8 @@ function isDateInRange(dateStr) {
     }
 
     if (currentRangeFilter === 'month') {
-        return itemDate.getFullYear() === refDate.getFullYear() && itemDate.getMonth() === refDate.getMonth();
+        const [my, mm] = tableSelectedMonth.split('-').map(Number);
+        return itemDate.getFullYear() === my && (itemDate.getMonth() + 1) === mm;
     }
 
     return true;
@@ -2355,6 +2478,26 @@ function renderAnalytics() {
     const tableBody = document.getElementById('details-table-body');
     const totalVal = document.getElementById('table-total-value');
     if (!tableBody) return;
+
+    // Shows/syncs whichever picker matches the active Day/Week/Month/All
+    // Time button - lets you jump this table to any specific day, week,
+    // or month directly, instead of having to go change the mini
+    // calendar's selected date elsewhere on the page first.
+    const tableDayPicker = document.getElementById('table-day-picker');
+    const tableWeekPicker = document.getElementById('table-week-picker');
+    const tableMonthPicker = document.getElementById('table-month-picker');
+    if (tableDayPicker) {
+        tableDayPicker.style.display = currentRangeFilter === 'day' ? '' : 'none';
+        tableDayPicker.value = tableSelectedDate;
+    }
+    if (tableWeekPicker) {
+        tableWeekPicker.style.display = currentRangeFilter === 'week' ? '' : 'none';
+        tableWeekPicker.value = tableSelectedWeekAnchor;
+    }
+    if (tableMonthPicker) {
+        tableMonthPicker.style.display = currentRangeFilter === 'month' ? '' : 'none';
+        tableMonthPicker.value = tableSelectedMonth;
+    }
 
     if (grid) grid.innerHTML = '';
     tableBody.innerHTML = '';
@@ -3562,14 +3705,34 @@ function positionModalNearClick(clickEvent) {
     }
 
     const padding = 15;
-    let x = clickEvent ? clickEvent.clientX + padding : window.innerWidth / 2 - 160;
-    let y = clickEvent ? clickEvent.clientY + padding : window.innerHeight / 2 - 120;
+    const margin = 10; // keep at least this far from every viewport edge
 
-    if (x + 280 > window.innerWidth) x = (clickEvent ? clickEvent.clientX : window.innerWidth / 2) - 295;
-    if (y + 240 > window.innerHeight) y = (clickEvent ? clickEvent.clientY : window.innerHeight / 2) - 255;
+    // Measures the modal's ACTUAL current size instead of assuming a
+    // fixed width/height - the form has grown a lot since this last
+    // used hard-coded numbers (Project field, Date field, all the
+    // toggles), so a stale guess was routinely deciding "this fits"
+    // when the real content was taller than the guess, leaving the
+    // bottom of the popup rendered off the edge of the screen. This is
+    // called right after the modal is already set to display:block, so
+    // its real rendered size is available here.
+    const rect = modalContent.getBoundingClientRect();
+    const modalWidth = rect.width || 320;
+    const modalHeight = rect.height || 400;
 
-    modalContent.style.left = `${Math.max(10, x)}px`;
-    modalContent.style.top = `${Math.max(10, y)}px`;
+    let x = clickEvent ? clickEvent.clientX + padding : window.innerWidth / 2 - modalWidth / 2;
+    let y = clickEvent ? clickEvent.clientY + padding : window.innerHeight / 2 - modalHeight / 2;
+
+    // Clamp on every side using the real size, not just a one-time
+    // "flip if it doesn't fit" check - this guarantees the whole popup
+    // stays fully on screen regardless of how tall the form happens to
+    // be for whichever fields are showing right now.
+    x = Math.min(x, window.innerWidth - modalWidth - margin);
+    y = Math.min(y, window.innerHeight - modalHeight - margin);
+    x = Math.max(margin, x);
+    y = Math.max(margin, y);
+
+    modalContent.style.left = `${x}px`;
+    modalContent.style.top = `${y}px`;
 }
 
 function openQuickAddModal(dateKey, hour, clickEvent) {
@@ -3586,6 +3749,8 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     if (dateInput) dateInput.value = dateKey || '';
     const dateGroup = document.getElementById('modal-date-group');
     if (dateGroup) dateGroup.style.display = '';
+    const projectGroupAdd = document.getElementById('modal-project-group');
+    if (projectGroupAdd) projectGroupAdd.style.display = 'none';
     setModalType(defaultEntryType);
     hideModalError();
 
@@ -3627,6 +3792,8 @@ function openEditModal(dateKey, index, clickEvent) {
     if (dateInput) dateInput.value = dateKey || '';
     const dateGroup = document.getElementById('modal-date-group');
     if (dateGroup) dateGroup.style.display = '';
+    const projectGroupEdit = document.getElementById('modal-project-group');
+    if (projectGroupEdit) projectGroupEdit.style.display = 'none';
     setModalType(item.type || 'actual');
     hideModalError();
 
@@ -3676,6 +3843,15 @@ function openBacklogEditModal(backlogId, clickEvent) {
     if (dateInput) dateInput.value = '';
     const dateGroup = document.getElementById('modal-date-group');
     if (dateGroup) dateGroup.style.display = 'none';
+
+    const projectGroup = document.getElementById('modal-project-group');
+    const projectSelect = document.getElementById('modal-project-select');
+    if (projectGroup) projectGroup.style.display = 'block';
+    if (projectSelect) {
+        projectSelect.innerHTML = `<option value="">${t('kanban.noProject')}</option>` +
+            boardProjects.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+        projectSelect.value = item.project || '';
+    }
 
     setModalType(item.type || 'actual');
     hideModalError();
@@ -3846,6 +4022,8 @@ function submitQuickAddModal() {
                 item.name = name;
                 item.type = modalEntryType;
                 item.hours = Math.round(hours * 100) / 100;
+                const projectSelect = document.getElementById('modal-project-select');
+                if (projectSelect) item.project = projectSelect.value || null;
                 saveBacklogItems();
             }
         }
@@ -4030,6 +4208,29 @@ function exportCurrentNote() {
 // importData() already understands (a "notesData"/"notesNotebooks" full
 // export, just without the calendar/backlog/goals keys), so this file
 // can also be re-imported later via "Import backup" above.
+// Shares whichever note is CURRENTLY OPEN - deliberately just that one,
+// not the whole notes list - through WhatsApp's own share link or a
+// plain mailto: link, the same way sharing works from any other app.
+// Both hand off to something already installed/configured on the
+// device (WhatsApp itself, or whatever the default mail app is) rather
+// than this app trying to send anything on its own.
+function shareCurrentNoteVia(method) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) {
+        setVoiceStatus(t('notes.shareNoNoteOpen'));
+        setTimeout(() => setVoiceStatus(''), 2500);
+        return;
+    }
+
+    const text = buildNotePlainText(note);
+    if (method === 'whatsapp') {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } else if (method === 'email') {
+        const subject = encodeURIComponent(note.title || 'Note');
+        window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(text)}`;
+    }
+}
+
 function exportAllNotes() {
     if (!notesData.length) {
         showSaveToast('No notes to export yet', false);
@@ -4304,33 +4505,22 @@ function updateDropboxUI() {
         ? `Backed up ${new Date(lastDropboxAutoBackupAt).toLocaleTimeString()}`
         : 'Linked';
 
-    // Analytics/Export section controls (full row: link/status/backup now/unlink)
-    const linkBtn = document.getElementById('dropbox-link-btn');
-    const statusEl = document.getElementById('dropbox-status');
-    const backupNowBtn = document.getElementById('dropbox-backup-now-btn');
-    const unlinkBtn = document.getElementById('dropbox-unlink-btn');
-    if (linkBtn && statusEl && backupNowBtn && unlinkBtn) {
-        linkBtn.style.display = connected ? 'none' : 'inline-flex';
-        statusEl.style.display = connected ? 'inline' : 'none';
-        backupNowBtn.style.display = connected ? 'inline-flex' : 'none';
-        unlinkBtn.style.display = connected ? 'inline-flex' : 'none';
-        if (connected) {
-            statusEl.className = 'dropbox-status connected';
-            statusEl.textContent = '📦 ' + statusText;
-        }
-    }
-
     // Compact header button (visible from every tab, not just Analytics) -
     // swaps between "Link Dropbox" and a live status pill that doubles as
-    // a one-click "back up now" button.
+    // a one-click "back up now" button. The Analytics section used to
+    // have its own fuller row (link/status/backup now/unlink) - removed
+    // since it just duplicated this one; "Unlink" is the one action that
+    // needed a new home, so it lives right here too now.
     const headerLinkBtn = document.getElementById('dropbox-header-link-btn');
     const headerStatusBtn = document.getElementById('dropbox-header-status-btn');
     const headerStatusText = document.getElementById('dropbox-header-status-text');
+    const unlinkBtn = document.getElementById('dropbox-unlink-btn');
     if (headerLinkBtn && headerStatusBtn && headerStatusText) {
         headerLinkBtn.style.display = connected ? 'none' : 'flex';
         headerStatusBtn.style.display = connected ? 'flex' : 'none';
         if (connected) headerStatusText.textContent = statusText;
     }
+    if (unlinkBtn) unlinkBtn.style.display = connected ? 'flex' : 'none';
     if (typeof updateHeaderActionsScrollHint === 'function') updateHeaderActionsScrollHint();
 }
 
@@ -4411,7 +4601,12 @@ function addBoardItem() {
         name,
         hours: 1, // a task created from Kanban has no duration up front (Kanban is about tasks, not scheduled time) - this is just an internal placeholder used only if/when it's later dragged onto the calendar, and can be resized there like any other block
         type: 'actual',
-        status: 'todo'
+        status: 'todo',
+        // Adding a card while viewing a specific project tags it to that
+        // project automatically - otherwise it would silently vanish
+        // from view the moment it's added, since the filtered columns
+        // only show items tagged to the project currently selected.
+        project: activeBoardProject || null
     });
 
     saveBacklogItems();
@@ -4728,7 +4923,15 @@ function boardItemsByStatus(status) {
     // Anything without a status at all (every item that existed before
     // Board did) is treated as 'todo' - so upgrading to this feature
     // never makes existing backlog items disappear from view.
-    return backlogItems.filter(i => (i.status || 'todo') === status);
+    let items = backlogItems.filter(i => (i.status || 'todo') === status);
+    // "" (the default/"All" view) shows everything regardless of
+    // project - an item tagged to a project is still exactly the same
+    // item you see here, never a separate copy that could drift out of
+    // sync with the project-filtered view.
+    if (activeBoardProject) {
+        items = items.filter(i => (i.project || '') === activeBoardProject);
+    }
+    return items;
 }
 
 function initBoardSection() {
@@ -4815,7 +5018,69 @@ function moveBoardItem(draggedId, newStatus, beforeId) {
     renderBacklogList(); // also re-renders the Board (see renderBacklogList)
 }
 
+function saveBoardProjects() {
+    localStorage.setItem('boardProjects', JSON.stringify(boardProjects));
+}
+
+function renderBoardProjectsRow() {
+    const wrap = document.getElementById('board-projects-pills');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    const allPill = document.createElement('button');
+    allPill.type = 'button';
+    allPill.className = 'board-project-pill' + (activeBoardProject === '' ? ' active' : '');
+    allPill.textContent = t('kanban.allProjects');
+    allPill.onclick = () => setActiveBoardProject('');
+    wrap.appendChild(allPill);
+
+    boardProjects.forEach(proj => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'board-project-pill' + (activeBoardProject === proj ? ' active' : '');
+        pill.textContent = proj;
+        pill.onclick = () => setActiveBoardProject(proj);
+        wrap.appendChild(pill);
+    });
+}
+
+function setActiveBoardProject(proj) {
+    activeBoardProject = proj;
+    localStorage.setItem('activeBoardProject', proj);
+    renderBoardSection();
+}
+
+function toggleNewProjectInput(forceState) {
+    const row = document.getElementById('board-project-new-row');
+    const input = document.getElementById('board-project-new-input');
+    if (!row) return;
+    const opening = forceState !== undefined ? forceState : row.style.display === 'none';
+    row.style.display = opening ? 'flex' : 'none';
+    if (opening && input) {
+        input.value = '';
+        input.focus();
+    }
+}
+
+function submitNewBoardProject() {
+    const input = document.getElementById('board-project-new-input');
+    if (!input) return;
+    const trimmed = input.value.trim();
+    if (!trimmed) {
+        toggleNewProjectInput(false);
+        return;
+    }
+    if (!boardProjects.includes(trimmed)) {
+        boardProjects.push(trimmed);
+        saveBoardProjects();
+    }
+    setActiveBoardProject(trimmed);
+    toggleNewProjectInput(false);
+}
+
 function renderBoardSection() {
+    renderBoardProjectsRow();
+
     BOARD_COLUMNS.forEach(col => {
         const listEl = document.getElementById(`board-col-${col.status}`);
         const countEl = document.getElementById(`board-count-${col.status}`);
@@ -4841,6 +5106,8 @@ function renderBoardSection() {
 
 function buildBoardCardEl(item, status) {
     const color = getCategoryColor(item.category);
+    const statusOrder = ['todo', 'doing', 'done'];
+    const statusIndex = statusOrder.indexOf(status);
     const card = document.createElement('div');
     card.className = `board-card ${status === 'done' ? 'board-card-done' : ''}`;
     if (armedMoveBoardCardId === item.id) card.classList.add('board-card-move-armed');
@@ -4857,6 +5124,10 @@ function buildBoardCardEl(item, status) {
             </div>
         </div>
         ${item.name ? `<div class="board-card-name">${escapeHtml(item.name)}</div>` : ''}
+        <div class="board-card-move-row">
+            <button type="button" class="board-card-move-btn" data-dir="-1" ${statusIndex <= 0 ? 'disabled' : ''} title="Move back">◀</button>
+            <button type="button" class="board-card-move-btn" data-dir="1" ${statusIndex >= statusOrder.length - 1 ? 'disabled' : ''} title="Move forward">▶</button>
+        </div>
     `;
 
     card.querySelector('.board-card-del').addEventListener('click', (e) => {
@@ -4866,6 +5137,21 @@ function buildBoardCardEl(item, status) {
     card.querySelector('.board-card-edit').addEventListener('click', (e) => {
         e.stopPropagation();
         openBacklogEditModal(item.id, e);
+    });
+    // Explicit tap targets to move a card one column over - dragging
+    // never worked on touch to begin with (native drag-and-drop is a
+    // mouse-only interaction on most mobile browsers), and the
+    // double-tap-to-arm gesture beneath this wasn't discoverable enough
+    // on its own. These work identically well with a mouse too, so
+    // there's nothing device-specific about them - just a second, more
+    // obvious way to do the same move.
+    card.querySelectorAll('.board-card-move-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dir = parseInt(btn.dataset.dir, 10);
+            const targetStatus = statusOrder[statusIndex + dir];
+            if (targetStatus) moveBoardItem(item.id, targetStatus, null);
+        });
     });
 
     // Desktop mouse: dblclick still opens the editor directly, same as
@@ -4935,6 +5221,15 @@ let noteSaveDebounceTimer = null;
 // been created is kept separately so an empty notebook still shows up in
 // the picker even before any note is filed into it.
 let notesNotebooks = [];
+// Named "sub-boards" within the same Kanban - e.g. "Project 1",
+// "Project 2" - each one just filters the same three columns down to
+// items tagged with that project (see boardItemsByStatus), rather than
+// being separate boards with their own data. That's deliberate: an
+// item tagged to a project is still exactly the same item everyone
+// sees on the main "All" board too, never something that has to be
+// duplicated or separately kept in sync between the two views.
+let boardProjects = [];
+let activeBoardProject = localStorage.getItem('activeBoardProject') || '';
 let activeNotebookFilter = '';
 let notesSearchQuery = '';
 // 'custom' keeps whatever order notes sit in notesData (drag to
@@ -4942,6 +5237,12 @@ let notesSearchQuery = '';
 // touching that underlying order, so switching back to "My order"
 // always restores exactly how they were arranged.
 let notesSortMode = localStorage.getItem('notesSortMode') || 'custom';
+// Switches the notes list between showing individual notes and showing
+// just a plain list of notebook names to browse by (see
+// toggleNotesBrowseMode/renderNotebooksBrowseList below) - not
+// persisted across sessions on purpose, always starts back on the
+// normal notes view.
+let notesBrowseMode = 'notes';
 let draggedNoteId = null;
 
 // Notes don't participate in the calendar/backlog undo stack (same as
@@ -5221,10 +5522,10 @@ function duplicateCurrentNote() {
 // some voice recordings - so you can record anywhere in the note and
 // keep typing before/after it: text, then a voice note, then more
 // text, in any order, each one movable and deletable on its own.
-// Recording uses MediaRecorder and stores the clip as a base64 data
-// URL right inside the block, so it rides along in the same
-// localStorage/cloud sync as everything else - no separate file
-// storage needed.
+// Recording captures raw audio via the Web Audio API and encodes it to
+// a plain WAV file (see encodeWAV below) - the clip either uploads to
+// cloud storage, or falls back to a base64 data URL right inside the
+// block for a guest with no account to upload to.
 let lastFocusedBlockId = null;
 
 // Mobile-only: which "screen" the Notes tab is showing - the full list,
@@ -5353,6 +5654,53 @@ function genBlockId() {
 // string, a separate `voiceNotes` array, or both - into one ordered
 // `blocks` array (text content first, then any old clips tacked on the
 // end), and guarantees there's always at least one block to type into.
+let draggedNoteBlockId = null;
+
+// Drag-to-reorder for any note block (text, photo, voice note, divider) -
+// grab the ⋮⋮ handle and drag it above or below another block to move
+// it exactly where you want, instead of only being able to nudge one
+// step at a time with the ↑/↓ buttons.
+function setupBlockDragHandlers(wrap, handle, block) {
+    handle.draggable = true;
+    handle.addEventListener('dragstart', (e) => {
+        draggedNoteBlockId = block.id;
+        wrap.style.opacity = '0.4';
+        e.stopPropagation();
+    });
+    handle.addEventListener('dragend', () => {
+        wrap.style.opacity = '1';
+        document.querySelectorAll('.note-block-drop-target').forEach(el => el.classList.remove('note-block-drop-target'));
+        draggedNoteBlockId = null;
+    });
+    wrap.addEventListener('dragover', (e) => {
+        if (!draggedNoteBlockId || draggedNoteBlockId === block.id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        wrap.classList.add('note-block-drop-target');
+    });
+    wrap.addEventListener('dragleave', () => wrap.classList.remove('note-block-drop-target'));
+    wrap.addEventListener('drop', (e) => {
+        if (!draggedNoteBlockId || draggedNoteBlockId === block.id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        wrap.classList.remove('note-block-drop-target');
+        reorderNoteBlock(draggedNoteBlockId, block.id);
+        draggedNoteBlockId = null;
+    });
+}
+
+function reorderNoteBlock(draggedId, targetId) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    const fromIdx = note.blocks.findIndex(b => b.id === draggedId);
+    if (fromIdx === -1) return;
+    const [moved] = note.blocks.splice(fromIdx, 1);
+    const toIdx = note.blocks.findIndex(b => b.id === targetId);
+    note.blocks.splice(toIdx === -1 ? note.blocks.length : toIdx, 0, moved);
+    scheduleNoteSave(note);
+    renderNoteBlocks(note);
+}
+
 function ensureNoteBlocks(note) {
     // One-time migration: the notes "category" field used to point at
     // the calendar's own activity categories (shared datalist, shared
@@ -5487,11 +5835,6 @@ async function startNoteRecording() {
     }
 
     try {
-        // ScriptProcessorNode is technically deprecated in favor of
-        // AudioWorklet, but it's still supported everywhere that
-        // matters here and needs no separate worklet file to load and
-        // manage - for a one-off capture like this, the simpler,
-        // universally-working option wins over the newer one.
         noteRecordingAudioContext = new AudioContextClass();
         if (noteRecordingAudioContext.state === 'suspended') {
             await noteRecordingAudioContext.resume();
@@ -5500,20 +5843,58 @@ async function startNoteRecording() {
         noteRecordingPCMChunks = [];
 
         noteRecordingSourceNode = noteRecordingAudioContext.createMediaStreamSource(stream);
-        noteRecordingProcessorNode = noteRecordingAudioContext.createScriptProcessor(4096, 1, 1);
-        noteRecordingProcessorNode.onaudioprocess = (e) => {
-            // Copy the samples out - the buffer this came in on gets
-            // reused by the browser for the next callback, so holding
-            // onto it directly would mean every chunk silently turns
-            // into a copy of the LAST chunk instead of its own audio.
-            noteRecordingPCMChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-        };
 
-        // ScriptProcessorNode only actually fires its callback once
-        // it's connected all the way to a destination - route it
-        // through a silent (gain 0) node instead of straight to the
-        // speakers, so recording doesn't also play your own voice back
-        // out loud in real time while you talk.
+        // AudioWorkletNode runs the actual sample-copying on a dedicated
+        // audio rendering thread; the older ScriptProcessorNode this
+        // replaced runs on the main JS thread instead, and on mobile
+        // Safari in particular that's known to silently stop delivering
+        // audio callbacks after some seconds under normal conditions
+        // (background tab throttling, the main thread getting busy with
+        // anything else, even just scrolling) - which is exactly what a
+        // recording quietly capping out around 10-12 seconds looks like.
+        // AudioWorklet doesn't share that failure mode, which is also
+        // why it's what replaced ScriptProcessorNode in the spec.
+        if (noteRecordingAudioContext.audioWorklet) {
+            const workletCode = `
+                class PCMRecorderProcessor extends AudioWorkletProcessor {
+                    process(inputs) {
+                        const channel = inputs[0] && inputs[0][0];
+                        if (channel && channel.length) {
+                            // Copy the samples out before posting - the
+                            // underlying buffer gets reused by the audio
+                            // thread on the very next call.
+                            this.port.postMessage(channel.slice(0));
+                        }
+                        return true; // keep the processor alive for the rest of the recording
+                    }
+                }
+                registerProcessor('pcm-recorder-processor', PCMRecorderProcessor);
+            `;
+            const workletBlobUrl = URL.createObjectURL(new Blob([workletCode], { type: 'application/javascript' }));
+            try {
+                await noteRecordingAudioContext.audioWorklet.addModule(workletBlobUrl);
+                noteRecordingProcessorNode = new AudioWorkletNode(noteRecordingAudioContext, 'pcm-recorder-processor');
+                noteRecordingProcessorNode.port.onmessage = (e) => {
+                    noteRecordingPCMChunks.push(new Float32Array(e.data));
+                };
+            } finally {
+                URL.revokeObjectURL(workletBlobUrl);
+            }
+        } else {
+            // Fallback for the rare browser without AudioWorklet support
+            // at all - same known reliability caveat as before, but
+            // still better than not recording anywhere at all.
+            noteRecordingProcessorNode = noteRecordingAudioContext.createScriptProcessor(4096, 1, 1);
+            noteRecordingProcessorNode.onaudioprocess = (e) => {
+                noteRecordingPCMChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+            };
+        }
+
+        // The node only actually processes audio once it's connected all
+        // the way to a destination - routed through a silent (gain 0)
+        // node instead of straight to the speakers, so recording doesn't
+        // also play your own voice back out loud in real time while you
+        // talk.
         noteRecordingMuteNode = noteRecordingAudioContext.createGain();
         noteRecordingMuteNode.gain.value = 0;
         noteRecordingSourceNode.connect(noteRecordingProcessorNode);
@@ -6124,6 +6505,7 @@ function buildTextBlockEl(block, index) {
         selectBlock(block.id, { extend: e.shiftKey });
     });
     wrap.appendChild(handle);
+    setupBlockDragHandlers(wrap, handle, block);
 
     const ta = document.createElement('textarea');
     ta.className = 'note-text-block';
@@ -6143,6 +6525,22 @@ function buildTextBlockEl(block, index) {
     ta.addEventListener('input', () => {
         autoGrowTextarea(ta);
         handleBlockTextEdited(block.id, ta.value);
+    });
+    // Backspace right at the very start of a block merges it into the
+    // end of the PREVIOUS block instead of doing nothing - the same way
+    // pressing Backspace at the start of a line in any normal text
+    // editor pulls it up into the line before. Without this, removing a
+    // block boundary meant reaching for the trash icon instead of just
+    // deleting through it like any other character, which is exactly
+    // what stood out as feeling wrong - especially since block
+    // boundaries can appear in the first place just from having added
+    // and later deleted a photo or voice note in between (those each
+    // drop a fresh text block after themselves to keep typing in).
+    ta.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && ta.selectionStart === 0 && ta.selectionEnd === 0) {
+            e.preventDefault();
+            mergeTextBlockIntoPrevious(block.id);
+        }
     });
 
     requestAnimationFrame(() => autoGrowTextarea(ta));
@@ -6225,7 +6623,10 @@ function buildAudioBlockEl(block) {
             <button type="button" class="note-audio-play-btn" onclick="toggleAudioBlockPlay('${block.id}')" id="play-btn-${block.id}">▶</button>
             <div class="note-audio-info">
                 <input type="text" class="note-audio-label" value="${escapeHtml(block.label || 'Voice note')}" oninput="handleAudioLabelEdited('${block.id}', this.value)" onfocus="setLastFocusedBlock('${block.id}')">
-                <span class="note-audio-duration" id="dur-${block.id}">${formatAudioDuration(block.duration)}</span>
+                <div class="note-audio-seek-row">
+                    <input type="range" class="note-audio-seek" id="seek-${block.id}" min="0" max="100" value="0" step="0.1">
+                    <span class="note-audio-duration" id="dur-${block.id}">${formatAudioDuration(block.duration)}</span>
+                </div>
             </div>
             <div class="note-audio-actions">
                 <button type="button" class="note-audio-icon-btn" onclick="moveBlock('${block.id}', -1)" title="Move up">↑</button>
@@ -6241,8 +6642,11 @@ function buildAudioBlockEl(block) {
         e.stopPropagation();
         selectBlock(block.id, { extend: e.shiftKey });
     });
+    setupBlockDragHandlers(wrap, handle, block);
 
     const audioEl = wrap.querySelector('audio');
+    const seekEl = wrap.querySelector(`#seek-${block.id}`);
+
     audioEl.addEventListener('ended', () => {
         const btn = document.getElementById(`play-btn-${block.id}`);
         if (btn) btn.innerText = '▶';
@@ -6250,10 +6654,33 @@ function buildAudioBlockEl(block) {
     audioEl.addEventListener('loadedmetadata', () => {
         if ((!block.duration || !isFinite(block.duration)) && isFinite(audioEl.duration)) {
             block.duration = audioEl.duration;
-            const durEl = document.getElementById(`dur-${block.id}`);
-            if (durEl) durEl.innerText = formatAudioDuration(block.duration);
+        }
+        if (seekEl && isFinite(audioEl.duration)) seekEl.max = audioEl.duration;
+    });
+    // Drives the scrubber forward during normal playback - only when the
+    // user ISN'T currently dragging it themselves (see the seek input's
+    // own listeners below), so a live update doesn't fight a drag
+    // in progress and yank the handle out from under their finger.
+    audioEl.addEventListener('timeupdate', () => {
+        if (seekEl && !seekEl.dataset.dragging) seekEl.value = audioEl.currentTime;
+        const durEl = document.getElementById(`dur-${block.id}`);
+        if (durEl && !audioEl.paused) {
+            durEl.innerText = `${formatAudioDuration(audioEl.currentTime)} / ${formatAudioDuration(audioEl.duration)}`;
+        } else if (durEl && audioEl.paused) {
+            durEl.innerText = formatAudioDuration(block.duration);
         }
     });
+    // Click-or-drag anywhere on the bar jumps playback there directly -
+    // this is the actual "put it at any part I want" scrubbing, not
+    // just play-from-the-start.
+    if (seekEl) {
+        seekEl.addEventListener('pointerdown', () => { seekEl.dataset.dragging = '1'; });
+        seekEl.addEventListener('input', () => {
+            audioEl.currentTime = parseFloat(seekEl.value) || 0;
+        });
+        seekEl.addEventListener('pointerup', () => { delete seekEl.dataset.dragging; });
+        seekEl.addEventListener('change', () => { delete seekEl.dataset.dragging; });
+    }
     // Surfaces a real error instead of a recording that just silently
     // never plays - the file itself failing to load/decode (a broken
     // upload, a format this browser can't play, a dead link) shows up
@@ -6743,6 +7170,37 @@ function handleBlockTextEdited(blockId, value) {
     scheduleNoteSave(note);
 }
 
+// Backspace-at-start-of-block merge - see the keydown listener in
+// buildTextBlockEl for why this exists. Only merges into another TEXT
+// block right before it; if the previous block is a photo, voice note,
+// or divider, Backspace at position 0 does nothing instead (there's
+// nothing sensible to merge text into), same as a normal editor
+// refusing to delete past the start of the document.
+function mergeTextBlockIntoPrevious(blockId) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    const idx = note.blocks.findIndex(b => b.id === blockId);
+    if (idx <= 0) return;
+    const prevBlock = note.blocks[idx - 1];
+    if (prevBlock.type !== 'text') return;
+    const currentBlock = note.blocks[idx];
+
+    const mergePoint = (prevBlock.content || '').length;
+    prevBlock.content = (prevBlock.content || '') + (currentBlock.content || '');
+    note.blocks.splice(idx, 1);
+    scheduleNoteSave(note);
+    renderNoteBlocks(note);
+
+    requestAnimationFrame(() => {
+        const ta = document.querySelector(`textarea.note-text-block[data-block-id="${prevBlock.id}"]`);
+        if (ta) {
+            ta.focus();
+            ta.selectionStart = ta.selectionEnd = mergePoint;
+            autoGrowTextarea(ta);
+        }
+    });
+}
+
 function handleAudioLabelEdited(blockId, value) {
     const note = notesData.find(n => n.id === currentNoteId);
     if (!note) return;
@@ -6878,11 +7336,26 @@ function handleNotebookFilterChange(value) {
 
 // Prompts for a new notebook name (e.g. "Coding") and switches the list to
 // it. Notes created while it's active get auto-numbered into it.
-function createNotebook() {
-    const name = prompt('Name this notebook (e.g. "Coding", "Journal"):');
-    if (name === null) return;
-    const trimmed = name.trim();
-    if (!trimmed) return;
+function toggleNewNotebookInput(forceState) {
+    const row = document.getElementById('new-notebook-row');
+    const input = document.getElementById('new-notebook-input');
+    if (!row) return;
+    const opening = forceState !== undefined ? forceState : row.style.display === 'none';
+    row.style.display = opening ? 'flex' : 'none';
+    if (opening && input) {
+        input.value = '';
+        input.focus();
+    }
+}
+
+function submitNewNotebook() {
+    const input = document.getElementById('new-notebook-input');
+    if (!input) return;
+    const trimmed = input.value.trim();
+    if (!trimmed) {
+        toggleNewNotebookInput(false);
+        return;
+    }
 
     if (!notesNotebooks.includes(trimmed)) {
         notesNotebooks.push(trimmed);
@@ -6893,6 +7366,7 @@ function createNotebook() {
     localStorage.setItem('activeNotebookFilter', activeNotebookFilter);
     renderNotebookSelector();
     renderNotesList();
+    toggleNewNotebookInput(false);
 }
 
 // Deletes a notebook grouping itself (not the notes in it - they just lose
@@ -6919,25 +7393,6 @@ function handleNotesSearch(value) {
     renderNotesList();
 }
 
-function toggleNotesHeaderMenu() {
-    const panel = document.getElementById('notes-header-menu-panel');
-    const trigger = document.querySelector('.notes-header-menu-btn');
-    if (!panel) return;
-    const opening = !panel.classList.contains('open');
-    panel.classList.toggle('open', opening);
-    if (trigger) trigger.classList.toggle('open', opening);
-}
-function closeNotesHeaderMenu() {
-    document.getElementById('notes-header-menu-panel')?.classList.remove('open');
-    document.querySelector('.notes-header-menu-btn')?.classList.remove('open');
-}
-document.addEventListener('click', (e) => {
-    const wrap = document.querySelector('.notes-header-menu-wrap');
-    const panel = document.getElementById('notes-header-menu-panel');
-    if (!wrap || !panel || !panel.classList.contains('open')) return;
-    if (!wrap.contains(e.target)) closeNotesHeaderMenu();
-});
-
 // The note list itself is collapsed by default (see notesListVisible)
 // so opening the Notes tab doesn't necessarily dump the full list on
 // screen every time - press "Show Notes" to reveal it, remembered
@@ -6962,6 +7417,57 @@ function applyNotesListVisibility() {
     }
 }
 
+function toggleNotesBrowseMode() {
+    notesBrowseMode = notesBrowseMode === 'notebooks' ? 'notes' : 'notebooks';
+    updateNotesBrowseModeLabel();
+    renderNotesList();
+}
+
+function updateNotesBrowseModeLabel() {
+    const label = document.getElementById('notes-browse-mode-label');
+    if (!label) return;
+    const key = notesBrowseMode === 'notebooks' ? 'notes.backToNotes' : 'notes.viewNotebooks';
+    label.setAttribute('data-i18n', key);
+    label.textContent = t(key);
+}
+
+// Just the notebook names, like a folder list - tapping one jumps
+// straight to the normal notes view already filtered to it, instead of
+// having to open the small "Notebooks" dropdown and pick from there
+// every time you just want to browse what's inside one.
+function renderNotebooksBrowseList(list) {
+    list.innerHTML = '';
+
+    if (notesNotebooks.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'notes-empty-msg';
+        empty.innerText = t('notes.emptyNoNotebooks');
+        list.appendChild(empty);
+        return;
+    }
+
+    notesNotebooks.forEach(nb => {
+        const count = notesData.filter(n => n.notebook === nb).length;
+        const color = getNoteColor(nb);
+        const item = document.createElement('div');
+        item.className = 'note-list-item notebook-browse-item';
+        item.style.borderLeftColor = color;
+        item.innerHTML = `
+            <div class="note-list-item-title">📁 ${escapeHtml(nb)}</div>
+            <div class="note-list-item-preview">${t('notes.noteCountLabel', { count })}</div>
+        `;
+        item.addEventListener('click', () => {
+            activeNotebookFilter = nb;
+            localStorage.setItem('activeNotebookFilter', activeNotebookFilter);
+            notesBrowseMode = 'notes';
+            updateNotesBrowseModeLabel();
+            renderNotesList();
+            renderNotebookSelector();
+        });
+        list.appendChild(item);
+    });
+}
+
 function renderNotesList() {
     const list = document.getElementById('notes-list');
     const badge = document.getElementById('notes-count-badge');
@@ -6970,6 +7476,13 @@ function renderNotesList() {
     applyNotesListVisibility();
     document.getElementById('notes-sort-alpha-btn')?.classList.toggle('active', notesSortMode === 'alpha');
     document.getElementById('notes-sort-custom-btn')?.classList.toggle('active', notesSortMode === 'custom');
+
+    if (badge) badge.innerText = notesData.length;
+
+    if (notesBrowseMode === 'notebooks') {
+        renderNotebooksBrowseList(list);
+        return;
+    }
 
     let visibleNotes = notesData;
     if (activeNotebookFilter) {
@@ -7313,7 +7826,7 @@ let realtimeChannel = null;
 
 // Bundles everything worth syncing into one payload for the `app_data` column.
 function buildSyncPayload() {
-    return { timeData, backlogItems, categoryGoals, customCategoryColors, notesData, notesNotebooks, trashedItems, manualCategories, hiddenCategories };
+    return { timeData, backlogItems, categoryGoals, customCategoryColors, notesData, notesNotebooks, boardProjects, trashedItems, manualCategories, hiddenCategories };
 }
 
 // Debounced cloud save — called from every existing local save function so
@@ -7581,8 +8094,17 @@ function subscribeToRealtimeSync() {
             // Ignore the echo of our OWN save landing back through
             // Realtime a moment later - otherwise every save would
             // immediately re-trigger a redundant fetch of the data we
-            // just wrote.
-            if (Date.now() - lastLocalSaveAt < 2000) return;
+            // just wrote. Widened from 2s to 6s: on a slower connection
+            // the echo can genuinely take longer than 2s to arrive, and
+            // once outside that window this was pulling fresh data (and
+            // re-rendering the whole page) moments after you'd already
+            // resumed typing - which is what a mobile keyboard rapidly
+            // dismissing and reappearing while typing actually was.
+            if (Date.now() - lastLocalSaveAt < 6000) return;
+            // Same protection as the periodic 20-second poll: never let
+            // a background pull rebuild the note you're actively typing
+            // in out from under you, regardless of timing.
+            if (isActivelyTypingSomewhere()) return;
             pullLatestCloudData();
         })
         .subscribe();
@@ -7605,6 +8127,7 @@ function applyCloudSnapshot(cloudData) {
     customCategoryColors = cloudData.customCategoryColors || {};
     notesData = cloudData.notesData || [];
     notesNotebooks = cloudData.notesNotebooks || [];
+    boardProjects = cloudData.boardProjects || [];
     trashedItems = cloudData.trashedItems || [];
     // manualCategories previously only lived in localStorage (this is
     // the first version that syncs it to the cloud too) - merge rather
@@ -7621,6 +8144,7 @@ function applyCloudSnapshot(cloudData) {
     localStorage.setItem('customCategoryColors', JSON.stringify(customCategoryColors));
     localStorage.setItem('notesData', JSON.stringify(notesData));
     localStorage.setItem('notesNotebooks', JSON.stringify(notesNotebooks));
+    localStorage.setItem('boardProjects', JSON.stringify(boardProjects));
     localStorage.setItem('trashedItems', JSON.stringify(trashedItems));
     localStorage.setItem('manualCategories', JSON.stringify(manualCategories));
     localStorage.setItem('hiddenCategories', JSON.stringify(hiddenCategories));
@@ -7634,7 +8158,7 @@ function applyCloudSnapshot(cloudData) {
             localStorage.setItem('lastCloudUserId', currentUser.id);
             localStorage.setItem('cloudCache_' + currentUser.id, JSON.stringify({
                 timeData, backlogItems, categoryGoals, customCategoryColors,
-                notesData, notesNotebooks, trashedItems, hiddenCategories
+                notesData, notesNotebooks, boardProjects, trashedItems, hiddenCategories
             }));
         } catch (err) {
             // Quota exceeded or similar - non-fatal, this cache is purely
@@ -7724,8 +8248,26 @@ window.addEventListener('pagehide', () => {
 // device saved since - not truly instant, but never more than 20
 // seconds behind instead of "not until something else happens to
 // refresh it."
+//
+// Critically, this SKIPS entirely while you're actively typing
+// anywhere (a note's text, its title, the notebook field, any input).
+// applyCloudSnapshot() re-renders the whole page, which means
+// recreating the exact textarea you're typing into from scratch -
+// harmless if you're not touching it, but it resets your cursor
+// position and, worse, can land mid-keystroke on a phone's predictive-
+// text/autocomplete composition and eat whatever you'd just typed.
+// That's what "the page jumps and what I was writing gets deleted"
+// actually was: this pull firing every 20 seconds during a normal
+// multi-minute writing session. Skipping while an input has focus
+// means it simply waits for the NEXT 20-second tick after you pause or
+// move on, rather than ever interrupting a live edit.
+function isActivelyTypingSomewhere() {
+    const active = document.activeElement;
+    return !!(active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT'));
+}
+
 setInterval(() => {
-    if (document.visibilityState === 'visible' && currentUser && !isLoadingCloudData) {
+    if (document.visibilityState === 'visible' && currentUser && !isLoadingCloudData && !isActivelyTypingSomewhere()) {
         pullLatestCloudData();
     }
 }, 20000);
@@ -7914,6 +8456,8 @@ async function logOutUser() {
     customCategoryColors = {};
     notesData = [];
     notesNotebooks = [];
+    boardProjects = [];
+    activeBoardProject = '';
     activeNotebookFilter = '';
     notesUndoStack = [];
     notesRedoStack = [];
@@ -7929,6 +8473,8 @@ async function logOutUser() {
     localStorage.removeItem('customCategoryColors');
     localStorage.removeItem('notesData');
     localStorage.removeItem('notesNotebooks');
+    localStorage.removeItem('boardProjects');
+    localStorage.removeItem('activeBoardProject');
     localStorage.removeItem('activeNotebookFilter');
 
     // Also clear the instant-load cache (see hydrateInstantlyFromLastKnownCache
@@ -8483,6 +9029,7 @@ function hydrateInstantlyFromLastKnownCache() {
         customCategoryColors = data.customCategoryColors || {};
         notesData = data.notesData || [];
         notesNotebooks = data.notesNotebooks || [];
+        boardProjects = data.boardProjects || [];
         trashedItems = data.trashedItems || [];
         hiddenCategories = data.hiddenCategories || [];
         refreshApp();
