@@ -5842,6 +5842,43 @@ let pendingRecordingDurationSec = 0;
 // Lock for the duration of the recording keeps the screen (and the
 // page) alive, so a recording actually runs for as long as you're
 // talking - minutes, not seconds.
+// The Wake Lock above only tries to stop the screen from locking in the
+// first place - it does nothing once the screen locks anyway (a manual
+// power-button press, Low Power Mode disabling Wake Lock outright,
+// browsers that don't support it at all). What actually keeps a phone's
+// browser tab running once the screen IS off or another app is briefly
+// in front is having a real, actively-*playing* <audio> element - iOS
+// and Android both give genuinely-playing media an exemption from the
+// background throttling/suspension that would otherwise pause a page's
+// JS (and with it, this recording) within seconds. A bare Web Audio API
+// graph like the recorder's own doesn't get that same exemption, which
+// is the likely reason recordings were still cutting off even with the
+// wake lock in place. This plays a silent, looped, near-instant WAV for
+// the duration of the recording purely as that "still active" signal.
+let noteRecordingKeepAliveAudio = null;
+function startNoteRecordingKeepAliveAudio() {
+    try {
+        if (!noteRecordingKeepAliveAudio) {
+            noteRecordingKeepAliveAudio = new Audio('data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+            noteRecordingKeepAliveAudio.loop = true;
+            noteRecordingKeepAliveAudio.setAttribute('playsinline', '');
+            noteRecordingKeepAliveAudio.volume = 0.01;
+        }
+        noteRecordingKeepAliveAudio.play().catch(() => {});
+        if ('mediaSession' in navigator) {
+            try { navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+        }
+    } catch (e) {}
+}
+function stopNoteRecordingKeepAliveAudio() {
+    if (noteRecordingKeepAliveAudio) {
+        try { noteRecordingKeepAliveAudio.pause(); } catch (e) {}
+    }
+    if ('mediaSession' in navigator) {
+        try { navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+    }
+}
+
 let noteRecordingWakeLock = null;
 async function acquireNoteRecordingWakeLock() {
     if (!('wakeLock' in navigator)) return; // not supported (older Safari/WebViews) - recording still works, it just won't stop the OS from timing out the screen on its own
@@ -6015,6 +6052,28 @@ async function startNoteRecording() {
         return;
     }
 
+    // The actual cause of a recording coming back completely silent on
+    // phones (separate from the auto-stop issue below): this used to
+    // create the AudioContext AFTER `await getUserMedia(...)` resolved.
+    // getUserMedia's permission prompt is itself asynchronous, and once
+    // any `await` has gone by, iOS Safari no longer considers what comes
+    // next "tied to" the tap that started it - so `resume()` on a context
+    // created afterwards can be silently ignored and the context stays
+    // suspended. Nothing then actually flows through the capture graph:
+    // the on-screen timer (a plain setInterval, unrelated to the audio
+    // graph) keeps counting up as if everything's fine, and a WAV file
+    // still gets produced and saved, but every sample in it is zero.
+    // Creating the context - and starting its resume() - right here,
+    // before anything is awaited, keeps it inside the same tap.
+    const audioContext = new AudioContextClass();
+    try {
+        await audioContext.resume();
+    } catch (err) {
+        // Not fatal by itself - some browsers reject resume() before any
+        // mic access has been granted yet. It gets resumed again below
+        // once the stream is in hand.
+    }
+
     // Reuse an already-open mic stream from an earlier recording this
     // session, if its tracks are all still live - this is the actual
     // fix for the permission prompt reappearing on every single
@@ -6048,6 +6107,7 @@ async function startNoteRecording() {
             } catch (err2) {
                 noteRecordingIsStarting = false;
                 setVoiceStatus("Couldn't access the microphone - check that this site has mic permission.");
+                try { audioContext.close(); } catch (e) {}
                 return;
             }
         }
@@ -6056,10 +6116,20 @@ async function startNoteRecording() {
     }
 
     try {
-        noteRecordingAudioContext = new AudioContextClass();
+        noteRecordingAudioContext = audioContext;
         if (noteRecordingAudioContext.state === 'suspended') {
             await noteRecordingAudioContext.resume();
         }
+        // Belt-and-braces: if the OS/browser suspends or "interrupts" the
+        // context mid-recording (iOS in particular can do this - e.g. a
+        // Siri chime, a call notification, or its own power-saving checks -
+        // without firing any error), try to bring it straight back instead
+        // of quietly losing the rest of the recording with no explanation.
+        noteRecordingAudioContext.onstatechange = () => {
+            if (noteRecordingIsActive && noteRecordingAudioContext && noteRecordingAudioContext.state !== 'running') {
+                noteRecordingAudioContext.resume().catch(() => {});
+            }
+        };
         noteRecordingSampleRate = noteRecordingAudioContext.sampleRate;
         noteRecordingPCMChunks = [];
 
@@ -6117,7 +6187,16 @@ async function startNoteRecording() {
         // also play your own voice back out loud in real time while you
         // talk.
         noteRecordingMuteNode = noteRecordingAudioContext.createGain();
-        noteRecordingMuteNode.gain.value = 0;
+        // Not a literal 0: iOS Safari has power-saving logic that can
+        // detect a completely silent (exactly-zero) output and treat the
+        // whole context as "inaudible", auto-suspending it after a short
+        // while to save battery - which stops every node in the graph,
+        // including the recorder capturing the mic input, with no warning.
+        // That matches recordings that quietly cut off after ~15 seconds
+        // and, if anything was salvaged, come back silent. A gain this
+        // small is completely inaudible to a person but keeps the output
+        // technically non-zero, so that heuristic doesn't kick in.
+        noteRecordingMuteNode.gain.value = 0.00001;
         noteRecordingSourceNode.connect(noteRecordingProcessorNode);
         noteRecordingProcessorNode.connect(noteRecordingMuteNode);
         noteRecordingMuteNode.connect(noteRecordingAudioContext.destination);
@@ -6128,6 +6207,7 @@ async function startNoteRecording() {
         noteRecordingTimerInterval = setInterval(updateNoteRecordingTimerLabel, 250);
         updateNoteRecordingTimerLabel();
         acquireNoteRecordingWakeLock(); // keep the screen (and this recording) alive - see the note above noteRecordingWakeLock
+        startNoteRecordingKeepAliveAudio(); // and keep the tab itself alive if the screen locks anyway - see the note above
     } catch (err) {
         setVoiceStatus("Couldn't start recording - try again.");
         releaseNoteRecordingStreamForGood();
@@ -6157,6 +6237,7 @@ async function startNoteRecording() {
 //    handleNoteRecordingStop instead, once onstop has actually fired.
 function stopNoteRecordingIfActive() {
     releaseNoteRecordingWakeLock();
+    stopNoteRecordingKeepAliveAudio();
     if (noteRecordingIsActive) {
         pendingRecordingDurationSec = noteRecordingStartTime ? (Date.now() - noteRecordingStartTime) / 1000 : 0;
         noteRecordingIsActive = false;
