@@ -1,4 +1,4 @@
-// BUILD MARKER: 2026-08-21 08:05 UTC (critical fix: emergencySaveOnExit could overwrite real cloud data with blank state during the loading window)
+// BUILD MARKER: 2026-09-13 07:20 UTC (privacy policy link forced re-push)
 // 1. Initialize Supabase Client
 const SUPABASE_URL = 'https://icjhcoxjxpwohbnuejnr.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_aXiCqpts_u0Apyf7hbyHEg_ZYcwmoiy';
