@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<!-- BUILD MARKER: 2026-08-21 07:43 UTC (redeployed clean after a partial push left files out of sync) -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NABU — Time Budgeting & Visual Planner</title>
+    <link rel="icon" type="image/svg+xml" href="nabu-favicon.svg">
+    <link rel="apple-touch-icon" href="nabu-favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index15budgetingappcss.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- Mobile-only login indicator: a small circle with your account's
+         initial, fixed at the top-right corner of the screen (right next
+         to the ☰ menu button) at all times
+         so you always know at a glance whether you're logged in - on
+         EVERY tab, not just Timer. Hidden entirely (via CSS/JS) when
+         logged out, and hidden on desktop where the "Synced" label
+         already says the same thing. Deliberately kept OUTSIDE
+         .header-container: that container gets display:none on phones
+         whenever you're not on the Timer tab (see .mobile-header-hidden),
+         and a display:none ancestor hides fixed-position children too -
+         so this has to live as its own top-level element to actually
+         stay put across tabs. -->
+    <div class="user-avatar-circle" id="user-avatar-circle" title="Logged in"></div>
+
+    <!-- Hamburger menu + the dropdown it opens - deliberately OUTSIDE
+         .header-container for the same reason as the avatar circle
+         above: that container hides on phones whenever you're not on
+         the Timer tab (to give content back the space it used to have,
+         instead of reserving room for a header that isn't shown), and
+         a hidden ancestor takes even a fixed-position child down with
+         it. Living out here as its own fixed overlay, it floats on top
+         of whatever's on screen and stays reachable on every tab
+         without pushing any page content down to make room for it. -->
+    <button type="button" class="header-menu-btn" id="header-menu-btn" onclick="toggleHeaderMenu()" title="Menu" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="header-actions-wrap" id="header-actions-wrap">
+        <div class="header-actions" id="header-actions">
+            <a href="index.html" class="theme-toggle-btn" title="Home" data-i18n-title="header.home" style="text-decoration: none;">
+                <span class="icon-badge icon-badge-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span> <span data-i18n="header.home">Home</span>
+            </a>
+            <button class="theme-toggle-btn" id="manual-save-btn" onclick="manualSave()" title="Save now (Ctrl+S)" data-i18n-title="header.saveTitle">
+                <span class="icon-badge icon-badge-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></span> <span data-i18n="header.save">Save</span>
+            </button>
+            <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()" title="Account" data-i18n-title="header.account">
+                <span class="icon-badge icon-badge-account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></span> <span id="auth-btn-label" data-i18n="header.account">Account</span>
+            </button>
+            <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" data-i18n-title="header.themeTitle">
+                <span class="icon-badge icon-badge-theme" id="theme-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+                </span> <span id="theme-text" data-i18n="header.theme">Theme</span>
+            </button>
+            <!-- Replays the walkthrough tour on demand - the one place it's
+                 reachable after the first time, since a first-time visitor
+                 gets it automatically (see maybeAutoStartWalkthrough() in
+                 the JS) but everyone else only sees it if they ask. -->
+            <button class="theme-toggle-btn" id="walkthrough-help-btn" onclick="startWalkthrough()" title="Show me around" data-i18n-title="header.helpTitle">
+                <span class="icon-badge icon-badge-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.6 1.4c0 1.6-2.1 1.9-2.1 3.3"/><circle cx="12" cy="17" r="0.3" fill="currentColor"/></svg></span> <span data-i18n="header.help">Help</span>
+            </button>
+            <!-- Language switcher - EN/ES only for now (see LANG_STRINGS in
+                 the JS). Persists to localStorage and re-runs
+                 applyTranslations() across the whole page immediately,
+                 no reload needed. Defaults to Spanish on first visit if
+                 the browser itself is set to Spanish, English otherwise -
+                 either way it's just a starting guess, never forced. -->
+            <button class="theme-toggle-btn" id="lang-toggle-btn" onclick="toggleLanguage()" title="Switch language / Cambiar idioma">
+                <span class="icon-badge icon-badge-lang">🌐</span> <span id="lang-toggle-label">ES</span>
+            </button>
+            <!-- Compact Dropbox status/link button, mirrors the one in the
+                 Analytics/Export section (see updateDropboxUI() in JS,
+                 which now updates both) - kept up here too since this
+                 header row is the one place visible from every tab. -->
+            <button class="theme-toggle-btn" id="dropbox-header-link-btn" onclick="linkDropboxAccount()" title="Link Dropbox for automatic backups" data-i18n-title="header.dropboxTitle">
+                <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span>Dropbox</span>
+            </button>
+            <button class="theme-toggle-btn" id="dropbox-header-status-btn" onclick="backupNowToDropbox()" title="Click to back up now" style="display:none;">
+                <span class="icon-badge icon-badge-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span> <span id="dropbox-header-status-text">Dropbox</span>
+            </button>
+            <button class="theme-toggle-btn" id="dropbox-unlink-btn" onclick="unlinkDropboxAccount()" title="Unlink Dropbox" style="display:none;">
+                <span class="icon-badge">🔗</span> <span data-i18n="header.unlinkDropbox">Unlink</span>
+            </button>
+
+            <div class="header-actions-divider"></div>
+
+            <!-- Whole-app backup/restore - moved here from the Analytics
+                 section, which now only shows the actual session data
+                 (the Day/Week/Month/All Time table) instead of also
+                 hosting administrative buttons that had nothing to do
+                 with looking at your sessions. -->
+            <button class="theme-toggle-btn" onclick="exportData()" title="Export everything">
+                <span class="icon-badge">💾</span> <span data-i18n="export.everythingShort">Export all</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="document.getElementById('import-file').click()" title="Import backup">
+                <span class="icon-badge">📂</span> <span data-i18n="export.importShort">Import</span>
+            </button>
+            <input type="file" id="import-file" style="display:none;" onchange="importData(event)" accept=".json">
+
+            <div class="header-actions-divider"></div>
+
+            <!-- Everything below is Notes-specific - merged into this same
+                 menu instead of Notes having its own separate "≡" button,
+                 since that second button ended up visually landing right
+                 on top of this one whenever the Notes section scrolled
+                 near the top of the screen. One menu, reachable from
+                 anywhere, instead of two competing for the same corner.
+                 (The note editor still has its own separate "More options"
+                 button too, for desktop/tablet where there's no collision -
+                 see .note-actions-menu-wrap - but on phone that one is
+                 hidden and these four cover the exact same ground.) -->
+            <button class="theme-toggle-btn" onclick="copyCurrentNoteText()" title="Copy the open note's text">
+                <span class="icon-badge">📋</span> <span data-i18n="notes.copyNote">Copy note</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="duplicateCurrentNote()" title="Duplicate the open note">
+                <span class="icon-badge">📑</span> <span data-i18n="notes.duplicateNote">Duplicate note</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="exportCurrentNote()" title="Download just the open note as a text file">
+                <span class="icon-badge">⬇️</span> <span data-i18n="notes.downloadThisNote">Download this note</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="deleteCurrentNote()" title="Move the open note to Trash">
+                <span class="icon-badge">🗑️</span> <span data-i18n="notes.deleteNote">Delete note</span>
+            </button>
+            <button class="theme-toggle-btn" id="header-trash-btn" onclick="openTrashModal()" title="Trash" style="position:relative;">
+                <span class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></span>
+                <span id="trash-badge-count" class="trash-header-badge">0</span>
+                <span data-i18n="notes.trash">Trash</span>
+            </button>
+            <button class="theme-toggle-btn" id="notebook-del-menu-item" onclick="deleteCurrentNotebook()" title="Delete this notebook">
+                <span class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span> <span data-i18n="notes.deleteNotebook">Delete notebook</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="exportAllNotes()" title="Just the notes, not the calendar/backlog/goals data" data-i18n-title="header.downloadNotesTitle">
+                <span class="icon-badge">📝</span> <span data-i18n="notes.downloadShort">Download</span>
+            </button>
+            <!-- Shares whichever note is CURRENTLY OPEN - not the whole
+                 notes list - so it's always "just that one" note, exactly
+                 as typed/recorded, sent through WhatsApp or your email app
+                 the same way you'd share anything else from your phone or
+                 browser. -->
+            <button class="theme-toggle-btn" onclick="shareCurrentNoteVia('whatsapp')" title="Share the open note via WhatsApp">
+                <span class="icon-badge">💬</span> <span data-i18n="notes.shareWhatsApp">WhatsApp</span>
+            </button>
+            <button class="theme-toggle-btn" onclick="shareCurrentNoteVia('email')" title="Share the open note via email">
+                <span class="icon-badge">✉️</span> <span data-i18n="notes.shareEmail">Email</span>
+            </button>
+        </div>
+    </div>
+    <div class="header-menu-backdrop" id="header-menu-backdrop" onclick="closeHeaderMenu()"></div>
+
+    <div class="header-container">
+        <h1 class="header-title"><img src="nabu-favicon.svg" alt="" class="header-logo-icon">NABU</h1>
+    </div>
+
+    <div class="container">
+        
+        <!-- MOBILE-ONLY fixed 1:2 split (Chronometer : Today), no page
+             scroll - only the Today strip's own inner grid scrolls. See
+             layoutTimerPageForMobile() in the JS, which sizes this
+             wrapper to the actual remaining viewport space (screen
+             height minus header minus bottom nav) and locks page
+             scrolling while this section is the active one. Desktop is
+             completely unaffected - this only takes effect inside the
+             mobile nav breakpoint. -->
+        <div id="timer-page-flex-wrap" data-mobile-section="timer">
+        <div id="timer-page-top">
+        <!-- STOPWATCH CARD -->
+        <div class="card stopwatch">
+            <h2 data-i18n="section.chronometer">Chronometer</h2>
+
+            <!-- Simple on/off switch, not a form to fill in - toggling
+                 this determines what pressing the SAME Start button
+                 below does: Independent = a plain stopwatch, exactly as
+                 it's always worked. Linked to Today = Start also logs a
+                 real, growing activity on today's calendar starting at
+                 the current hour (see beginLiveTimer in the JS), using
+                 whatever category/notes are set in the Live Timer bar
+                 right below the Today strip - or "General" if nothing's
+                 been typed there, so this never blocks on needing to
+                 fill in a field first. Stop pauses that activity, Reset
+                 finishes and logs it - every chronometer on the page
+                 just reflects the same underlying session, no separate
+                 "linking" step needed beyond this one switch. -->
+            <div class="stopwatch-link-toggle-row">
+                <span class="stopwatch-link-toggle-label" data-i18n="timer.independent">Independent</span>
+                <label class="stopwatch-toggle-switch">
+                    <input type="checkbox" id="stopwatch-link-toggle" onchange="setStopwatchLinkedToToday(this.checked)">
+                    <span class="stopwatch-toggle-slider"></span>
+                </label>
+                <span class="stopwatch-link-toggle-label" data-i18n="timer.linked">Linked</span> <span id="stopwatch-link-now-label" class="stopwatch-link-now-label"></span>
+            </div>
+
+            <div class="display" id="stopwatch-display">00:00:00.00</div>
+            <div class="controls">
+                <button class="btn-start" id="start-btn" data-i18n="timer.startBtn">Start</button>
+                <button class="btn-split" id="split-btn" disabled data-i18n="timer.splitBtn">Split</button>
+                <button class="btn-stop" id="stop-btn" disabled data-i18n="timer.stopBtn">Stop</button>
+                <button class="btn-reset" id="reset-btn" data-i18n="timer.resetBtn">Reset</button>
+            </div>
+            
+            <div class="split-container" id="split-container" style="display: none;">
+                <table class="split-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="timer.splitNum">Split #</th>
+                            <th data-i18n="timer.splitTime">Split Time</th>
+                            <th data-i18n="timer.totalTime">Total Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="split-log"></tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+
+        <div id="timer-page-bottom">
+        <!-- Second copy of the exact same Live Timer bar (see the one
+             above, near the Chronometer) - not a separate widget, just
+             the same one shown here too since this is where it's most
+             useful to see/control it while looking at Today's calendar.
+             Both copies read/write the same activeLiveTimerRef, so
+             there's nothing to keep "in sync" - they're just two places
+             showing the same thing. -->
+        <div class="live-timer-bar">
+            <div class="live-timer-idle" data-role="idle">
+                <span class="live-timer-idle-icon">⏱️</span>
+                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" data-i18n-placeholder="timer.descPlaceholder" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)" data-i18n="timer.start">▶ Start</button>
+            </div>
+            <div class="live-timer-active" data-role="active" style="display:none;">
+                <span class="live-timer-pulse-dot"></span>
+                <span class="live-timer-active-category"></span>
+                <span class="live-timer-active-notes"></span>
+                <span class="live-timer-active-location"></span>
+                <span class="live-timer-active-elapsed">00:00:00</span>
+                <button type="button" class="live-timer-ctrl-btn live-timer-pause-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
+                <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
+            </div>
+        </div>
+
+        <!-- TODAY STRIP: a single-day mirror of the big calendar, sitting
+             right next to the Chronometer so starting a live timer has
+             somewhere immediate and visible to land - the exact problem
+             this was built to fix was "the chronometer feels like not
+             plugged into anything." Fully interactive (tap to add, drag
+             to move/resize, same context menu) since it reuses
+             buildDayColumnEl() directly - not a lighter read-only
+             preview, the real thing, just scoped to one day. This is
+             also deliberately a MIRROR, not a separate data source: it
+             reads/writes the exact same timeData[todayKey] the big
+             calendar uses, so nothing can drift out of sync between
+             them. Open by default (not collapsed) since it's meant to
+             teach new users what the big calendar does before they ever
+             see it - see renderTodayStrip() in the JS. -->
+        <details class="details-section" open id="today-strip-section">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg><span data-i18n="section.today">Today</span></span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" id="today-strip-date-label">Click to expand / collapse</span>
+            </summary>
+            <div class="details-content">
+                <div class="today-strip-grid">
+                    <div class="matrix-time-col" id="today-strip-time-col"></div>
+                    <div class="today-strip-day-wrap" id="today-strip-day-wrap">
+                        <div class="today-now-line" id="today-now-line"><span class="today-now-line-label" id="today-now-line-label"></span></div>
+                    </div>
+                    <div class="matrix-time-col" id="today-strip-time-col-right"></div>
+                </div>
+            </div>
+        </details>
+        </div>
+        </div>
+
+    <!-- SECTION 2: VISUAL WEEKLY TIME-BLOCK PLANNER -->
+<details class="details-section" open style="position: relative;" data-mobile-section="plan" id="planner-section">
+    <summary class="details-summary">
+        <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg><span data-i18n="section.planner">Visual Weekly Time-Block Planner</span></span>
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <!-- Backlog Toggle Button -->
+            <button type="button" class="backlog-toggle-btn" onclick="toggleBacklogDrawer(event)">
+                <svg class="section-icon" style="margin-right:5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><span data-i18n="section.backlog">Backlog</span> <span id="backlog-badge-count" class="backlog-count-badge">0</span>
+            </button>
+            <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
+        </div>
+    </summary>
+    
+    <div class="details-content" style="position: relative;">
+        <!-- LIVE TIMER - starts a real-time-growing activity block on
+             today's calendar column (see startLiveTimerActivity() /
+             tickLiveTimers() in the JS). Controls live here, in a
+             persistent bar, rather than inside the block itself - a
+             block that starts at zero elapsed time is a sliver a
+             fraction of a pixel tall, which would be an impossible
+             click target for Pause/Finish buttons. -->
+        <div id="live-timer-bar" class="live-timer-bar">
+            <div class="live-timer-idle" data-role="idle">
+                <span class="live-timer-idle-icon">⏱️</span>
+                <input type="text" class="live-timer-category-input-el" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" list="category-list" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <input type="text" class="live-timer-notes-input-el" placeholder="Description (optional)" data-i18n-placeholder="timer.descPlaceholder" onkeydown="if(event.key==='Enter') startLiveTimerActivity(this)">
+                <button type="button" class="live-timer-start-btn" onclick="startLiveTimerActivity(this)" data-i18n="timer.start">▶ Start</button>
+            </div>
+            <div class="live-timer-active" data-role="active" style="display:none;">
+                <span class="live-timer-pulse-dot"></span>
+                <span class="live-timer-active-category"></span>
+                <span class="live-timer-active-notes"></span>
+                <span class="live-timer-active-location"></span>
+                <span class="live-timer-active-elapsed">00:00:00</span>
+                <button type="button" class="live-timer-ctrl-btn live-timer-pause-btn" onclick="pauseResumeLiveTimer()">⏸ Pause</button>
+                <button type="button" class="live-timer-ctrl-btn live-timer-finish-btn" onclick="finishLiveTimer()">✅ Finish</button>
+            </div>
+        </div>
+
+        <div class="planner-body-row">
+            <div class="visual-matrix-column">
+                <div class="visual-matrix-container">
+                    <div class="matrix-grid" id="matrix-grid"></div>
+                </div>
+
+                <!-- WEEK / MONTH NAV BAR: sits right under the calendar grid
+                     (below the 23:00 row), outside the horizontally-scrolling
+                     calendar itself, so it stays put and visible even when
+                     the grid is scrolled sideways - and you can flip weeks
+                     or jump months without leaving this section or
+                     scrolling back up to the small calendar. -->
+                <div class="calendar-week-nav-bar">
+                    <div class="week-nav-group">
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(-1)" title="Previous week">◀ Week</button>
+                        <span class="week-nav-label" id="week-nav-label"></span>
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerWeek(1)" title="Next week">Week ▶</button>
+                    </div>
+                    <div class="week-nav-group">
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(-1)" title="Previous month">◀ Month</button>
+                        <button type="button" class="week-nav-btn week-nav-today-btn" onclick="jumpPlannerToToday()" title="Jump to today">Today</button>
+                        <button type="button" class="week-nav-btn" onclick="shiftPlannerMonth(1)" title="Next month">Month ▶</button>
+                    </div>
+                </div>
+
+                <!-- COLLAPSIBLE FILTERS + CATEGORY LEGEND: hidden by default
+                     so the planner doesn't feel crowded; tap to reveal the
+                     View Plane filter and the category color legend. Lives
+                     inside the calendar column itself, right under the
+                     week/month nav bar, so it stays close to the calendar
+                     instead of ending up far below it (the backlog drawer
+                     next to this column can be much taller, so putting this
+                     outside/after the whole row left a big gap here). -->
+                <button type="button" class="planner-header-toggle-btn" id="planner-header-toggle-btn" onclick="togglePlannerHeader()">
+                    <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><circle cx="9" cy="6" r="2" fill="var(--card-bg)"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2" fill="var(--card-bg)"/><path d="M4 18h16"/><circle cx="11" cy="18" r="2" fill="var(--card-bg)"/></svg><span data-i18n="section.filters">Filters &amp; Categories</span></span>
+                    <span class="planner-header-toggle-arrow">▾</span>
+                </button>
+
+                <div class="planner-header-collapsible" id="planner-header-collapsible">
+                    <!-- VIEW PLANE FILTER TOGGLE BAR -->
+                    <div class="plane-toggle-bar">
+                        <span class="plane-label" data-i18n="plane.viewPlane">View Plane:</span>
+                        <button class="plane-btn active" id="plane-all" onclick="setPlaneFilter('all')" data-i18n="plane.all">🌐 All</button>
+                        <button class="plane-btn" id="plane-projected" onclick="setPlaneFilter('projected')" data-i18n="activity.planned">🌫️ Planned</button>
+                        <button class="plane-btn" id="plane-actual" onclick="setPlaneFilter('actual')" data-i18n="activity.completed">🎯 Completed</button>
+                    </div>
+
+                    <!-- Category manager - a dropdown instead of an always-on
+                         row, since a long-used app can accumulate a lot of
+                         categories and a flat row of all of them just gets
+                         messy. See renderCategoryManagerDropdown() in the JS. -->
+                    <div class="category-manager" id="category-manager">
+                        <button type="button" class="category-manager-trigger" onclick="toggleCategoryManagerDropdown()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+                            <span data-i18n="categories.manageTrigger">Categories</span>
+                            <span class="category-manager-arrow">▾</span>
+                        </button>
+                        <div class="category-manager-panel" id="category-manager-panel">
+                            <div class="category-manager-add-row">
+                                <input type="text" id="category-manager-add-input" placeholder="Add a category..." data-i18n-placeholder="categories.addPlaceholder" onkeydown="if(event.key==='Enter') submitAddKnownCategory();">
+                                <button type="button" onclick="submitAddKnownCategory()">+</button>
+                            </div>
+                            <div class="category-manager-list" id="category-manager-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backdrop for the mobile floating backlog panel - tapping
+                 it closes the drawer, same as the ✕ button. Purely a
+                 phone-width thing; CSS keeps it invisible/inert otherwise. -->
+            <div id="backlog-drawer-backdrop" class="backlog-drawer-backdrop" onclick="toggleBacklogDrawer()" style="display:none;"></div>
+
+            <!-- BACKLOG SLIDE-OUT PANEL: items rendered exactly like calendar activities -->
+            <div id="backlog-drawer" class="backlog-drawer">
+                <div class="matrix-header backlog-drawer-header">
+                    <span>📋 Backlog</span>
+                    <button class="backlog-drawer-close" onclick="toggleBacklogDrawer()" title="Close">✕</button>
+                </div>
+
+                <div class="input-box backlog-add-form">
+                    <div class="category-select-row">
+                        <div class="category-combo-wrap">
+                            <input type="text" id="backlog-category" class="category-combo-input" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" autocomplete="off" oninput="showCategoryCombo('backlog-category')" onfocus="showCategoryCombo('backlog-category')">
+                            <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('backlog-category')" title="Show all categories">▾</button>
+                            <div id="backlog-category-combo-list" class="category-combo-list"></div>
+                        </div>
+                        <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                    </div>
+                    <input type="text" id="backlog-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
+                    <input type="number" id="backlog-hours" min="0.25" step="0.25" value="1" placeholder="Hours" data-i18n-placeholder="activity.hoursLabel">
+                    <button class="btn-add" onclick="addBacklogItem()" data-i18n="backlog.add">+ Add to Backlog</button>
+                </div>
+
+                <div class="backlog-scroll-wrap">
+                    <div id="backlog-block-list" class="matrix-day-col backlog-day-col"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</details>
+
+        <!-- SUMMARY: mini calendar, Add Activity form, and today's logged
+             activities - grouped as one collapsible section like every
+             other part of the page, instead of sitting bare with no way
+             to minimize it. -->
+        <details class="details-section" open id="summary-section" data-mobile-section="log">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h5M3 15h5"/></svg><span data-i18n="section.summary">Summary</span></span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" data-i18n="common.clickToExpand">Click to expand / collapse</span>
+            </summary>
+            <div class="details-content">
+        <div class="grid-3col">
+            
+            <!-- MONTHLY MINI CALENDAR -->
+            <div class="card" id="calendar-card">
+                <div class="calendar-header">
+                    <button id="prev-month">◀</button>
+                    <b id="month-year-title">Month Year</b>
+                    <button id="next-month">▶</button>
+                </div>
+                <div class="calendar-grid" id="calendar-grid"></div>
+            </div>
+
+            <!-- LOG TIME INPUT FORM -->
+            <div class="card" id="log-time-card">
+                <h2 id="selected-date-title">Log Time</h2>
+
+                <div class="activity-combo-box">
+                    <div class="activity-combo-field">
+                        <div class="category-select-row">
+                            <div class="category-combo-wrap">
+                                <input type="text" id="category-name" class="category-combo-input" placeholder="Category" data-i18n-placeholder="activity.categoryPlaceholder" autocomplete="off" oninput="showCategoryCombo('category-name')" onfocus="showCategoryCombo('category-name')">
+                                <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('category-name')" title="Show all categories">▾</button>
+                                <div id="category-name-combo-list" class="category-combo-list"></div>
+                            </div>
+                            <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                        </div>
+                    </div>
+                    <div class="activity-combo-divider"></div>
+                    <div class="activity-combo-field">
+                        <input type="text" id="activity-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
+                    </div>
+                </div>
+                <datalist id="category-list"></datalist>
+                <datalist id="notebook-list"></datalist>
+
+                <div class="toggle-container">
+                    <button class="toggle-btn" id="type-projected" onclick="setEntryType('projected')" data-i18n="activity.planned">🌫️ Planned</button>
+                    <button class="toggle-btn active" id="type-actual" onclick="setEntryType('actual')" data-i18n="activity.completed">🎯 Completed</button>
+                </div>
+
+                <div class="toggle-container">
+                    <button class="toggle-btn active" id="mode-simple" onclick="setMode('simple')" data-i18n="activity.hoursMode">Hours</button>
+                    <button class="toggle-btn" id="mode-exact" onclick="setMode('exact')" data-i18n="activity.exactTimes">Exact Times</button>
+                </div>
+
+                <div class="activity-time-row">
+                    <div class="activity-time-field">
+                        <label data-i18n="activity.startTime">Start Time</label>
+                        <input type="time" id="start-time" value="09:00">
+                    </div>
+                    <div class="activity-time-field" id="hours-field-group">
+                        <label data-i18n="activity.hoursLabel">Hours</label>
+                        <input type="number" id="duration-hours" min="0.25" step="0.25" placeholder="e.g. 1.5, 2">
+                    </div>
+                    <div class="activity-time-field" id="end-time-field-group" style="display:none;">
+                        <label data-i18n="activity.endTime">End Time</label>
+                        <input type="time" id="end-time" value="11:00">
+                    </div>
+                </div>
+
+                <div class="activity-submit-row">
+                    <button type="button" class="activity-chrono-btn" id="card-start-chronometer-btn" onclick="startLiveTimerFromCard()" title="Start Live Chronometer Here">⏱️</button>
+                    <button type="button" class="activity-fab-btn" onclick="addTimeBlock()" title="Add Time Block">+</button>
+                </div>
+            </div>
+
+            <!-- DAILY SCHEDULE STACK -->
+            <div class="card" id="day-schedule-card">
+                <h2 data-i18n="section.dayActivities">Day Activities</h2>
+                <input type="text" id="day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." data-i18n-placeholder="log.filterPlaceholder" list="category-list" oninput="renderDayScheduleStack()">
+                <div class="hours-summary" id="hours-summary">Logged Today: 0 hrs</div>
+                <!-- Auto-summed totals per category for this day (e.g.
+                     three separate Coding sessions adding up to one
+                     "Coding: 4h" line) - see renderDayScheduleStack in
+                     the JS. Sits above the individual entries below,
+                     which still show each session separately for
+                     editing/deleting. -->
+                <div class="category-day-totals" id="category-day-totals"></div>
+                <div class="timeline-container" id="timeline-container"></div>
+            </div>
+
+        </div>
+
+            <!-- Realized this table is really just more detail on the same
+                 day/week/month you're already looking at above, not a
+                 separate "sessions" concept of its own - nested here as
+                 its own collapsible sub-section (can still be closed
+                 independently) instead of sitting apart as its own
+                 top-level page section. Placed AFTER the 3-column grid
+                 (not inside it) so it spans full width below those cards
+                 instead of being squeezed into the grid as a 4th column
+                 item. No data-mobile-section of its own needed either -
+                 it's inside Summary's own details now, so it shows/hides
+                 right along with that (the "Log" tab on a phone), rather
+                 than needing its own separate visibility rule that could
+                 drift out of sync with its parent's. -->
+            <details class="details-section nested-details" id="all-sessions-details-section" style="margin-top:16px;">
+                <summary class="details-summary">
+                    <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg><span data-i18n="section.export">Details</span></span>
+                    <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
+                </summary>
+                <div class="details-content">
+                    <div class="analytics-controls">
+                        <div class="range-bar">
+                            <button class="range-btn active" onclick="setRangeFilter('day', this)" data-i18n="stats.day">Day</button>
+                            <button class="range-btn" onclick="setRangeFilter('week', this)" data-i18n="stats.week">Week</button>
+                            <button class="range-btn" onclick="setRangeFilter('month', this)" data-i18n="stats.month">Month</button>
+                            <button class="range-btn" onclick="setRangeFilter('all', this)" data-i18n="stats.allTime">All Time</button>
+                            <!-- Lets this table jump to any specific day/week/
+                                 month directly, instead of needing to go
+                                 change the mini calendar's selected date
+                                 elsewhere on the page first. -->
+                            <input type="date" id="table-day-picker" class="stats-period-picker" onchange="handleTableDatePicked(this.value)">
+                            <input type="date" id="table-week-picker" class="stats-period-picker" style="display:none;" onchange="handleTableWeekPicked(this.value)">
+                            <input type="month" id="table-month-picker" class="stats-period-picker" style="display:none;" onchange="handleTableMonthPicked(this.value)">
+                        </div>
+
+                        <div>
+                            <input type="text" id="category-filter-input" class="category-search-input" placeholder="🔍 Filter category (e.g. coding)" data-i18n-placeholder="export.filterPlaceholder" oninput="handleCategorySearch(this.value)">
+                        </div>
+                    </div>
+
+                    <small class="table-edit-hint" data-i18n="export.clickRowHint">Click any row to edit or delete that entry.</small>
+
+                    <!-- Shown when a goal history bar was clicked - tells you what
+                         you're looking at and lets you get back to the full list. -->
+                    <div id="table-filter-indicator" class="table-filter-indicator" style="display:none;"></div>
+
+                    <div class="details-table-container" id="details-table-container">
+                        <table class="details-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="export.colDate">Date</th>
+                                    <th data-i18n="export.colCategory">Category</th>
+                                    <th data-i18n="export.colDescription">Description</th>
+                                    <th style="text-align: center;">Plane</th>
+                                    <th style="text-align: right;">Hrs</th>
+                                </tr>
+                            </thead>
+                            <tbody id="details-table-body"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" id="table-total-label" style="text-align: right; color: var(--text-muted);" data-i18n="export.totalHours">Total Hours:</td>
+                                    <td id="table-total-value" style="text-align: right; font-family: monospace; font-size: 1.1rem; color: var(--accent);">0.0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            </div>
+        </details>
+
+        <!-- SECTION 1: COLLAPSIBLE DETAILS & ANALYTICS -->
+        <details class="details-section" open id="analytics-details-section" data-mobile-section="stats">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg><span data-i18n="section.analytics">Category Analytics</span></span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
+            </summary>
+            
+            <div class="details-content">
+                <!-- Primary view: one graph, toggled Week/Month, and the
+                     spending list right under it. Everything else (raw
+                     session log, backup/restore, search) is one tap away
+                     in "More" below instead of stacked on top of this. -->
+                <div class="range-bar" style="margin-bottom:16px;">
+                    <button class="range-btn" id="stats-period-day" onclick="setStatsPeriod('day')" data-i18n="stats.day">Day</button>
+                    <button class="range-btn active" id="stats-period-week" onclick="setStatsPeriod('week')" data-i18n="stats.week">Week</button>
+                    <button class="range-btn" id="stats-period-month" onclick="setStatsPeriod('month')" data-i18n="stats.month">Month</button>
+                    <!-- Only one of these shows at a time, matching whichever
+                         button above is active - Day and Month used to
+                         always mean "today"/"this month" specifically, with
+                         no way to look at any other single day or month
+                         from here (you'd have to go change the selected
+                         date somewhere else on the page instead). -->
+                    <input type="date" id="stats-day-picker" class="stats-period-picker" style="display:none;" onchange="handleStatsDayPicked(this.value)">
+                    <input type="date" id="stats-week-picker" class="stats-period-picker" style="display:none;" onchange="handleStatsWeekPicked(this.value)">
+                    <input type="month" id="stats-month-picker" class="stats-period-picker" style="display:none;" onchange="handleStatsMonthPicked(this.value)">
+                </div>
+                <div class="category-stats-wrap">
+                    <div class="category-stats-chart-col">
+                        <div id="category-stats-donut" class="category-stats-donut"></div>
+                    </div>
+                    <div class="category-stats-legend" id="category-stats-legend"></div>
+                </div>
+            </div>
+        </details>
+
+        <!-- SECTION: GOAL TRACKING (own collapsible section) -->
+        <details class="details-section" open data-mobile-section="stats" id="goals-section">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span data-i18n="section.goals">Goal Tracking</span></span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
+            </summary>
+
+            <div class="details-content">
+                <div class="goal-controls">
+                    <input type="text" id="goal-category" list="category-list" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" autocomplete="off">
+                    <input type="number" id="goal-weekly-hours" min="0" step="0.5" placeholder="Weekly target (hrs)" data-i18n-placeholder="goals.weeklyPlaceholder">
+                    <input type="number" id="goal-monthly-hours" min="0" step="0.5" placeholder="Monthly target (hrs)" data-i18n-placeholder="goals.monthlyPlaceholder">
+                    <button class="btn-add" onclick="setCategoryGoal()" data-i18n="goals.setGoal">Set Goal</button>
+                </div>
+                <div class="goals-grid" id="goals-grid"></div>
+            </div>
+        </details>
+
+        <!-- SECTION: BOARD (To Do / Doing / Done) -->
+        <!-- A fuller, three-column view of the exact same backlogItems
+             the drawer above already uses (see initBoardSection/
+             renderBoardSection/moveBoardItem in the JS) - its own
+             top-level section since three real columns need more room
+             than the narrow drawer sidebar can give them. Cards drag
+             between columns, drag onto the calendar to schedule (same
+             mechanism the drawer already uses), and Doing enforces a
+             work-in-progress limit of 3. -->
+        <details class="details-section" open data-mobile-section="board" id="kanban-section">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg><span data-i18n="section.kanban">Kanban Board</span></span>
+                <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;" data-i18n="common.clickToExpand">Click to expand / collapse</span>
+            </summary>
+            <div class="details-content">
+                <!-- One dropdown for everything project-related: shows
+                     the active project (or "All"), lets you switch,
+                     rename or delete one, and type a new one - see
+                     renderBoardProjectManagerDropdown() in the JS. -->
+                <div class="board-projects-row">
+                    <div class="category-manager" id="board-project-manager" style="margin-top:0;">
+                        <button type="button" class="category-manager-trigger" id="board-project-manager-trigger" onclick="toggleBoardProjectManagerDropdown()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+                            <span id="board-project-manager-label" data-i18n="kanban.allProjects">All</span>
+                            <span class="category-manager-arrow">▾</span>
+                        </button>
+                        <div class="category-manager-panel" id="board-project-manager-panel">
+                            <div class="category-manager-add-row">
+                                <input type="text" id="board-project-new-input" placeholder="New project name..." data-i18n-placeholder="kanban.newProjectPlaceholder" onkeydown="if(event.key==='Enter') submitNewBoardProject();">
+                                <button type="button" onclick="submitNewBoardProject()" title="Create">+</button>
+                            </div>
+                            <div class="category-manager-list" id="board-project-manager-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="board-columns">
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>Backlog</span>
+                            <span class="board-count" id="board-count-todo">0</span>
+                        </div>
+                        <!-- Same fields, same layout as the Backlog drawer,
+                             since a Kanban card and a backlog item are
+                             literally the same object (see addBoardItem()
+                             in the JS, a thin wrapper around the same
+                             addBacklogItem() the drawer already uses).
+                             Lives inside THIS column specifically, not
+                             spanning above all three - new items only ever
+                             land in Backlog directly; Doing/Done are only
+                             ever reached by dragging a card over once it
+                             exists, never added to directly (there's
+                             nothing to "start" partway done). -->
+                        <div class="input-box backlog-add-form board-quick-add">
+                            <div class="category-combo-wrap">
+                                <input type="text" id="board-add-category" class="category-combo-input" placeholder="Category (e.g. coding)" data-i18n-placeholder="activity.categoryFullPlaceholder" autocomplete="off" oninput="showCategoryCombo('board-add-category')" onfocus="showCategoryCombo('board-add-category')">
+                                <div id="board-add-category-combo-list" class="category-combo-list"></div>
+                            </div>
+                            <input type="text" id="board-add-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
+                        </div>
+                        <!-- Circular "+" right under the fields instead of
+                             at the bottom of the column - with a long
+                             Backlog list, the bottom was scrolled well out
+                             of reach, meaning adding a new item meant
+                             scrolling all the way down first every time.
+                             Fields stay right above it either way, so
+                             nothing about typing into them changed. -->
+                        <button type="button" class="board-add-fab board-add-fab-top" onclick="addBoardItem()" title="Add to Backlog">+</button>
+                        <div class="board-column-list" id="board-col-todo"></div>
+                    </div>
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="kanban.doing">Doing</span></span>
+                            <span class="board-count" id="board-count-doing">0/3</span>
+                        </div>
+                        <div class="board-column-list" id="board-col-doing"></div>
+                    </div>
+                    <div class="board-column">
+                        <div class="board-column-header">
+                            <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><span data-i18n="kanban.done">Done</span></span>
+                            <span class="board-count" id="board-count-done">0</span>
+                        </div>
+                        <div class="board-column-list" id="board-col-done"></div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- SECTION 3: NOTES -->
+        <details class="details-section" open id="notes-section" data-mobile-section="notes">
+            <summary class="details-summary">
+                <span><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg><span data-i18n="notes.sectionTitle">Notes</span></span>
+                <small style="color:var(--text-muted); font-size: 0.85rem;" data-i18n="common.clickToExpand">Click to expand / collapse</small>
+            </summary>
+
+            <div class="details-content">
+                <div class="notes-layout">
+                    <!-- LEFT: vertical list of notes (small preview each) -->
+                    <div class="notes-sidebar">
+                        <div class="notes-sidebar-header">
+                            <span class="notes-sidebar-title"><span data-i18n="notes.sectionTitle">Notes</span> <span class="notes-count" id="notes-count-badge">0</span></span>
+                        </div>
+
+                        <!-- Notebook + Search merged into one bordered box, same
+                             "one box, two rows, split by a line" treatment as
+                             the Add Activity form's Category/Notes box - each
+                             row has its own "+" for the action it starts
+                             (a new notebook, a new note), instead of buttons
+                             scattered separately around the sidebar. -->
+                        <div class="notes-combo-box">
+                            <div class="notes-combo-row">
+                                <!-- Notebooks: a plain button instead of a native
+                                     select with its own dropdown arrow - click it,
+                                     it shows every notebook to filter by (see
+                                     toggleNotebookFilterDropdown/renderNotebookSelector
+                                     in the JS), same "click and see a list" pattern
+                                     as the header's own overflow menu. -->
+                                <button type="button" class="notes-combo-select" id="notebook-filter-trigger" onclick="toggleNotebookFilterDropdown()" data-i18n="notes.notebooksLabel">Notebooks</button>
+                                <button type="button" class="board-add-fab notes-combo-fab" onclick="toggleNewNotebookInput()" title="New notebook">+</button>
+                                <div class="notes-header-menu-panel" id="notebook-filter-panel"></div>
+                            </div>
+                            <!-- Inline "new notebook" row instead of a native
+                                 browser prompt() popup - tapping the "+" above
+                                 reveals this row right in place instead of
+                                 interrupting with a separate dialog box. -->
+                            <div class="notes-combo-new-row" id="new-notebook-row" style="display:none;">
+                                <input type="text" id="new-notebook-input" class="notes-combo-input" placeholder="New notebook name..." data-i18n-placeholder="notes.newNotebookPlaceholder" onkeydown="if(event.key==='Enter') submitNewNotebook(); if(event.key==='Escape') toggleNewNotebookInput(false);">
+                                <button type="button" class="notes-combo-confirm-btn" onclick="submitNewNotebook()" title="Create">✓</button>
+                            </div>
+                            <div class="notes-combo-divider"></div>
+                            <div class="notes-combo-row">
+                                <input type="text" id="notes-search-input" class="notes-combo-input" placeholder="Notes" data-i18n-placeholder="notes.searchPlaceholder" oninput="handleNotesSearch(this.value)">
+                                <button type="button" class="board-add-fab notes-combo-fab" onclick="createNote()" title="New note" data-i18n-title="notes.newTitle">+</button>
+                            </div>
+                        </div>
+
+                        <!-- "Custom" keeps whatever order notes sit in (drag to
+                             reorder any row below); "A-Z" sorts by title
+                             without touching that underlying order - same
+                             sort modes as before, just a toggle pair now
+                             instead of a dropdown. "Show notes" collapses the
+                             list itself away by default, since you don't
+                             necessarily want the full list taking up space
+                             every time you're just here to open the one note
+                             you already have selected. -->
+                        <div class="notes-list-controls-row">
+                            <div class="toggle-container notes-sort-toggle">
+                                <button type="button" class="toggle-btn" id="notes-sort-alpha-btn" onclick="handleNotesSortChange('alpha')" data-i18n="notes.sortAlphaShort">A-Z</button>
+                                <button type="button" class="toggle-btn active" id="notes-sort-custom-btn" onclick="handleNotesSortChange('custom')" data-i18n="notes.sortCustomShort">Custom</button>
+                            </div>
+                            <!-- Switches the list below between individual
+                                 notes and a plain list of notebook names -
+                                 tap a notebook there and it jumps back to
+                                 the notes view already filtered to it, like
+                                 opening a folder. -->
+                            <button type="button" class="notes-show-toggle-btn" id="notes-browse-mode-btn" onclick="toggleNotesBrowseMode()" title="Browse by notebook">
+                                <span id="notes-browse-mode-label" data-i18n="notes.viewNotebooks">📁 Notebooks</span>
+                            </button>
+                            <button type="button" class="notes-show-toggle-btn" id="notes-show-toggle-btn" onclick="toggleNotesListVisible()">
+                                <span data-i18n="notes.showNotes">Show Notes</span> <span class="notes-show-toggle-arrow">▾</span>
+                            </button>
+                        </div>
+
+                        <div class="notes-list" id="notes-list"></div>
+                    </div>
+
+                    <!-- RIGHT: the big page - whatever note is selected on the left opens here -->
+                    <div class="notes-editor-pane">
+                        <div class="notes-empty-state" id="notes-empty-state">
+                            Select a note on the left, or click "+ New" to start writing.
+                        </div>
+
+                        <div class="notes-editor" id="notes-editor" style="display:none;">
+                            <div class="notes-editor-topbar">
+                                <button type="button" class="notes-back-btn" onclick="showMobileNotesList()" title="Back to notes list">←</button>
+                                <div class="note-title-notebook-row">
+                                    <input type="text" id="note-title-input" class="note-title-input" placeholder="Untitled note" data-i18n-placeholder="notes.untitled" oninput="handleNoteEdited()">
+                                    <div class="note-title-notebook-divider"></div>
+                                    <input type="text" id="note-category-input" class="note-notebook-inline-input" list="notebook-list" placeholder="Notebook" data-i18n-placeholder="notes.notebookPlaceholder" autocomplete="off" oninput="handleNoteEdited()" onchange="commitNoteNotebook()">
+                                </div>
+                                <!-- "More options" - Delete, Download, Copy, and
+                                     Duplicate all live here now instead of being
+                                     separate icons scattered around the editor. -->
+                                <div class="note-actions-menu-wrap">
+                                    <button type="button" class="note-actions-menu-btn" id="note-actions-menu-btn" onclick="toggleNoteActionsMenu()" title="More options">
+                                        <svg style="width:18px; height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                    </button>
+                                    <div class="note-actions-menu-panel" id="note-actions-menu-panel">
+                                        <button type="button" onclick="exportCurrentNote(); closeNoteActionsMenu();">⬇️ Download</button>
+                                        <button type="button" onclick="copyCurrentNoteText();">📋 Copy</button>
+                                        <button type="button" onclick="duplicateCurrentNote();">📑 Duplicate</button>
+                                        <div class="note-actions-menu-divider"></div>
+                                        <button type="button" class="note-actions-menu-danger" onclick="deleteCurrentNote(); closeNoteActionsMenu();">🗑️ Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lives right under the topbar (not after the block
+                                 stack, where it used to be) - on phone, the toolbar
+                                 below turns into a position:fixed bar pinned above
+                                 the keyboard, which was rendering right on top of
+                                 the old location and hiding it completely. This
+                                 spot is always in the normal page flow, so it's
+                                 visible whether or not the keyboard/toolbar is up. -->
+                            <span id="note-saved-indicator" class="note-saved-indicator">Saved</span>
+
+                            <!-- Page color + Photo + Record, grouped into one compact
+                                 toolbar. On desktop it's just a normal row under the
+                                 title. On phones, JS (positionNotesToolbar) pins this
+                                 bar right above the on-screen keyboard whenever a
+                                 text field in the note is focused - like a native
+                                 app's keyboard accessory bar - so these controls are
+                                 always in thumb's reach while typing, instead of
+                                 scrolled away above. -->
+                            <div class="notes-toolbar" id="notes-toolbar">
+                                <div class="notes-color-picker-wrap" id="notes-color-picker-wrap">
+                                    <button type="button" class="notes-color-trigger" id="notes-color-trigger" onclick="toggleNoteColorPicker()" title="Page color">
+                                        <span class="notes-color-trigger-dot" id="notes-color-trigger-dot"></span>
+                                        <span class="notes-color-trigger-arrow">▾</span>
+                                    </button>
+                                    <div class="notes-color-picker-panel" id="notes-color-picker-panel">
+                                        <div class="notes-color-swatches" id="notes-color-swatches" title="Page color"></div>
+                                    </div>
+                                </div>
+                                <div class="notes-toolbar-divider"></div>
+                                <button type="button" class="notes-photo-btn" id="notes-photo-btn" onclick="triggerPhotoUpload()" title="Add a photo"><svg style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg></button>
+                                <input type="file" id="note-photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoFilesSelected(event)">
+                                <button type="button" class="notes-voice-record-btn" id="notes-voice-record-btn" onclick="toggleNoteRecording()" title="Record a voice note here">●</button>
+                                <button type="button" class="notes-photo-btn" id="notes-divider-btn" onclick="insertDividerBlock()" title="Insert a divider line"><svg style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/></svg></button>
+                            </div>
+
+                            <div class="notes-voice-status" id="notes-voice-status"></div>
+
+                            <!-- Ordered stack of blocks: text blocks are auto-growing
+                                 textareas, voice recordings are small player cards.
+                                 Hitting Record drops a new player card right after
+                                 wherever the cursor last was, then opens a fresh
+                                 text block after it so typing can continue right away.
+                                 Every block can be nudged up/down or deleted. -->
+                            <div class="note-blocks-container" id="note-blocks-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- RIGHT-CLICK CONTEXT MENU -->
+        <div id="block-context-menu" class="context-menu-overlay" style="display: none;">
+            <div class="context-menu-content">
+                <button class="context-menu-item" onclick="moveContextBlock()">
+                    <span style="font-size: 1rem;">📦</span>
+                    <span>Move</span>
+                </button>
+
+                <button class="context-menu-item" onclick="resizeContextBlock()">
+                    <span style="font-size: 1rem;">↕️</span>
+                    <span>Resize</span>
+                </button>
+
+                <button class="context-menu-item delete-item" onclick="deleteContextBlock()">
+                    <span style="font-size: 1rem;">🗑️</span>
+                    <span>Delete (Supr)</span>
+                </button>
+
+                <hr class="context-divider">
+
+                <button class="context-menu-item" onclick="toggleContextBlockPlane()">
+                    <span style="font-size: 1rem;" id="context-plane-icon">🎯</span>
+                    <span id="context-plane-text">Convert to Completed</span>
+                </button>
+
+                <hr class="context-divider">
+
+                <button class="context-menu-item" onclick="editContextBlock()">
+                    <span style="font-size: 1rem;">✏️</span>
+                    <span>Edit Details</span>
+                </button>
+                
+                <hr class="context-divider">
+
+                <div class="context-palette-header">
+                    <span style="font-size: 0.85rem;">✏️</span>
+                    <span style="font-size: 0.75rem; color: #aaa;">Category Color</span>
+                </div>
+
+                <div class="color-palette-grid">
+                    <button class="color-swatch" style="background: #ef4444;" onclick="setCategoryCustomColor('#ef4444')"></button>
+                    <button class="color-swatch" style="background: #f43f5e;" onclick="setCategoryCustomColor('#f43f5e')"></button>
+                    <button class="color-swatch" style="background: #ec4899;" onclick="setCategoryCustomColor('#ec4899')"></button>
+                    <button class="color-swatch" style="background: #d946ef;" onclick="setCategoryCustomColor('#d946ef')"></button>
+                    <button class="color-swatch" style="background: #a855f7;" onclick="setCategoryCustomColor('#a855f7')"></button>
+                    <button class="color-swatch" style="background: #8b5cf6;" onclick="setCategoryCustomColor('#8b5cf6')"></button>
+
+                    <button class="color-swatch" style="background: #6366f1;" onclick="setCategoryCustomColor('#6366f1')"></button>
+                    <button class="color-swatch" style="background: #3b82f6;" onclick="setCategoryCustomColor('#3b82f6')"></button>
+                    <button class="color-swatch" style="background: #0284c7;" onclick="setCategoryCustomColor('#0284c7')"></button>
+                    <button class="color-swatch" style="background: #06b6d4;" onclick="setCategoryCustomColor('#06b6d4')"></button>
+                    <button class="color-swatch" style="background: #14b8a6;" onclick="setCategoryCustomColor('#14b8a6')"></button>
+                    <button class="color-swatch" style="background: #10b981;" onclick="setCategoryCustomColor('#10b981')"></button>
+
+                    <button class="color-swatch" style="background: #22c55e;" onclick="setCategoryCustomColor('#22c55e')"></button>
+                    <button class="color-swatch" style="background: #84cc16;" onclick="setCategoryCustomColor('#84cc16')"></button>
+                    <button class="color-swatch" style="background: #eab308;" onclick="setCategoryCustomColor('#eab308')"></button>
+                    <button class="color-swatch" style="background: #f97316;" onclick="setCategoryCustomColor('#f97316')"></button>
+                    <button class="color-swatch" style="background: #78716c;" onclick="setCategoryCustomColor('#78716c')"></button>
+                    <button class="color-swatch" style="background: #64748b;" onclick="setCategoryCustomColor('#64748b')"></button>
+                </div>
+
+                <button class="context-default-btn" onclick="resetCategoryDefaultColor()">
+                    <span class="default-circle"></span>
+                    <span>Default</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MOBILE DAILY BOTTOM SHEET: tapping a calendar date on phones opens this,
+             pulling the real Log Time form in so there's no duplicate logic/IDs. -->
+        <div id="mobile-daily-modal" class="mobile-daily-modal" style="display:none;">
+            <div class="mobile-daily-sheet">
+                <div class="mobile-sheet-header">
+                    <div>
+                        <h3 id="mobile-sheet-title">Day</h3>
+                        <small id="mobile-sheet-subtitle" style="color:var(--text-muted); font-size:0.8rem;">0.00 / 24 Hours</small>
+                    </div>
+                    <button class="mobile-close-btn" onclick="closeMobileDailyModal()">✕</button>
+                </div>
+                <div class="mobile-sheet-body">
+                    <button type="button" class="mobile-add-activity-btn" onclick="openMobileAddModal()">
+                        <span>＋</span> <span>Add Activity</span>
+                    </button>
+
+                    <!-- Typing a category here filters everything below to
+                         just that category, with its own total - clearing
+                         it goes back to showing everything and the full-day
+                         total. See renderDayScheduleStack() in the JS. -->
+                    <input type="text" id="mobile-day-category-filter" class="day-category-filter-input" placeholder="Filter by category..." data-i18n-placeholder="log.filterPlaceholder" list="category-list" oninput="renderDayScheduleStack()">
+
+                    <div class="hours-summary" id="mobile-hours-summary">Logged Today: 0 hrs</div>
+                    <div class="category-day-totals" id="mobile-category-day-totals"></div>
+                    <div class="timeline-container" id="mobile-timeline-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCOUNT / LOGIN / SIGNUP MODAL -->
+        <div id="auth-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 320px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <button class="modal-close-btn" onclick="closeAuthModal()">✕</button>
+                <h4 style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Account</h4>
+
+                <div id="auth-guest-view">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="auth-email-input" placeholder="you@example.com" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="auth-password-input" placeholder="At least 6 characters" autocomplete="current-password">
+                    </div>
+                    <div id="auth-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 4px; display: none;"></div>
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="btn-primary" style="margin:0; flex:1;" onclick="handleLoginClick()">LOG IN</button>
+                        <button class="btn-primary" style="margin:0; flex:1; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="handleSignUpClick()">SIGN UP</button>
+                    </div>
+                    <button type="button" onclick="showAuthForgotView()" style="background:none; border:none; color:var(--text-muted); font-size:0.78rem; margin-top:10px; padding:0; cursor:pointer; text-decoration:underline;">Forgot your password?</button>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:12px; line-height:1.4;">You're browsing as a guest - nothing is saved between visits. Log in or sign up to save your data to the cloud so it's there next time and on any device you use.</p>
+                </div>
+
+                <!-- Step 1 of password reset: just asks for the email and
+                     sends the reset link - handleForgotPasswordClick() in
+                     the JS calls supabaseClient.auth.resetPasswordForEmail().
+                     Supabase itself sends the email and handles the token;
+                     this app only needs to ask for the address and later
+                     show the "set a new password" form the link lands on. -->
+                <div id="auth-forgot-view" style="display:none;">
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">Enter your account email and we'll send you a link to reset your password.</p>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="auth-forgot-email-input" placeholder="you@example.com" autocomplete="username">
+                    </div>
+                    <div id="auth-forgot-msg" style="font-size: 0.8rem; margin-top: 4px; display: none;"></div>
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="btn-primary" style="margin:0; flex:1; background:var(--input-bg); color:var(--text); border:1px solid var(--border-color);" onclick="showAuthGuestView()">BACK</button>
+                        <button class="btn-primary" style="margin:0; flex:1;" onclick="handleForgotPasswordClick()">SEND RESET LINK</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: shown automatically when someone arrives via the
+                     reset-link email (see the PASSWORD_RECOVERY branch in
+                     onAuthStateChange) - Supabase has already verified the
+                     link and issued a temporary recovery session by this
+                     point, so this just needs the new password itself. -->
+                <div id="auth-reset-password-view" style="display:none;">
+                    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">Choose a new password for your account.</p>
+                    <div class="form-group">
+                        <label>New password</label>
+                        <input type="password" id="auth-new-password-input" placeholder="At least 6 characters" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm new password</label>
+                        <input type="password" id="auth-new-password-confirm-input" placeholder="Re-enter the password" autocomplete="new-password">
+                    </div>
+                    <div id="auth-reset-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 4px; display: none;"></div>
+                    <button class="btn-primary" style="margin-top:14px; width:100%;" onclick="handleSetNewPasswordClick()">SET NEW PASSWORD</button>
+                </div>
+
+                <div id="auth-user-view" style="display:none;">
+                    <p style="font-size:0.9rem;">Logged in as <b id="auth-user-email"></b></p>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:6px;">☁️ Your data is syncing to your account.</p>
+                    <button class="btn-primary" style="margin-top:14px; width:100%; background:var(--danger);" onclick="logOutUser()">LOG OUT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTEXTUAL QUICK ADD / EDIT POPUP MODAL -->
+        <div id="quick-add-modal" class="modal-overlay">
+            <div class="modal-content" id="quick-add-modal-content" style="width: 320px;">
+                <button class="modal-close-btn" onclick="closeQuickAddModal()">✕</button>
+                <h4 id="modal-time-label" style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Log Time</h4>
+
+                <!-- Date is pre-filled from whichever cell was clicked, but it's
+                     editable and clearable - clearing it sends the item to the
+                     Backlog (unscheduled) instead of forcing it onto a specific
+                     day. Not shown in edit mode for items dragged in from the
+                     backlog without a clock time. This is the one field that's
+                     genuinely modal-only - the desktop card doesn't need it
+                     since its date already comes from the mini calendar next
+                     to it - everything else below is identical to that card. -->
+                <div class="form-group" id="modal-date-group">
+                    <label><span data-i18n="activity.dateLabel">Date</span> <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;" data-i18n="activity.dateHint">(optional — leave blank to send to Backlog)</span></label>
+                    <input type="date" id="modal-date-input">
+                </div>
+
+                <!-- Only shown when editing an existing backlog/Kanban card
+                     (see openBacklogEditModal) - assigns it to a named
+                     project, the same one Kanban's own project pills
+                     filter by. Not relevant for a calendar activity, so
+                     hidden the rest of the time. -->
+                <div class="form-group" id="modal-project-group" style="display:none;">
+                    <label data-i18n="kanban.projectLabel">Project</label>
+                    <select id="modal-project-select">
+                        <option value="" data-i18n="kanban.noProject">No project</option>
+                    </select>
+                </div>
+
+                <div class="activity-combo-box">
+                    <div class="activity-combo-field">
+                        <div class="category-select-row">
+                            <div class="category-combo-wrap">
+                                <input type="text" id="modal-category-name" class="category-combo-input" placeholder="Category" data-i18n-placeholder="activity.categoryPlaceholder" autocomplete="off" oninput="showCategoryCombo('modal-category-name')" onfocus="showCategoryCombo('modal-category-name')">
+                                <button type="button" class="category-combo-arrow-btn" onclick="toggleCategoryCombo('modal-category-name')" title="Show all categories">▾</button>
+                                <div id="modal-category-name-combo-list" class="category-combo-list"></div>
+                            </div>
+                            <button type="button" class="category-manage-btn" title="Manage categories" onclick="openCategoryManageModal()">⚙️</button>
+                        </div>
+                    </div>
+                    <div class="activity-combo-divider"></div>
+                    <div class="activity-combo-field">
+                        <input type="text" id="modal-activity-name" placeholder="Notes / topic (optional)" data-i18n-placeholder="activity.notesPlaceholder">
+                    </div>
+                </div>
+
+                <div class="toggle-container">
+                    <button id="modal-type-projected" class="toggle-btn" onclick="setModalType('projected')" data-i18n="activity.planned">🌫️ Planned</button>
+                    <button id="modal-type-actual" class="toggle-btn active" onclick="setModalType('actual')" data-i18n="activity.completed">🎯 Completed</button>
+                </div>
+
+                <div class="toggle-container">
+                    <button class="toggle-btn" id="modal-mode-hours" onclick="setModalTimeMode('hours')" data-i18n="activity.hoursMode">Hours</button>
+                    <button class="toggle-btn active" id="modal-mode-exact" onclick="setModalTimeMode('exact')" data-i18n="activity.exactTimes">Exact Times</button>
+                </div>
+
+                <div class="activity-time-row">
+                    <div class="activity-time-field">
+                        <label data-i18n="activity.startTime">Start Time</label>
+                        <input type="time" id="modal-start-time" value="09:00">
+                    </div>
+                    <div class="activity-time-field" id="modal-hours-group" style="display:none;">
+                        <label data-i18n="activity.hoursLabel">Hours</label>
+                        <input type="number" id="modal-duration-hours" min="0.25" step="0.25" placeholder="e.g. 1.5, 2">
+                    </div>
+                    <div class="activity-time-field" id="modal-end-time-group">
+                        <label data-i18n="activity.endTime">End Time</label>
+                        <input type="time" id="modal-end-time" value="10:00">
+                    </div>
+                </div>
+
+                <div id="modal-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: -6px; margin-bottom: 6px; display: none;"></div>
+
+                <div class="activity-submit-row">
+                    <!-- Only shown when adding a brand new activity (not while
+                         editing one) - uses this same Category/Notes/Date/
+                         Start Time you've already filled in as the exact spot
+                         to start the chronometer, instead of always starting
+                         at "right now" like the bar above the calendar does.
+                         See startLiveTimerFromModal() in the JS. -->
+                    <button type="button" class="activity-chrono-btn" id="modal-start-chronometer-btn" onclick="startLiveTimerFromModal()" title="Start Live Chronometer Here">⏱️</button>
+                    <button type="button" class="activity-delete-fab" id="modal-delete-btn" onclick="deleteModalActivity()" title="Delete" style="display:none;">🗑️</button>
+                    <button type="button" class="activity-fab-btn" id="modal-submit-btn" onclick="submitQuickAddModal()" title="Add Time Block">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CATEGORY MANAGEMENT MODAL: add new categories or delete ones
+             that were created but aren't used anywhere in the calendar,
+             backlog, or goals. Opened from the ⚙️ next to any category
+             dropdown in the Visual Weekly Time-Block Planner. -->
+        <div id="category-manage-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 320px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <button class="modal-close-btn" onclick="closeCategoryManageModal()">✕</button>
+                <h4 style="margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Manage Categories</h4>
+
+                <div style="display:flex; gap:8px; margin-bottom:14px;">
+                    <input type="text" id="new-category-input" placeholder="New category name" style="flex:1; margin-bottom:0;">
+                    <button class="btn-add" style="margin:0; white-space:nowrap;" onclick="addNewCategoryFromManageModal()">+ Add</button>
+                </div>
+
+                <div id="category-manage-list" class="category-manage-list"></div>
+            </div>
+        </div>
+
+        <!-- PHOTO LIGHTBOX: full-screen preview of a note's image block -->
+        <div id="photo-lightbox" class="photo-lightbox-overlay" style="display:none;" onclick="closePhotoLightbox(event)">
+            <button type="button" class="photo-lightbox-close" onclick="closePhotoLightbox(event)">✕</button>
+            <img id="photo-lightbox-img" class="photo-lightbox-img" src="" alt="Note photo">
+        </div>
+
+        <!-- Dim backdrop - only needed for steps with no specific element
+             to point at (the welcome/closing steps); element-anchored
+             steps dim the page a different way, see .walkthrough-spotlight
+             in the CSS. Clicking it skips the tour, same as the Skip
+             button. -->
+        <div id="walkthrough-overlay" class="walkthrough-overlay" style="display:none;" onclick="endWalkthrough()"></div>
+
+        <!-- WALKTHROUGH POPOVER: a single reusable card, repositioned and
+             refilled by JS for each step (see startWalkthrough() and
+             showWalkthroughStep()). The actual "spotlight" effect on the
+             highlighted element is a CSS class (.walkthrough-spotlight)
+             toggled on whichever element is the current step's target -
+             see that class in the CSS for how it fakes a cutout in the
+             dimmed background using just a box-shadow, no separate
+             overlay/mask needed. -->
+        <div id="walkthrough-popover" class="walkthrough-popover" style="display:none;">
+            <div class="walkthrough-popover-progress" id="walkthrough-progress"></div>
+            <div class="walkthrough-popover-title" id="walkthrough-title"></div>
+            <div class="walkthrough-popover-text" id="walkthrough-text"></div>
+            <div class="walkthrough-popover-actions">
+                <button type="button" class="walkthrough-skip-btn" onclick="endWalkthrough()" data-i18n="walkthrough.skip">Skip</button>
+                <div class="walkthrough-popover-actions-right">
+                    <button type="button" class="walkthrough-back-btn" id="walkthrough-back-btn" onclick="walkthroughBack()" data-i18n="walkthrough.back">Back</button>
+                    <button type="button" class="walkthrough-next-btn" id="walkthrough-next-btn" onclick="walkthroughNext()" data-i18n="walkthrough.next">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ONE floating save/undo/redo group, everywhere - including
+             Notes now (it used to hide its undo/redo here and show its
+             own separate pair inside the notes toolbar instead, which
+             is what these buttons route to automatically when a note is
+             open - see handleGlobalUndoClick()/handleGlobalRedoClick()
+             in the JS). Targets the calendar's undoStack/redoStack
+             (same as desktop Ctrl+Z) everywhere else. Repositioned
+             higher on phone while a note is open so it clears the
+             notes toolbar, which floats at the same corner - see
+             updateGlobalUndoBtn() and the .raised-for-notes rule. -->
+        <div id="mobile-global-undo" class="mobile-global-undo">
+            <!-- A permanent, always-reachable manual save - the header's
+                 own Save button now lives inside the collapsed hamburger
+                 menu, which is one extra tap away; this sits right next
+                 to the undo/redo pair instead so there's always a save
+                 within immediate reach without opening anything first.
+                 "Ghost" styled (outline only, no solid fill) so it reads
+                 as secondary next to undo/redo rather than competing
+                 with them for attention. -->
+            <button type="button" class="mobile-global-undo-btn ghost-save-btn" id="ghost-save-btn" onclick="manualSave()" title="Save now">💾</button>
+            <button type="button" class="mobile-global-undo-btn" id="mobile-global-undo-btn" onclick="handleGlobalUndoClick()" title="Undo last action" disabled>↺</button>
+            <button type="button" class="mobile-global-undo-btn" id="mobile-global-redo-btn" onclick="handleGlobalRedoClick()" title="Redo" disabled>↻</button>
+        </div>
+
+        <!-- MOBILE BOTTOM NAV: on phone screens, only one top-level section
+             shows at a time - tap an icon here to switch, instead of
+             scrolling through the whole page. Hidden on desktop/tablet. -->
+        <nav id="mobile-bottom-nav" class="mobile-bottom-nav" style="display:none;">
+            <!-- Frosted-glass highlight that slides behind whichever tab
+                 is active (see updateMobileNavGlassPosition() in the JS) -
+                 a single element animated via CSS transform, not
+                 re-created per tab switch. -->
+            <div class="mobile-nav-glass" id="mobile-nav-glass"></div>
+
+            <button type="button" class="mobile-tab-btn" data-section="timer" onclick="setMobileSection('timer')">
+                <span class="mobile-tab-icon icon-badge icon-badge-timer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/><path d="M12 2v2"/></svg>
+                </span>
+                <span class="mobile-tab-label" data-i18n="nav.timer">Timer</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="plan" onclick="setMobileSection('plan')">
+                <span class="mobile-tab-icon icon-badge icon-badge-plan">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/></svg>
+                </span>
+                <span class="mobile-tab-label" data-i18n="nav.plan">Plan</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="log" onclick="setMobileSection('log')">
+                <span class="mobile-tab-icon icon-badge icon-badge-log">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                </span>
+                <span class="mobile-tab-label" data-i18n="nav.log">Log</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="stats" onclick="setMobileSection('stats')">
+                <span class="mobile-tab-icon icon-badge icon-badge-stats">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+                </span>
+                <span class="mobile-tab-label" data-i18n="nav.stats">Stats</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="board" onclick="setMobileSection('board')">
+                <span class="mobile-tab-icon icon-badge icon-badge-board">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+                </span>
+                <span class="mobile-tab-label" data-i18n="nav.board">Kanban</span>
+            </button>
+            <button type="button" class="mobile-tab-btn" data-section="notes" onclick="setMobileSection('notes')">
+                <span class="mobile-tab-icon icon-badge icon-badge-notes">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                </span>
+                <span class="mobile-tab-label" data-i18n="nav.notes">Notes</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Save confirmation toast (see manualSave()/showSaveToast() in JS) -
+         hidden by default, JS toggles it visible + fades it out. -->
+    <div id="save-toast" class="save-toast"></div>
+
+    <!-- Generic confirm dialog (see showConfirmDialog() in JS) - replaces
+         native browser confirm() popups, which look and feel jarringly
+         out of place next to the rest of the app's own styling, with
+         something that matches the app's own modal design instead.
+         Hidden by default; JS fills in the message/button text and
+         resolves a Promise<boolean> based on which button is clicked. -->
+    <div id="confirm-dialog-overlay" class="modal-overlay">
+        <div class="modal-content confirm-dialog-content">
+            <p id="confirm-dialog-message" class="confirm-dialog-message"></p>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn-primary confirm-dialog-cancel-btn" id="confirm-dialog-cancel-btn" onclick="resolveConfirmDialog(false)">Cancel</button>
+                <button type="button" class="btn-primary confirm-dialog-confirm-btn" id="confirm-dialog-confirm-btn" onclick="resolveConfirmDialog(true)">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Picks which notebook a note belongs to - opened from a note's
+         miniature in the sidebar list (see openNoteNotebookPicker() /
+         .note-list-item-category). Replaces a plain prompt() with
+         something that actually shows the existing notebooks instead of
+         requiring you to remember/retype a name exactly. -->
+    <div id="notebook-picker-modal" class="modal-overlay">
+        <div class="modal-content confirm-dialog-content">
+            <h4>Notebook</h4>
+            <div class="form-group">
+                <label>Choose an existing notebook</label>
+                <select id="notebook-picker-select" onchange="document.getElementById('notebook-picker-new-input').value='';"></select>
+            </div>
+            <div class="form-group">
+                <label>...or create a new one</label>
+                <input type="text" id="notebook-picker-new-input" placeholder="New notebook name" autocomplete="off">
+            </div>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn-primary confirm-dialog-cancel-btn" onclick="closeNotebookPickerModal()">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveNotebookPickerModal()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trash - deleted notes/photos/voice notes land here for 30 days
+         before actually being gone (see the trash-*() functions in JS).
+         This is what closes the one gap none of the backup layers can:
+         they all protect against DATA BREAKING, not against a mistaken
+         delete that syncs and gets backed up just as faithfully as
+         anything else. -->
+    <div id="trash-modal" class="modal-overlay">
+        <div class="modal-content trash-modal-content">
+            <button type="button" class="modal-close-btn" onclick="closeTrashModal()">✕</button>
+            <h4>🗑️ Trash</h4>
+            <p class="trash-modal-subtitle">Deleted items stay here for 30 days before being gone for good.</p>
+            <div id="trash-modal-list" class="trash-modal-list"></div>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn-primary confirm-dialog-cancel-btn" onclick="closeTrashModal()">Close</button>
+                <button type="button" id="trash-empty-btn" class="btn-primary confirm-dialog-confirm-btn danger" onclick="emptyTrash()" style="display:none;">Empty Trash</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shown when another tab/device claims the active session for this
+         account (see the SINGLE ACTIVE SESSION section in the JS) -
+         blocks this tab from saving until you explicitly reclaim it, so
+         a stale tab can never silently overwrite a fresher one. Sits
+         above literally everything, same z-index tier as the initial
+         load overlay. -->
+    <div id="session-takeover-overlay" class="session-takeover-overlay">
+        <div class="session-takeover-box">
+            <div class="session-takeover-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:32px; height:32px; color:var(--accent);"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+            <h3>Open in another window</h3>
+            <p>This account is active in another tab or device. To protect your data, this tab can't save until you take over.</p>
+            <button type="button" class="btn-primary" onclick="useSessionHere()">Use here instead</button>
+        </div>
+    </div>
+
+    <!-- Shown only for the brief moment (usually a fraction of a second)
+         while a logged-in session's cloud data is loading on first page
+         load, so a real reload never shows an empty calendar/notes/backlog
+         that a moment later gets replaced by your actual data - it waits
+         and shows this instead, then reveals everything already filled
+         in. Guests skip this entirely since there's nothing to wait for. -->
+    <div id="initial-load-overlay" class="initial-load-overlay">
+        <div class="initial-load-spinner"></div>
+        <div>Loading your data…</div>
+    </div>
+
+    <script src="index15budgetingappjs.js"></script>
+</body>
+</html>
