@@ -8142,7 +8142,18 @@ function saveNotebookPickerModal() {
 // after typing never loses the last few keystrokes.
 function selectNote(id) {
     flushNoteSave();
-    stopNoteRecordingIfActive(); // release the mic if we were mid-recording on a different note
+    // Only actually stop a recording if this is a genuine switch to a
+    // DIFFERENT note. This same function gets called with the note
+    // that's already open every time the 20-second cloud sync below
+    // refreshes it (applyCloudSnapshot re-populates the open note from
+    // the fresh copy rather than closing it) - that used to stop-and-save
+    // whatever was recording every single time, which is the actual
+    // reason a voice note could get cut off anywhere from a couple of
+    // seconds to ~20 seconds in, at an inconsistent point each time
+    // depending on exactly when in that 20-second cycle you hit record.
+    if (id !== currentNoteId) {
+        stopNoteRecordingIfActive(); // release the mic if we were mid-recording on a different note
+    }
 
     const note = notesData.find(n => n.id === id);
     if (!note) return;
@@ -8744,7 +8755,12 @@ function isActivelyTypingSomewhere() {
 }
 
 setInterval(() => {
-    if (document.visibilityState === 'visible' && currentUser && !isLoadingCloudData && !isActivelyTypingSomewhere()) {
+    // Also skips while a voice note is actively recording, for the same
+    // reason as isActivelyTypingSomewhere() below - recording isn't
+    // "typing" so it wasn't covered by that check, which was the actual
+    // cause of voice notes getting cut off mid-recording (see the note
+    // on selectNote() above).
+    if (document.visibilityState === 'visible' && currentUser && !isLoadingCloudData && !isActivelyTypingSomewhere() && !noteRecordingIsActive) {
         pullLatestCloudData();
     }
 }, 20000);
