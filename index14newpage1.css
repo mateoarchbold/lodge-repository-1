@@ -1,0 +1,398 @@
+/* this is to make ur website so that u can scroll down */
+html, body {
+    width: 100%;
+    max-width: 100vw;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden; /* prevent horizontal scroll completely */
+    overflow-y: auto;   /* allow vertical scroll */
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+@font-face {
+    font-family: "MyCustomFont1";
+    src: url("index_14_fonts/Rights.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MyCustomFont2";
+    src: url("index_14_fonts/Inter_18pt-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MyCustomFont3";
+    src: url("index_14_fonts/Inter_18pt-Regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "MyCustomFont4";
+    src: url("index_14_fonts/Spanish\ Adventure\ Mag.ttf") format("truetype");
+}
+
+body {
+    font-family: "MyCustomFont3", sans-serif;
+}
+
+/* this is the fullscreen layout using CSS Grid. The layout
+ consists of a header, sidebar, content area, extra 
+ section, and footer. this is the box where everything 
+ goes inside */
+
+#fullscreen {
+    border: solid 1px #ffffff;
+    background-color: rgb(0, 0, 0);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    min-height: 100vh;
+    height: 100vh;
+    grid-template-rows: auto 1fr auto;
+    gap: 5px; /* space between grid items */
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* these are the main sections inside the grid */
+
+/* here you add the logo and name of the website */
+.section_header {
+    background-color: rgb(0, 0, 0);
+    color: rgb(255, 255, 255);
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
+    font-weight: bold;
+    display: flex;      
+    justify-content: left; /* Center horizontally */
+    align-content: center;
+    font-family: "MyCustomFont1", sans-serif;
+    font-size: 3.5rem;
+}
+
+/* hamburguer menu  */
+
+#bur_ul {
+    list-style: none;
+    padding: 0;        /* remove default left padding */
+    margin: 0;         /* remove default margin */
+}
+
+#bur_ul_nav {
+    list-style: none;
+}
+
+.bur_nav_list {
+    padding: 0;
+    margin: 25px;  /* space between list items */
+    height: 2.5rem;
+}
+
+.bur_nav_list a {
+    text-decoration: none;  /* removes underline */
+    color: inherit;
+}
+
+.bur_nav_list:hover {
+    display: block;
+    background-color: rgb(255, 255, 255);
+    color: #000000;
+}
+
+/* sidebar */
+
+.section_sidebar {
+    background-color: rgb(0, 0, 0);
+    grid-column: 1/3;
+    grid-row: 2 / 12;
+    color: #000000;
+    max-height: 100vh;
+    overflow: auto;
+}
+
+#sidebar_nav {
+    background-color: rgb(184, 219, 219);
+    color: rgb(199, 3, 3);
+    padding: 0;
+    margin: 0;
+}
+
+#sidebar_nav_ul {
+    background-color: rgb(204, 204, 204);
+    color: rgb(0, 0, 0);
+    list-style: none;
+    border: solid 1px black;
+    padding: 0px;
+    margin: 0px;
+}
+
+.nav_list {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color: rgb(0, 0, 0);
+    color: #ffffff;
+    padding-left: 6px;
+    padding-top: 4px;
+}
+
+.nav_list a {
+    text-decoration: none;
+    display: block;
+    padding-bottom: 0.5rem;
+    padding-left: 0%;
+    margin: 0;
+    height: 3rem;
+    white-space: normal;      /* Allows text to wrap onto multiple lines */
+    word-break: break-word;   /* Breaks long words if needed */
+    overflow-wrap: break-word; /* Ensures very long words break */
+    color: #ffffff;
+    font-family: "MyCustomFont3", sans-serif;
+}
+
+.nav_list:hover {
+    background-color: rgb(249, 89, 255);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.6); /* soft dark shadow */
+    color: black;
+}
+
+.nav_list a:hover {
+    color: black;
+    font-size: 1.01rem;
+    box-shadow: #ffffff;
+}
+
+/* here goes the content, text pictures video apps etc */
+.section_content {
+    background: linear-gradient(rgb(27, 26, 26), rgb(0, 0, 0)); 
+    grid-column: 3 / 10;
+    grid-row: 2 / 12;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow-y: auto;   /* ✅ this makes it scroll */
+    height: auto;
+    max-height: 100vh;
+    border-radius: 10px;
+    width: 100%;
+}
+
+#content_div_video {
+    width: 100%;
+    aspect-ratio: 16 / 9;           /* aspect-ratio */
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0; /* ⛔ Don't let it shrink */
+}
+
+#content_div_video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;      
+    display: block;
+}
+
+/* this is the youtube grid section  */
+
+#youtube_grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(1, 1fr);
+    padding-bottom: 2rem;
+    padding-top: 2rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* this is the shared class for all youtube videos*/
+
+.video_section {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 aspect ratio */
+    overflow: hidden;
+    border: solid 1px black;
+}
+
+/* this is the class for youtube video 1,2,3*/
+
+.video_section iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+#iframe_spotify {
+    height: 100vh;
+    width: 100%;
+}
+
+/* here goes extra info */
+.section_extra {
+    background-color: rgb(0, 0, 0);
+    grid-column: 10 / 13;
+    grid-row: 2 / 12;
+    color: #000000;
+    font-size: 2rem;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(65, 65, 65, 0.6);
+    max-height: 100vh;
+    font-family: "MyCustomFont3", sans-serif;
+}   
+
+#extra_text {
+    background-color: rgba(65, 65, 65, 0.6);
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    font-size: 1.25rem;
+    overflow-y: auto;   
+    box-sizing: border-box;
+    background-image: url('index_14_imagenes/imagen_1.jpg');
+    background-size: cover;                  
+    background-position: center;             
+    background-repeat: no-repeat;            
+    padding: 20px;        
+    color: white;         
+    font-size: 18px;      
+    border-radius: 10px;
+}
+
+/* footer */
+.section_footer {
+    color: #ffffff;
+    background-color: rgb(59, 59, 59);
+    grid-column: 1 / -1;
+    grid-row: 12 / 13;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    font-size: 1.75rem;
+    font-family: "MyCustomFont3", sans-serif;
+    padding: 0.5rem;
+    width: 100%;
+}
+
+h1 {
+    color: white;
+    margin-bottom: 1.5rem;
+    font-family: "MyCustomFont2", sans-serif;
+    font-size: 2.5rem;
+}
+
+h2 {
+    color: white;
+    margin-bottom: 1.5rem;
+    font-family: "MyCustomFont2", sans-serif;
+    font-size: 1.75rem;
+    padding-bottom: 3rem;
+}
+
+/* Chrome, Edge, Safari scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: #c6c6c6;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #ffffff;
+}
+
+/* hamburguer menu button */
+#burg_menu_button_div {
+    display: flex;
+    justify-content: flex-end; 
+    flex: 1; 
+}
+
+#button {
+    background: black;
+    border: none;
+}
+
+#burguer_button {
+    color: rgb(249, 89, 255);
+    padding-top: 5px;
+    cursor: pointer;
+}
+
+#pop_sidebar {
+    background-color: rgb(249, 89, 255);
+    color: rgb(255, 255, 255);
+    width: 33%;
+    height: 100vh;
+    position: fixed;
+    right: 67%;
+    font-weight: bolder;
+    border: none;
+    font-family: "MyCustomFont3", sans-serif;
+}
+
+/* closing burger menu button */
+#burguer_button_2 {
+    color: rgb(249, 89, 255);
+    padding-top: 5px;
+    cursor: pointer;
+}
+
+/* ===========================================================================
+   MEDIA QUERY: Mobile & Small Screens (max-width: 768px)
+   =========================================================================== */
+
+@media (max-width: 768px) {
+    html, body {
+        overflow-x: hidden;
+    }
+
+    #fullscreen {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+
+    .section_header {
+        width: 100%;
+    }
+
+    .section_sidebar {
+        display: none; /* hidden on mobile until triggered */
+    }
+
+    .section_content {
+        width: 100%;
+        max-height: none; /* allows natural expansion so page scrolls vertically */
+        overflow-y: visible;
+    }
+
+    .section_extra {
+        display: none;
+    }
+
+    .section_footer {
+        width: 100%;
+        margin-top: auto; /* keeps footer naturally at the bottom of all content */
+        position: relative;
+    }
+
+    #pop_sidebar {
+        width: 50vw;
+        min-width: 150px;
+    }
+
+    .bur_nav_list a {
+        white-space: normal;
+        word-break: break-word;
+    }
+}
