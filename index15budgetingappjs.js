@@ -9716,8 +9716,25 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
         return;
     }
     // Boot already happened - this is a real subsequent change (login,
-    // logout, token refresh). handleAuthSession() re-renders via
-    // applyCloudSnapshot() whenever there's data to show.
+    // logout, token refresh).
+    //
+    // IMPORTANT: Supabase fires events for the SAME logged-in user all
+    // the time - TOKEN_REFRESHED roughly every hour, and SIGNED_IN again
+    // whenever the tab regains focus. Calling handleAuthSession() for
+    // those reloaded the cloud copy and replaced everything on screen
+    // with it, wiping any note/recording not yet saved with Save (this
+    // app is manual-save-only, so the cloud copy is usually older). That
+    // was the "the page refreshed by itself and my recording vanished"
+    // bug. Now, for the same user, only the token is updated - the data
+    // on screen is never touched. A full reload happens only when the
+    // user actually changes (real login, logout, or a different account).
+    const newUserId = session && session.user ? session.user.id : null;
+    const oldUserId = currentUser ? currentUser.id : null;
+    if (newUserId && newUserId === oldUserId) {
+        currentUser = session.user;
+        currentAccessToken = session.access_token;
+        return;
+    }
     handleAuthSession(session);
 });
 
