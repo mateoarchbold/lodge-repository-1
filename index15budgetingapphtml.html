@@ -741,50 +741,54 @@
                 <div class="notes-layout">
                     <!-- LEFT: vertical list of notes (small preview each) -->
                     <div class="notes-sidebar">
+                        <!-- Sidebar layout (top to bottom): one clear "+ New
+                             note" button, search with a small sort button
+                             inside it, the notebooks as a folder list ("All
+                             notes" first, each with its count), then the notes
+                             of whichever notebook is selected. No more
+                             Notes | Notebooks switch - you always see which
+                             notebook you're in. See renderNotebooksSidebar(). -->
                         <div class="notes-sidebar-header">
-                            <span class="notes-sidebar-title"><span data-i18n="notes.sectionTitle">Notes</span> <span class="notes-count" id="notes-count-badge">0</span></span>
-                        </div>
-
-                        <!-- ONE switch: Notas (all notes) | Cuadernos (notebook
-                             list). Below it a single row: search + "+" - the "+"
-                             adds a note while on Notas and a notebook while on
-                             Cuadernos. See setNotesMode()/handleNotesAddClick(). -->
-                        <div class="notes-mode-switch">
-                            <button type="button" class="notes-mode-btn active" id="notes-mode-notes-btn" onclick="setNotesMode('notes')" data-i18n="notes.sectionTitle">Notes</button>
-                            <button type="button" class="notes-mode-btn" id="notes-mode-notebooks-btn" onclick="setNotesMode('notebooks')" data-i18n="notes.notebooksLabel">Notebooks</button>
+                            <button type="button" class="notes-new-note-btn" id="notes-add-btn" onclick="createNote()">
+                                <span class="notes-new-note-plus">+</span> <span data-i18n="notes.newTitle">New note</span>
+                            </button>
                         </div>
 
                         <div class="notes-search-add-row">
-                            <input type="text" id="notes-search-input" class="notes-search-field" placeholder="Search notes…" data-i18n-placeholder="notes.searchNotesPlaceholder" oninput="handleNotesSearch(this.value)">
-                            <span class="notes-add-hint" id="notes-add-hint" style="display:none;" data-i18n="notes.newNotebookHint">New notebook</span>
-                            <button type="button" class="board-add-fab notes-combo-fab" id="notes-add-btn" onclick="handleNotesAddClick()" title="New note">+</button>
-                        </div>
-
-                        <div class="notes-combo-new-row" id="new-notebook-row" style="display:none;">
-                            <input type="text" id="new-notebook-input" class="notes-combo-input" placeholder="New notebook name..." data-i18n-placeholder="notes.newNotebookPlaceholder" onkeydown="if(event.key==='Enter') submitNewNotebook(); if(event.key==='Escape') toggleNewNotebookInput(false);">
-                            <button type="button" class="notes-combo-confirm-btn" onclick="submitNewNotebook()" title="Create">✓</button>
-                        </div>
-
-                        <!-- Shown only while looking inside one notebook. -->
-                        <div class="notes-filter-chip" id="notes-filter-chip" style="display:none;">
-                            <span id="notes-filter-chip-name"></span>
-                            <button type="button" onclick="setNotesMode('notes')" title="Show all notes">✕</button>
-                        </div>
-
-                        <div class="notes-list-controls-row" id="notes-sort-row">
-                            <div class="toggle-container notes-sort-toggle">
-                                <button type="button" class="toggle-btn" id="notes-sort-alpha-btn" onclick="handleNotesSortChange('alpha')" data-i18n="notes.sortAlphaShort">A-Z</button>
-                                <button type="button" class="toggle-btn active" id="notes-sort-custom-btn" onclick="handleNotesSortChange('custom')" data-i18n="notes.sortCustomShort">Custom</button>
+                            <div class="notes-search-wrap">
+                                <input type="text" id="notes-search-input" class="notes-search-field" placeholder="Search notes…" data-i18n-placeholder="notes.searchNotesPlaceholder" oninput="handleNotesSearch(this.value)">
+                                <button type="button" class="notes-sort-icon-btn" id="notes-sort-btn" onclick="toggleNotesSortMenu(event)" title="Sort" data-i18n-title="notes.sortTitle">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>
+                                </button>
+                                <div class="notes-sort-menu" id="notes-sort-menu">
+                                    <button type="button" class="notes-sort-option" id="notes-sort-alpha-btn" onclick="handleNotesSortChange('alpha'); closeNotesSortMenu();" data-i18n="notes.sortAlphaShort">A-Z</button>
+                                    <button type="button" class="notes-sort-option active" id="notes-sort-custom-btn" onclick="handleNotesSortChange('custom'); closeNotesSortMenu();" data-i18n="notes.sortCustomShort">Custom</button>
+                                </div>
                             </div>
                         </div>
 
+                        <div class="notes-notebooks-block">
+                            <div class="notes-block-label" data-i18n="notes.notebooksLabel">Notebooks</div>
+                            <div class="notes-notebooks-list" id="notes-notebooks-list"></div>
+                            <button type="button" class="notes-new-notebook-link" id="notes-new-notebook-btn" onclick="toggleNewNotebookInput()">+ <span data-i18n="notes.newNotebookHint">New notebook</span></button>
+                            <div class="notes-combo-new-row" id="new-notebook-row" style="display:none;">
+                                <input type="text" id="new-notebook-input" class="notes-combo-input" placeholder="New notebook name..." data-i18n-placeholder="notes.newNotebookPlaceholder" onkeydown="if(event.key==='Enter') submitNewNotebook(); if(event.key==='Escape') toggleNewNotebookInput(false);">
+                                <button type="button" class="notes-combo-confirm-btn" onclick="submitNewNotebook()" title="Create">✓</button>
+                            </div>
+                        </div>
+
+                        <div class="notes-block-label notes-list-label" id="notes-list-label"></div>
                         <div class="notes-list" id="notes-list"></div>
                     </div>
 
                     <!-- RIGHT: the big page - whatever note is selected on the left opens here -->
                     <div class="notes-editor-pane">
                         <div class="notes-empty-state" id="notes-empty-state">
-                            Select a note on the left, or click "+ New" to start writing.
+                            <svg class="notes-empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                            <div data-i18n="notes.selectPrompt">Select a note, or create a new one</div>
+                            <button type="button" class="notes-new-note-btn notes-empty-state-btn" onclick="createNote()">
+                                <span class="notes-new-note-plus">+</span> <span data-i18n="notes.newTitle">New note</span>
+                            </button>
                         </div>
 
                         <div class="notes-editor" id="notes-editor" style="display:none;">

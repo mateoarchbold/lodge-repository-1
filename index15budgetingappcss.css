@@ -5903,3 +5903,201 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     font-size: 0.9rem;
 }
 .notes-filter-chip button:hover { color: var(--text); }
+
+/* =========================================================
+   NOTES SIDEBAR - reorganized (2026-11-04)
+   Top to bottom: "+ New note" button, search with a sort icon
+   inside it, the notebook list ("All notes" + each notebook with
+   its count), then the notes of the selected notebook. Replaces
+   the old Notes | Notebooks switch and the separate A-Z row.
+   ========================================================= */
+.notes-sidebar-header {
+    border-bottom: none;
+    padding: 12px 12px 10px;
+}
+
+.notes-new-note-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.12s ease;
+}
+.notes-new-note-btn:hover { opacity: 0.9; }
+.notes-new-note-plus {
+    font-size: 1.1rem;
+    line-height: 1;
+    font-weight: 500;
+}
+
+.notes-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+}
+.notes-search-wrap .notes-search-field {
+    padding-right: 36px;
+}
+.notes-sort-icon-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.notes-sort-icon-btn svg { width: 15px; height: 15px; }
+.notes-sort-icon-btn:hover { background: var(--table-hover); color: var(--text); }
+.notes-sort-icon-btn.sorted-alpha { color: var(--accent); }
+
+.notes-sort-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    min-width: 150px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+    padding: 4px;
+    flex-direction: column;
+}
+.notes-sort-menu.open { display: flex; }
+.notes-sort-option {
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: var(--text);
+    cursor: pointer;
+}
+.notes-sort-option:hover { background: var(--table-hover); }
+.notes-sort-option.active { font-weight: 700; color: var(--accent); }
+.notes-sort-option.active::after { content: '  ✓'; }
+
+.notes-block-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 14px 6px;
+}
+
+.notes-notebooks-block {
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+.notes-notebooks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 6px;
+    max-height: 220px; /* many notebooks scroll here instead of pushing the notes off screen */
+    overflow-y: auto;
+}
+.notes-notebook-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 7px 8px;
+    font-size: 0.86rem;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+.notes-notebook-row:hover { background: var(--table-hover); }
+.notes-notebook-row.active {
+    background: var(--input-bg);
+    border-color: var(--border-color);
+    font-weight: 600;
+}
+.notes-notebook-row.note-drop-target {
+    border: 1px dashed var(--accent);
+    background: var(--table-hover);
+}
+.notes-notebook-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin: 0 3px;
+}
+.notes-notebook-all-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+.notes-notebook-name {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.notes-notebook-count {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.notes-new-notebook-link {
+    display: block;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 14px 2px;
+    cursor: pointer;
+    text-align: left;
+}
+.notes-new-notebook-link:hover { color: var(--accent); }
+.notes-notebooks-block .notes-combo-new-row { margin: 6px 12px 0; }
+
+.notes-list-label { padding-top: 2px; }
+
+/* Right pane when nothing is open: icon, a short prompt, and the same
+   "+ New note" button, instead of a blank page. */
+.notes-empty-state {
+    flex-direction: column;
+    gap: 12px;
+}
+.notes-empty-state-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+.notes-empty-state-btn {
+    width: auto;
+    padding: 9px 18px;
+}
