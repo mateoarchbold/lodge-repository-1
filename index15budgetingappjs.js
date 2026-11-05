@@ -5524,7 +5524,7 @@ function saveNotesData() {
         return;
     }
     writeUnsavedNotesBackup();
-    queueCloudSync();
+    queueCloudSync(false, { notes: true });
 }
 
 // --- NOTES UNDO ---
@@ -8510,19 +8510,84 @@ function buildSyncPayload() {
 // nothing new has to remember to sync; it just piggybacks on saves that
 // already happen. `immediate` skips the debounce (used for the one-time
 // "upload my existing device data" migration).
-function queueCloudSync(immediate) {
+// --- TWO SAVE MODES ---
+// Notes: MANUAL. They only go to the cloud when you press Save (or
+//   Ctrl/Cmd+S). Until then they're kept on this device, with a backup
+//   that survives page reloads (see writeUnsavedNotesBackup).
+// Everything else (calendar, log, backlog, Kanban, goals, categories):
+//   AUTOMATIC, a couple of seconds after each change.
+// The automatic save sends the notes exactly as they were at the last
+// cloud load/save (notesCloudSnapshot), so it never pushes half-written
+// notes and never overwrites the cloud's notes with anything else.
+let notesCloudSnapshot = null;   // { notesData, notesNotebooks, trashedItems } as last loaded from / saved to the cloud
+let notesCloudDirty = false;     // notes changed on this device but not saved with Save yet
+const AUTO_SAVE_DELAY_MS = 2500;
+
+function takeNotesCloudSnapshot(source) {
+    notesCloudSnapshot = JSON.parse(JSON.stringify({
+        notesData: source.notesData || [],
+        notesNotebooks: source.notesNotebooks || [],
+        trashedItems: source.trashedItems || []
+    }));
+}
+
+function buildAutoSavePayload() {
+    if (!notesCloudSnapshot) return null; // cloud never loaded on this device - not safe to auto-save
+    const payload = buildSyncPayload();
+    payload.notesData = notesCloudSnapshot.notesData;
+    payload.notesNotebooks = notesCloudSnapshot.notesNotebooks;
+    payload.trashedItems = notesCloudSnapshot.trashedItems;
+    return payload;
+}
+
+function refreshCloudDirtyFlag() {
+    cloudDirty = notesCloudDirty || !!cloudSyncTimer;
+}
+
+async function runAutoSaveNow() {
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = null;
+    if (!currentUser || isLoadingCloudData || sessionOverridden) { refreshCloudDirtyFlag(); return; }
+    const payload = buildAutoSavePayload();
+    if (!payload) { refreshCloudDirtyFlag(); return; }
+    // Read the cloud's CURRENT notes right before saving and keep them
+    // untouched, so an automatic save from this device can never
+    // overwrite notes saved from another device in the meantime.
+    try {
+        const cloud = await loadUserData(currentUser.id);
+        if (cloud) {
+            payload.notesData = cloud.notesData || [];
+            payload.notesNotebooks = cloud.notesNotebooks || [];
+            payload.trashedItems = cloud.trashedItems || [];
+        }
+    } catch (err) {
+        console.error('Auto-save skipped - could not read the cloud first:', err.message || err);
+        queueCloudSync(); // try again in a moment
+        return;
+    }
+    return saveUserData(currentUser.id, payload, { includesNotes: false });
+}
+
+function queueCloudSync(immediate, opts) {
     if (!currentUser || isLoadingCloudData || sessionOverridden) return;
 
     if (immediate) {
         clearTimeout(cloudSyncTimer);
         cloudSyncTimer = null;
-        return saveUserData(currentUser.id, buildSyncPayload());
+        return saveUserData(currentUser.id, buildSyncPayload(), { includesNotes: true });
     }
 
-    // MANUAL-SAVE-ONLY MODE: no background timer anymore. Edits are kept
-    // on this device (localStorage) instantly; they only go to the cloud
-    // when you press Save (manualSave) or Ctrl/Cmd+S.
-    cloudDirty = true;
+    if (opts && opts.notes) {
+        // Notes: manual save only.
+        notesCloudDirty = true;
+        refreshCloudDirtyFlag();
+        return;
+    }
+
+    // Everything else: automatic, debounced.
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(runAutoSaveNow, AUTO_SAVE_DELAY_MS);
+    refreshCloudDirtyFlag();
 }
 
 // Forces any pending debounced cloud save to happen right now instead of
@@ -8532,8 +8597,19 @@ function queueCloudSync(immediate) {
 // which is exactly what looked like "changes on my phone never reach my
 // desktop." Called from visibilitychange/pagehide below.
 function flushCloudSync() {
-    // Intentionally does nothing now (manual-save-only mode). Kept so the
-    // many call sites that flush before leaving a note don't need editing.
+    // Notes stay manual. Only a pending automatic save (calendar, Kanban,
+    // etc.) is sent right away instead of waiting out its timer.
+    if (cloudSyncTimer) runAutoSaveNow();
+}
+
+// Page closing/reloading: a normal fetch gets cut off, so a pending
+// automatic save goes out with keepalive instead (notes excluded).
+function flushAutoSaveOnExit() {
+    if (!cloudSyncTimer) return;
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = null;
+    const payload = buildAutoSavePayload();
+    if (payload) emergencySaveOnExit(payload);
 }
 
 // A save built specifically to survive the page actually closing/
@@ -8556,7 +8632,7 @@ function flushCloudSync() {
 // duplicate (harmless), and on a slow one or a large payload over the
 // cap, at least one of the two has a real shot at landing instead of
 // neither.
-function emergencySaveOnExit() {
+function emergencySaveOnExit(payloadOverride) {
     // CRITICAL: must match queueCloudSync's guard exactly. The app starts
     // blank locally and only fills in with real data once the cloud
     // fetch finishes (isLoadingCloudData tracks that window) - firing a
@@ -8567,7 +8643,8 @@ function emergencySaveOnExit() {
     // data is gone."
     if (!currentUser || !currentAccessToken || isLoadingCloudData || sessionOverridden) return;
     try {
-        const body = JSON.stringify([{ user_id: currentUser.id, app_data: buildSyncPayload() }]);
+        const payload = payloadOverride || buildSyncPayload();
+        const body = JSON.stringify([{ user_id: currentUser.id, app_data: payload }]);
         fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
             method: 'POST',
             keepalive: true,
@@ -8800,6 +8877,7 @@ function applyCloudSnapshot(cloudData) {
     // but not saved yet: merge in the backup (survives reloads) and the
     // notes currently in memory, keeping whichever copy is newer.
     let recoveredNotesCount = 0;
+    takeNotesCloudSnapshot(cloudData); // what the cloud really has, before merging local notes in
     if (currentUser) {
         let localNotes = [];
         let backupNotebooks = [];
@@ -8811,7 +8889,7 @@ function applyCloudSnapshot(cloudData) {
                 backupNotebooks = backup.notebooks || [];
             }
         } catch (_) {}
-        if (cloudDirty) localNotes = localNotes.concat(notesData);
+        if (notesCloudDirty) localNotes = localNotes.concat(notesData);
         if (localNotes.length) {
             const result = mergeNewerLocalNotes(cloudData.notesData, localNotes);
             recoveredNotesCount = result.changedCount;
@@ -8875,13 +8953,16 @@ function applyCloudSnapshot(cloudData) {
         if (recoveredNotesCount > 0) {
             // Recovered notes aren't in the cloud yet - keep them backed
             // up and flag them as unsaved until Save succeeds.
-            cloudDirty = true;
+            notesCloudDirty = true;
+            refreshCloudDirtyFlag();
             writeUnsavedNotesBackup();
             showSaveToast(recoveredNotesCount === 1
                 ? 'Recovered 1 unsaved note - press Save to keep it in the cloud'
                 : `Recovered ${recoveredNotesCount} unsaved notes - press Save to keep them in the cloud`, false);
             setTimeout(() => showSaveToast('', false), 6000);
         } else {
+            notesCloudDirty = false;
+            refreshCloudDirtyFlag();
             setNotesCloudBaseline(Date.now());
             clearUnsavedNotesBackup();
         }
@@ -8940,7 +9021,8 @@ async function pullLatestCloudData() {
 // browsers barely fire for app-switch/home-button cases).
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-        flushNoteSave(); // saves to this device only
+        flushNoteSave(); // notes: saves to this device only
+        flushAutoSaveOnExit(); // everything else: send a pending automatic save now (phones may freeze or reload the tab)
         // A recording in progress KEEPS GOING when you switch tabs/windows
         // or minimize (like a normal voice recorder app). Only when nothing
         // is recording do we let go of the mic while backgrounded.
@@ -8964,12 +9046,14 @@ document.addEventListener('visibilitychange', () => {
     // could replace what's on screen with an older cloud copy.
 });
 window.addEventListener('pagehide', () => {
-    flushNoteSave(); // this device only - cloud saves are manual now
+    flushNoteSave(); // notes: this device only
+    flushAutoSaveOnExit();
 });
 // If there are edits not pushed to the cloud yet, the browser asks before
 // the tab closes/reloads (the local copy survives either way).
 window.addEventListener('beforeunload', (e) => {
-    if (cloudDirty && currentUser) { e.preventDefault(); e.returnValue = ''; }
+    flushAutoSaveOnExit();
+    if (notesCloudDirty && currentUser) { e.preventDefault(); e.returnValue = ''; } // only unsaved NOTES need a warning now
 });
 
 // Catches the case visibilitychange above doesn't: two devices open and
@@ -9262,7 +9346,8 @@ async function loadUserData(userId) {
 }
 
 // Save or sync user data to Supabase table
-async function saveUserData(userId, payload) {
+async function saveUserData(userId, payload, opts) {
+  const includesNotes = !opts || opts.includesNotes !== false;
   const saveStartedAt = Date.now(); // edits made while this save is in flight stay newer than the baseline, so they stay backed up
   const { data, error } = await supabaseClient
     .from('user_data')
@@ -9284,9 +9369,13 @@ async function saveUserData(userId, payload) {
     lastCloudSyncOk = false;
   } else {
     lastLocalSaveAt = Date.now();
-    cloudDirty = false;
-    setNotesCloudBaseline(saveStartedAt);
-    writeUnsavedNotesBackup(); // keeps only notes edited during the save; clears the backup otherwise
+    if (includesNotes) {
+      takeNotesCloudSnapshot(payload);
+      notesCloudDirty = notesData.some(n => (n.updatedAt || 0) > saveStartedAt); // edited again while saving?
+      setNotesCloudBaseline(saveStartedAt);
+      writeUnsavedNotesBackup(); // keeps only notes edited during the save; clears the backup otherwise
+    }
+    refreshCloudDirtyFlag();
     lastCloudSyncOk = true;
     maybeAutoBackupToDropbox();
   }
