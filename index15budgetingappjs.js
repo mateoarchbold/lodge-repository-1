@@ -5439,6 +5439,74 @@ let draggedNoteId = null;
 // categoryGoals and customCategoryColors below) - they're edited through
 // an explicit form with their own explicit Delete button, not something
 // you can nudge or drag by accident the way calendar blocks can.
+// --- UNSAVED-NOTES BACKUP (survives reloads) ---
+// Cloud saves are manual, and every page load starts blank and loads the
+// cloud copy (see "ALWAYS START BLANK"). So anything typed but not yet
+// saved with Save used to vanish whenever the page reloaded - and phones
+// reload pages on their own all the time (switching apps, low memory,
+// the browser discarding a background tab). That was the "I was writing
+// and it suddenly got deleted" bug.
+//
+// Now every local note save also keeps a small backup of just the notes
+// changed since the last cloud load/save, under a key the startup wipe
+// doesn't touch. On the next load, those notes are merged back over the
+// cloud copy (only when they're newer), and the backup is cleared once a
+// cloud save actually succeeds.
+function notesBaselineKey() { return currentUser ? 'notesCloudBaselineAt_' + currentUser.id : null; }
+function notesBackupKey() { return currentUser ? 'unsavedNotesBackup_' + currentUser.id : null; }
+
+function setNotesCloudBaseline(ts) {
+    const k = notesBaselineKey();
+    if (!k) return;
+    try { localStorage.setItem(k, String(ts)); } catch (_) {}
+}
+
+function getNotesCloudBaseline() {
+    const k = notesBaselineKey();
+    if (!k) return 0;
+    return Number(localStorage.getItem(k) || 0);
+}
+
+function writeUnsavedNotesBackup() {
+    const k = notesBackupKey();
+    if (!k) return;
+    const baseline = getNotesCloudBaseline();
+    const changed = notesData.filter(n => (n.updatedAt || 0) > baseline);
+    try {
+        if (changed.length) {
+            localStorage.setItem(k, JSON.stringify({ notes: changed, notebooks: notesNotebooks, at: Date.now() }));
+        } else {
+            localStorage.removeItem(k);
+        }
+    } catch (err) {
+        console.error('Could not write unsaved-notes backup (non-fatal):', err);
+    }
+}
+
+function clearUnsavedNotesBackup() {
+    const k = notesBackupKey();
+    if (k) localStorage.removeItem(k);
+}
+
+// Merges local notes over a cloud notes list, keeping whichever copy of
+// each note is newer. Local notes that don't exist in the cloud at all
+// (created but never saved) are added at the top.
+function mergeNewerLocalNotes(cloudNotes, localNotes) {
+    const merged = (cloudNotes || []).slice();
+    let changedCount = 0;
+    (localNotes || []).forEach(local => {
+        const idx = merged.findIndex(n => n.id === local.id);
+        if (idx === -1) {
+            merged.unshift(local);
+            changedCount++;
+        } else if ((local.updatedAt || 0) > (merged[idx].updatedAt || 0)) {
+            merged[idx] = local;
+            changedCount++;
+        }
+    });
+    return { notes: merged, changedCount };
+}
+
 function saveNotesData() {
     try {
         localStorage.setItem('notesData', JSON.stringify(notesData));
@@ -5455,6 +5523,7 @@ function saveNotesData() {
         setVoiceStatus('⚠️ Storage is full - this change may not be saved. Try deleting an old voice note or photo.');
         return;
     }
+    writeUnsavedNotesBackup();
     queueCloudSync();
 }
 
@@ -8727,6 +8796,34 @@ function unsubscribeFromRealtimeSync() {
 // everything. Shared by the initial login/page-load path and by
 // pullLatestCloudData (tab-resume re-sync) below.
 function applyCloudSnapshot(cloudData) {
+    // Never let a cloud copy wipe notes that were edited on this device
+    // but not saved yet: merge in the backup (survives reloads) and the
+    // notes currently in memory, keeping whichever copy is newer.
+    let recoveredNotesCount = 0;
+    if (currentUser) {
+        let localNotes = [];
+        let backupNotebooks = [];
+        try {
+            const raw = localStorage.getItem(notesBackupKey());
+            if (raw) {
+                const backup = JSON.parse(raw);
+                localNotes = backup.notes || [];
+                backupNotebooks = backup.notebooks || [];
+            }
+        } catch (_) {}
+        if (cloudDirty) localNotes = localNotes.concat(notesData);
+        if (localNotes.length) {
+            const result = mergeNewerLocalNotes(cloudData.notesData, localNotes);
+            recoveredNotesCount = result.changedCount;
+            if (recoveredNotesCount > 0) {
+                cloudData = Object.assign({}, cloudData, {
+                    notesData: result.notes,
+                    notesNotebooks: [...new Set([...(cloudData.notesNotebooks || []), ...backupNotebooks])]
+                });
+            }
+        }
+    }
+
     timeData = cloudData.timeData || {};
     backlogItems = cloudData.backlogItems || [];
     categoryGoals = cloudData.categoryGoals || {};
@@ -8771,6 +8868,22 @@ function applyCloudSnapshot(cloudData) {
             // an optimization; the real cloud data is what actually
             // matters and is unaffected.
             console.error('Could not refresh instant-load cache (non-fatal):', err);
+        }
+    }
+
+    if (currentUser) {
+        if (recoveredNotesCount > 0) {
+            // Recovered notes aren't in the cloud yet - keep them backed
+            // up and flag them as unsaved until Save succeeds.
+            cloudDirty = true;
+            writeUnsavedNotesBackup();
+            showSaveToast(recoveredNotesCount === 1
+                ? 'Recovered 1 unsaved note - press Save to keep it in the cloud'
+                : `Recovered ${recoveredNotesCount} unsaved notes - press Save to keep them in the cloud`, false);
+            setTimeout(() => showSaveToast('', false), 6000);
+        } else {
+            setNotesCloudBaseline(Date.now());
+            clearUnsavedNotesBackup();
         }
     }
 
@@ -9150,6 +9263,7 @@ async function loadUserData(userId) {
 
 // Save or sync user data to Supabase table
 async function saveUserData(userId, payload) {
+  const saveStartedAt = Date.now(); // edits made while this save is in flight stay newer than the baseline, so they stay backed up
   const { data, error } = await supabaseClient
     .from('user_data')
     .upsert(
@@ -9171,6 +9285,8 @@ async function saveUserData(userId, payload) {
   } else {
     lastLocalSaveAt = Date.now();
     cloudDirty = false;
+    setNotesCloudBaseline(saveStartedAt);
+    writeUnsavedNotesBackup(); // keeps only notes edited during the save; clears the backup otherwise
     lastCloudSyncOk = true;
     maybeAutoBackupToDropbox();
   }
