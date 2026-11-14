@@ -547,13 +547,16 @@ let selectedBlockReference = null; // { dateKey: 'YYYY-MM-DD', index: 0 }
 // context menu (color/delete/edit) exactly as before - only the
 // double-tap and move mechanics changed.
 let armedMoveBlockRef = null; // { dateKey, index } - which block (if any) is currently armed to move
+let armedIsCopy = false; // true when the armed block was armed via "Copy" - dropping it places a duplicate and leaves the original where it is
 
-function toggleArmedMoveBlock(dateKey, index) {
+function toggleArmedMoveBlock(dateKey, index, asCopy = false) {
     if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
         armedMoveBlockRef = null; // tapped the same armed block again - cancel
+        armedIsCopy = false;
         hideDragGhost();
     } else {
         armedMoveBlockRef = { dateKey, index };
+        armedIsCopy = asCopy;
         if (navigator.vibrate) navigator.vibrate(30);
     }
     renderVisualMatrix();
@@ -657,13 +660,26 @@ document.addEventListener('touchend', (e) => {
     const touch = e.changedTouches[0];
     if (touch) updateDragGhost(touch.clientX, touch.clientY);
 
-    if (!dragGhostTarget) { armedMoveBlockRef = null; hideDragGhost(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
+    if (!dragGhostTarget) { armedMoveBlockRef = null; armedIsCopy = false; hideDragGhost(); renderVisualMatrix(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
     const { dateKey: fromDate, index: fromIndex } = armedMoveBlockRef;
     const { dateKey: toDate, hour, mins } = dragGhostTarget;
+    const wasCopy = armedIsCopy;
     armedMoveBlockRef = null;
+    armedIsCopy = false;
     hideDragGhost();
     if (navigator.vibrate) navigator.vibrate(30);
-    moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
+    if (wasCopy) {
+        // Copy: drop a duplicate at the target, original stays put
+        const src = timeData[fromDate] && timeData[fromDate][fromIndex];
+        if (src) {
+            clipboardBlockData = { category: src.category, name: src.name, hours: src.hours, type: src.type || 'actual' };
+            pasteBlockToCalendar(toDate, hour, mins);
+        } else {
+            renderVisualMatrix();
+        }
+    } else {
+        moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
+    }
 });
 
 // Same "double-tap to arm, tap a destination to complete" pattern as
@@ -3725,6 +3741,27 @@ function moveContextBlock() {
     const { dateKey, index } = contextBlockInfo;
     closeBlockContextMenu();
     toggleArmedMoveBlock(dateKey, index);
+}
+
+// Copy: puts the activity on the clipboard (so Ctrl+V pastes it on
+// desktop) and, on touch screens, arms it exactly like Move - drag a
+// finger to where the copy should go and release. Unlike Move, the
+// original activity stays where it is.
+function copyContextBlock() {
+    if (!contextBlockInfo) return;
+    const { dateKey, index } = contextBlockInfo;
+    const item = timeData[dateKey] && timeData[dateKey][index];
+    closeBlockContextMenu();
+    if (!item) return;
+    clipboardBlockData = { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
+    const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch) {
+        if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
+            armedIsCopy = true; // already armed (e.g. via Move) - just switch it to copy mode
+        } else {
+            toggleArmedMoveBlock(dateKey, index, true);
+        }
+    }
 }
 
 // Opens the same reliable edit modal used everywhere else, focused on
