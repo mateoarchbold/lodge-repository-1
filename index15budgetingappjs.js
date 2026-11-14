@@ -547,16 +547,13 @@ let selectedBlockReference = null; // { dateKey: 'YYYY-MM-DD', index: 0 }
 // context menu (color/delete/edit) exactly as before - only the
 // double-tap and move mechanics changed.
 let armedMoveBlockRef = null; // { dateKey, index } - which block (if any) is currently armed to move
-let armedIsCopy = false; // true when the armed block was armed via "Copy" - dropping it places a duplicate and leaves the original where it is
 
-function toggleArmedMoveBlock(dateKey, index, asCopy = false) {
+function toggleArmedMoveBlock(dateKey, index) {
     if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
         armedMoveBlockRef = null; // tapped the same armed block again - cancel
-        armedIsCopy = false;
         hideDragGhost();
     } else {
         armedMoveBlockRef = { dateKey, index };
-        armedIsCopy = asCopy;
         if (navigator.vibrate) navigator.vibrate(30);
     }
     renderVisualMatrix();
@@ -660,26 +657,13 @@ document.addEventListener('touchend', (e) => {
     const touch = e.changedTouches[0];
     if (touch) updateDragGhost(touch.clientX, touch.clientY);
 
-    if (!dragGhostTarget) { armedMoveBlockRef = null; armedIsCopy = false; hideDragGhost(); renderVisualMatrix(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
+    if (!dragGhostTarget) { armedMoveBlockRef = null; hideDragGhost(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
     const { dateKey: fromDate, index: fromIndex } = armedMoveBlockRef;
     const { dateKey: toDate, hour, mins } = dragGhostTarget;
-    const wasCopy = armedIsCopy;
     armedMoveBlockRef = null;
-    armedIsCopy = false;
     hideDragGhost();
     if (navigator.vibrate) navigator.vibrate(30);
-    if (wasCopy) {
-        // Copy: drop a duplicate at the target, original stays put
-        const src = timeData[fromDate] && timeData[fromDate][fromIndex];
-        if (src) {
-            clipboardBlockData = { category: src.category, name: src.name, hours: src.hours, type: src.type || 'actual' };
-            pasteBlockToCalendar(toDate, hour, mins);
-        } else {
-            renderVisualMatrix();
-        }
-    } else {
-        moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
-    }
+    moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
 });
 
 // Same "double-tap to arm, tap a destination to complete" pattern as
@@ -2923,9 +2907,15 @@ function buildDayColumnEl(dateKey) {
 
             slot.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                openQuickAddModal(dateKey, h, e);
+                handleEmptySlotOpen(e, dayCol, dateKey, h);
             });
-            addDoubleTapListener(slot, (e) => openQuickAddModal(dateKey, h, e));
+            addDoubleTapListener(slot, (e) => handleEmptySlotOpen(e, dayCol, dateKey, h));
+            slot.addEventListener('contextmenu', (e) => {
+                if (!clipboardBlockData) return; // nothing copied - keep the browser's normal right-click
+                e.preventDefault();
+                e.stopPropagation();
+                handleEmptySlotOpen(e, dayCol, dateKey, h);
+            });
 
             dayCol.appendChild(slot);
         }
@@ -3558,6 +3548,7 @@ document.addEventListener('keydown', (e) => {
 
     if (e.key === 'Escape') {
         closeBlockContextMenu();
+        closeSlotContextMenu();
         closeQuickAddModal();
         closeMobileDailyModal();
         clearSelectedBlock();
@@ -3743,10 +3734,9 @@ function moveContextBlock() {
     toggleArmedMoveBlock(dateKey, index);
 }
 
-// Copy: puts the activity on the clipboard (so Ctrl+V pastes it on
-// desktop) and, on touch screens, arms it exactly like Move - drag a
-// finger to where the copy should go and release. Unlike Move, the
-// original activity stays where it is.
+// Copy: puts the activity on the clipboard. Then double-tap (or
+// right-click) any empty spot on the calendar and pick "Paste here" -
+// see openSlotContextMenu. Ctrl+V also still works on desktop.
 function copyContextBlock() {
     if (!contextBlockInfo) return;
     const { dateKey, index } = contextBlockInfo;
@@ -3754,14 +3744,92 @@ function copyContextBlock() {
     closeBlockContextMenu();
     if (!item) return;
     clipboardBlockData = { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
-    const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    if (isTouch) {
-        if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
-            armedIsCopy = true; // already armed (e.g. via Move) - just switch it to copy mode
-        } else {
-            toggleArmedMoveBlock(dateKey, index, true);
-        }
+    if (navigator.vibrate) navigator.vibrate(20);
+    showCopyToast('Copied — double-tap an empty spot to paste');
+}
+
+function showCopyToast(message) {
+    let toast = document.getElementById('copy-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'copy-toast';
+        toast.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1e1e1e;color:#fff;border:1px solid #333;padding:10px 16px;border-radius:10px;z-index:10001;font-size:0.9rem;box-shadow:0 10px 30px rgba(0,0,0,0.5);max-width:90vw;text-align:center;pointer-events:none;transition:opacity 0.3s;';
+        document.body.appendChild(toast);
     }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    toast.style.display = 'block';
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }, 2200);
+}
+
+// --- EMPTY-SPOT MENU (Paste here / New activity) ---
+// When something has been copied, double-tapping or right-clicking an
+// empty spot on the calendar shows this small menu instead of jumping
+// straight into the new-activity form. With nothing copied, the old
+// behavior (open the new-activity form) is unchanged.
+let slotContextInfo = null; // { dateKey, hour, mins }
+
+function handleEmptySlotOpen(e, dayCol, dateKey, hour) {
+    if (!clipboardBlockData) {
+        openQuickAddModal(dateKey, hour, e);
+        return;
+    }
+    // Snap the paste time to the exact quarter-hour that was tapped
+    let snapped = hour * 60;
+    if (dayCol && e && typeof e.clientY === 'number' && e.clientY) {
+        const rect = dayCol.getBoundingClientRect();
+        const rawMinutes = ((e.clientY - rect.top) / 40) * 60;
+        snapped = Math.max(0, Math.min(23 * 60 + 45, Math.floor(rawMinutes / 15) * 15));
+    }
+    openSlotContextMenu(e, dateKey, Math.floor(snapped / 60), snapped % 60);
+}
+
+function openSlotContextMenu(e, dateKey, hour, mins) {
+    slotContextInfo = { dateKey, hour, mins };
+    const menu = document.getElementById('slot-context-menu');
+    const content = menu?.querySelector('.context-menu-content');
+    if (!menu || !content) return;
+
+    const label = document.getElementById('slot-paste-label');
+    if (label) {
+        const name = clipboardBlockData.name || clipboardBlockData.category || 'activity';
+        label.textContent = `Paste "${name}" at ${String(hour).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    }
+
+    menu.style.display = 'block';
+    let left = e.clientX || 20;
+    let top = e.clientY || 100;
+    if (left + 240 > window.innerWidth) left = window.innerWidth - 250;
+    if (top + 120 > window.innerHeight) top = window.innerHeight - 130;
+    content.style.left = `${Math.max(10, left)}px`;
+    content.style.top = `${Math.max(10, top)}px`;
+}
+
+function closeSlotContextMenu() {
+    const menu = document.getElementById('slot-context-menu');
+    if (menu) menu.style.display = 'none';
+    slotContextInfo = null;
+}
+
+function pasteAtSlot() {
+    if (!slotContextInfo || !clipboardBlockData) return;
+    const { dateKey, hour, mins } = slotContextInfo;
+    closeSlotContextMenu();
+    if (navigator.vibrate) navigator.vibrate(20);
+    pasteBlockToCalendar(dateKey, hour, mins);
+}
+
+function newActivityAtSlot() {
+    if (!slotContextInfo) return;
+    const { dateKey, hour } = slotContextInfo;
+    const pos = { clientX: parseFloat(document.querySelector('#slot-context-menu .context-menu-content').style.left) || 0,
+                  clientY: parseFloat(document.querySelector('#slot-context-menu .context-menu-content').style.top) || 0 };
+    closeSlotContextMenu();
+    openQuickAddModal(dateKey, hour, pos);
 }
 
 // Opens the same reliable edit modal used everywhere else, focused on
@@ -3817,7 +3885,10 @@ function saveCustomCategoryColors() {
 }
 
 document.addEventListener('click', (e) => {
-    if (!e.target.closest('.context-menu-content')) closeBlockContextMenu();
+    if (!e.target.closest('.context-menu-content')) {
+        closeBlockContextMenu();
+        closeSlotContextMenu();
+    }
 });
 
 // --- POPUP MODAL ---

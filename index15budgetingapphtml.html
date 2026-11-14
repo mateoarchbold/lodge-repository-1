@@ -865,6 +865,21 @@
             </div>
         </details>
 
+        <!-- EMPTY-SPOT MENU (shown after copying an activity) -->
+        <div id="slot-context-menu" class="context-menu-overlay" style="display: none;">
+            <div class="context-menu-content">
+                <button class="context-menu-item" onclick="pasteAtSlot()">
+                    <span style="font-size: 1rem;">📋</span>
+                    <span id="slot-paste-label">Paste here</span>
+                </button>
+                <hr class="context-divider">
+                <button class="context-menu-item" onclick="newActivityAtSlot()">
+                    <span style="font-size: 1rem;">➕</span>
+                    <span>New activity</span>
+                </button>
+            </div>
+        </div>
+
         <!-- RIGHT-CLICK CONTEXT MENU -->
         <div id="block-context-menu" class="context-menu-overlay" style="display: none;">
             <div class="context-menu-content">
