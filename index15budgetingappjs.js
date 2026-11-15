@@ -2905,17 +2905,16 @@ function buildDayColumnEl(dateKey) {
             slot.className = 'matrix-slot';
             slot.dataset.hour = h;
 
+            slot.addEventListener('click', (e) => {
+                if (clipboardBlockData) showPasteButton(e, dayCol);
+            });
+
             slot.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                handleEmptySlotOpen(e, dayCol, dateKey, h);
+                hidePasteButton();
+                openQuickAddModal(dateKey, h, e);
             });
-            addDoubleTapListener(slot, (e) => handleEmptySlotOpen(e, dayCol, dateKey, h));
-            slot.addEventListener('contextmenu', (e) => {
-                if (!clipboardBlockData) return; // nothing copied - keep the browser's normal right-click
-                e.preventDefault();
-                e.stopPropagation();
-                handleEmptySlotOpen(e, dayCol, dateKey, h);
-            });
+            addDoubleTapListener(slot, (e) => openQuickAddModal(dateKey, h, e));
 
             dayCol.appendChild(slot);
         }
@@ -3548,7 +3547,6 @@ document.addEventListener('keydown', (e) => {
 
     if (e.key === 'Escape') {
         closeBlockContextMenu();
-        closeSlotContextMenu();
         closeQuickAddModal();
         closeMobileDailyModal();
         clearSelectedBlock();
@@ -3734,9 +3732,12 @@ function moveContextBlock() {
     toggleArmedMoveBlock(dateKey, index);
 }
 
-// Copy: puts the activity on the clipboard. Then double-tap (or
-// right-click) any empty spot on the calendar and pick "Paste here" -
-// see openSlotContextMenu. Ctrl+V also still works on desktop.
+// --- COPY / PASTE BUTTON ---
+// "Copy" in the activity menu remembers the activity. Only after that,
+// tapping anywhere empty on the calendar shows a small "Paste" button
+// right where you tapped; tapping it pastes the copy at that time.
+let pasteTarget = null; // { dateKey, hour, mins }
+
 function copyContextBlock() {
     if (!contextBlockInfo) return;
     const { dateKey, index } = contextBlockInfo;
@@ -3744,92 +3745,37 @@ function copyContextBlock() {
     closeBlockContextMenu();
     if (!item) return;
     clipboardBlockData = { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
-    if (navigator.vibrate) navigator.vibrate(20);
-    showCopyToast('Copied — double-tap an empty spot to paste');
 }
 
-function showCopyToast(message) {
-    let toast = document.getElementById('copy-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'copy-toast';
-        toast.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1e1e1e;color:#fff;border:1px solid #333;padding:10px 16px;border-radius:10px;z-index:10001;font-size:0.9rem;box-shadow:0 10px 30px rgba(0,0,0,0.5);max-width:90vw;text-align:center;pointer-events:none;transition:opacity 0.3s;';
-        document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.style.opacity = '1';
-    toast.style.display = 'block';
-    clearTimeout(toast._hideTimer);
-    toast._hideTimer = setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => { toast.style.display = 'none'; }, 300);
-    }, 2200);
+function showPasteButton(e, dayCol) {
+    if (!clipboardBlockData) return;
+    const rect = dayCol.getBoundingClientRect();
+    const rawMinutes = ((e.clientY - rect.top) / 40) * 60;
+    const snapped = Math.max(0, Math.min(23 * 60 + 45, Math.floor(rawMinutes / 15) * 15));
+    pasteTarget = { dateKey: dayCol.dataset.date, hour: Math.floor(snapped / 60), mins: snapped % 60 };
+
+    const btn = document.getElementById('calendar-paste-btn');
+    if (!btn) return;
+    btn.style.display = 'block';
+    let left = e.clientX;
+    let top = e.clientY;
+    if (left + 110 > window.innerWidth) left = window.innerWidth - 120;
+    if (top + 50 > window.innerHeight) top = window.innerHeight - 60;
+    btn.style.left = `${Math.max(10, left)}px`;
+    btn.style.top = `${Math.max(10, top)}px`;
 }
 
-// --- EMPTY-SPOT MENU (Paste here / New activity) ---
-// When something has been copied, double-tapping or right-clicking an
-// empty spot on the calendar shows this small menu instead of jumping
-// straight into the new-activity form. With nothing copied, the old
-// behavior (open the new-activity form) is unchanged.
-let slotContextInfo = null; // { dateKey, hour, mins }
-
-function handleEmptySlotOpen(e, dayCol, dateKey, hour) {
-    if (!clipboardBlockData) {
-        openQuickAddModal(dateKey, hour, e);
-        return;
-    }
-    // Snap the paste time to the exact quarter-hour that was tapped
-    let snapped = hour * 60;
-    if (dayCol && e && typeof e.clientY === 'number' && e.clientY) {
-        const rect = dayCol.getBoundingClientRect();
-        const rawMinutes = ((e.clientY - rect.top) / 40) * 60;
-        snapped = Math.max(0, Math.min(23 * 60 + 45, Math.floor(rawMinutes / 15) * 15));
-    }
-    openSlotContextMenu(e, dateKey, Math.floor(snapped / 60), snapped % 60);
+function hidePasteButton() {
+    const btn = document.getElementById('calendar-paste-btn');
+    if (btn) btn.style.display = 'none';
+    pasteTarget = null;
 }
 
-function openSlotContextMenu(e, dateKey, hour, mins) {
-    slotContextInfo = { dateKey, hour, mins };
-    const menu = document.getElementById('slot-context-menu');
-    const content = menu?.querySelector('.context-menu-content');
-    if (!menu || !content) return;
-
-    const label = document.getElementById('slot-paste-label');
-    if (label) {
-        const name = clipboardBlockData.name || clipboardBlockData.category || 'activity';
-        label.textContent = `Paste "${name}" at ${String(hour).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-    }
-
-    menu.style.display = 'block';
-    let left = e.clientX || 20;
-    let top = e.clientY || 100;
-    if (left + 240 > window.innerWidth) left = window.innerWidth - 250;
-    if (top + 120 > window.innerHeight) top = window.innerHeight - 130;
-    content.style.left = `${Math.max(10, left)}px`;
-    content.style.top = `${Math.max(10, top)}px`;
-}
-
-function closeSlotContextMenu() {
-    const menu = document.getElementById('slot-context-menu');
-    if (menu) menu.style.display = 'none';
-    slotContextInfo = null;
-}
-
-function pasteAtSlot() {
-    if (!slotContextInfo || !clipboardBlockData) return;
-    const { dateKey, hour, mins } = slotContextInfo;
-    closeSlotContextMenu();
-    if (navigator.vibrate) navigator.vibrate(20);
+function pasteAtTarget() {
+    if (!pasteTarget || !clipboardBlockData) return;
+    const { dateKey, hour, mins } = pasteTarget;
+    hidePasteButton();
     pasteBlockToCalendar(dateKey, hour, mins);
-}
-
-function newActivityAtSlot() {
-    if (!slotContextInfo) return;
-    const { dateKey, hour } = slotContextInfo;
-    const pos = { clientX: parseFloat(document.querySelector('#slot-context-menu .context-menu-content').style.left) || 0,
-                  clientY: parseFloat(document.querySelector('#slot-context-menu .context-menu-content').style.top) || 0 };
-    closeSlotContextMenu();
-    openQuickAddModal(dateKey, hour, pos);
 }
 
 // Opens the same reliable edit modal used everywhere else, focused on
@@ -3885,10 +3831,8 @@ function saveCustomCategoryColors() {
 }
 
 document.addEventListener('click', (e) => {
-    if (!e.target.closest('.context-menu-content')) {
-        closeBlockContextMenu();
-        closeSlotContextMenu();
-    }
+    if (!e.target.closest('.context-menu-content')) closeBlockContextMenu();
+    if (!e.target.closest('#calendar-paste-btn') && !e.target.closest('.matrix-slot')) hidePasteButton();
 });
 
 // --- POPUP MODAL ---
