@@ -10161,10 +10161,10 @@ function layoutTimerPageForMobile() {
 }
 window.addEventListener('resize', () => { if (currentMobileSection === 'timer') layoutTimerPageForMobile(); });
 
-// Phone Timer page only: makes the Chronometer card exactly tall enough
-// for its split rows - growing by one row each time Split is pressed -
-// up to 10 rows. Past 10 the list stops growing and scrolls. The Today
-// section below always keeps at least TODAY_MIN_PX of space.
+// Phone Timer page only: on the first Split the Chronometer card opens
+// up to its full size - room for 10 split rows - and new splits fill
+// that space. Past 10 the list scrolls. The Today section below always
+// keeps at least TODAY_MIN_PX of space.
 const SPLIT_VISIBLE_MAX = 10;
 const TODAY_MIN_PX = 130;
 function sizeSplitArea() {
@@ -10181,11 +10181,10 @@ function sizeSplitArea() {
     const rows = sc.querySelectorAll('tbody tr');
     if (!onTimerMobile || !wrap.classList.contains('has-splits') || rows.length === 0) { reset(); return; }
 
-    // Height of the header + the first (up to) 10 rows
+    // Height of the header + room for 10 rows (opens fully on the first split)
     const head = sc.querySelector('thead');
-    let listH = head ? head.offsetHeight : 0;
-    for (let i = 0; i < Math.min(rows.length, SPLIT_VISIBLE_MAX); i++) listH += rows[i].offsetHeight;
-    listH += 2; // container border
+    const rowH = rows[0].offsetHeight || 23;
+    const listH = (head ? head.offsetHeight : 0) + rowH * SPLIT_VISIBLE_MAX + 2; // +2 container border
 
     sc.style.flex = 'none';
     sc.style.minHeight = '0';
