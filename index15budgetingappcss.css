@@ -5666,7 +5666,7 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
        exact same four actions in its own Notes section (see
        header-actions-wrap in the HTML) - reachable from there instead,
        with nothing lost. Desktop/tablet keep this button as-is; there's
-       no collision there since Notes isn't pinned edge-to-edge. -->
+       no collision there since Notes isn't pinned edge-to-edge. */
     .note-actions-menu-wrap {
         display: none;
     }
@@ -6149,6 +6149,10 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     #notes-section .note-title-input {
         flex: 1;
         width: 100%;
+    }
+    /* keep long titles clear of the floating ☰ menu button */
+    #notes-section .note-title-notebook-row {
+        padding-right: 52px;
     }
     /* Paragraph arrows/trash + grip: only on the paragraph being edited */
     #notes-section .note-text-block-wrap .note-block-actions,
