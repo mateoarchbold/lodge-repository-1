@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="index15budgetingappcss.css?v=20261115a">
+    <link rel="stylesheet" href="index15budgetingappcss.css?v=20261115b">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -865,6 +865,9 @@
             </div>
         </details>
 
+        <!-- PASTE BUTTON (appears after Copy, where you tap on the calendar) -->
+        <button id="calendar-paste-btn" onclick="pasteAtTarget()" style="display: none; position: fixed; z-index: 10000; background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 10px; padding: 10px 18px; font-size: 1rem; font-family: inherit; box-shadow: 0 10px 30px rgba(0,0,0,0.6); cursor: pointer;">📋 Paste</button>
+
         <!-- RIGHT-CLICK CONTEXT MENU -->
         <div id="block-context-menu" class="context-menu-overlay" style="display: none;">
             <div class="context-menu-content">
@@ -1121,8 +1124,6 @@
                          at "right now" like the bar above the calendar does.
                          See startLiveTimerFromModal() in the JS. -->
                     <button type="button" class="activity-chrono-btn" id="modal-start-chronometer-btn" onclick="startLiveTimerFromModal()" title="Start Live Chronometer Here">⏱️</button>
-                    <!-- Only shown in Add Activity after an activity was copied -->
-                    <button type="button" id="modal-paste-btn" onclick="pasteFromModal()" title="Paste copied activity here" style="display:none; align-items:center; gap:6px; padding:0 18px; height:48px; border-radius:24px; border:1px solid #ccc; background:#fff; color:#333; font-size:1rem; font-weight:600; font-family:inherit; cursor:pointer;">📋 Paste</button>
                     <button type="button" class="activity-delete-fab" id="modal-delete-btn" onclick="deleteModalActivity()" title="Delete" style="display:none;">🗑️</button>
                     <button type="button" class="activity-fab-btn" id="modal-submit-btn" onclick="submitQuickAddModal()" title="Add Time Block">+</button>
                 </div>
@@ -1343,6 +1344,6 @@
         <div>Loading your data…</div>
     </div>
 
-    <script src="index15budgetingappjs.js?v=20261115a"></script>
+    <script src="index15budgetingappjs.js?v=20261115b"></script>
 </body>
 </html>
