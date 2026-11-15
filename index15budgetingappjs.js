@@ -672,7 +672,7 @@ document.addEventListener('touchend', (e) => {
         // Copy: drop a duplicate at the target, original stays put
         const src = timeData[fromDate] && timeData[fromDate][fromIndex];
         if (src) {
-            clipboardBlockData = { category: src.category, name: src.name, hours: src.hours, type: src.type || 'actual' };
+            clipboardBlockData = { category: src.category, name: src.name, hours: getBlockDurationHours(src), type: src.type || 'actual' };
             pasteBlockToCalendar(toDate, hour, mins);
         } else {
             renderVisualMatrix();
@@ -3617,6 +3617,21 @@ document.addEventListener('click', (e) => {
 });
 
 // --- COPY / PASTE (Ctrl+C / Ctrl+V) ---
+// The real length of a calendar activity, read from its start/end
+// times (which is what the calendar draws) rather than the separate
+// "hours" field, which can drift out of sync with them.
+function getBlockDurationHours(item) {
+    if (item && typeof item.timeRange === 'string') {
+        const parts = item.timeRange.split(' to ');
+        if (parts.length === 2) {
+            const [sh, sm] = parts[0].split(':').map(Number);
+            const [eh, em] = parts[1].split(':').map(Number);
+            const hrs = (eh + em / 60) - (sh + sm / 60);
+            if (isFinite(hrs) && hrs > 0) return hrs;
+        }
+    }
+    return (item && Number(item.hours)) || 1;
+}
 // Grabs a plain-data snapshot of whichever activity is currently selected,
 // whether it lives on the big calendar or in the backlog strip.
 function getSelectedBlockData() {
@@ -3624,7 +3639,7 @@ function getSelectedBlockData() {
         const { dateKey, index } = selectedBlockReference;
         const item = timeData[dateKey] && timeData[dateKey][index];
         if (item) {
-            return { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
+            return { category: item.category, name: item.name, hours: getBlockDurationHours(item), type: item.type || 'actual' };
         }
     }
     if (selectedBacklogId) {
@@ -3764,7 +3779,7 @@ function copyContextBlock() {
     const item = timeData[dateKey] && timeData[dateKey][index];
     closeBlockContextMenu();
     if (!item) return;
-    clipboardBlockData = { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
+    clipboardBlockData = { category: item.category, name: item.name, hours: getBlockDurationHours(item), type: item.type || 'actual' };
     const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     if (isTouch) {
         if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
@@ -4190,7 +4205,7 @@ function moveTimeBlockAbsolute(sourceDate, index, targetDate, startHour, startMi
     const [item] = timeData[sourceDate].splice(index, 1);
     if (timeData[sourceDate].length === 0) delete timeData[sourceDate];
 
-    const duration = item.hours || 1;
+    const duration = getBlockDurationHours(item); // keep the exact length it had on the calendar
     const totalStartMins = (startHour * 60) + startMinutes;
     const totalEndMins = Math.min(24 * 60 - 1, totalStartMins + Math.round(duration * 60));
 
