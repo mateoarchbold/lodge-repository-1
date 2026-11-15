@@ -1,0 +1,16 @@
+{
+  "name": "Nabu",
+  "short_name": "Nabu",
+  "description": "Time budgeting, visual planner and notes.",
+  "start_url": "index15budgetingapphtml.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "nabu-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "nabu-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "nabu-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

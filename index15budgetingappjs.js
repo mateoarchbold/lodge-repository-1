@@ -8831,7 +8831,21 @@ async function handleAuthSession(session) {
     }
 
     isLoadingCloudData = true;
-    const cloudData = await loadUserData(currentUser.id);
+    let cloudData;
+    try {
+        cloudData = await loadUserData(currentUser.id);
+    } catch (err) {
+        // No signal (or the server didn't answer): show the copy saved on
+        // this phone, view-only. isLoadingCloudData stays TRUE on purpose,
+        // so nothing can be saved over the real cloud data until we're
+        // back online and the page reloads with fresh data.
+        const offlineCopy = await readOfflineSnapshot(currentUser.id);
+        if (!offlineCopy) throw err;
+        applyCloudSnapshot(offlineCopy);
+        enterOfflineViewMode();
+        return;
+    }
+    if (cloudData) saveOfflineSnapshot(currentUser.id, cloudData);
 
     if (cloudData) {
         // This account already has cloud data — it takes over on this device.
@@ -9459,7 +9473,13 @@ async function loadUserData(userId) {
   );
   const { data, error } = await Promise.race([query, timeout]);
 
-  if (error && error.code !== 'PGRST116') console.error("Fetch error:", error.message);
+  if (error && error.code !== 'PGRST116') {
+    // A real failure (no signal, server down) - NOT "this account has no
+    // data yet". Returning null here would be read as a brand-new empty
+    // account, and a later save could then overwrite the real cloud data.
+    console.error("Fetch error:", error.message);
+    throw new Error(error.message || 'Could not load your data from the cloud.');
+  }
   return data ? data.app_data : null;
 }
 
@@ -9891,7 +9911,7 @@ async function bootAppWithSession(session) {
             pendingFirstDropboxBackup = false;
             backupNowToDropbox();
         }
-        migrateBase64MediaToStorage();
+        if (!offlineViewMode) migrateBase64MediaToStorage(); // needs the network
         // Real data (or its confirmed absence, for a genuine first-time
         // guest) has now actually loaded - safe to decide whether this
         // is a fresh install that should see the walkthrough.
@@ -10609,3 +10629,123 @@ document.addEventListener('click', (e) => {
         document.querySelectorAll('.note-text-block-wrap.block-active').forEach(w => w.classList.remove('block-active'));
     }
 });
+
+
+// =========================================================
+// OFFLINE COPY + VIEW-ONLY MODE (installed app without signal)
+// A copy of your data is kept on this device (IndexedDB - roomier than
+// localStorage). It's refreshed every time data loads from the cloud
+// and whenever the app goes to the background. With no signal, the app
+// shows that copy read-only; saving is blocked (isLoadingCloudData stays
+// true) so an offline device can never overwrite the real cloud data.
+// =========================================================
+let offlineViewMode = false;
+
+function openOfflineDb() {
+    return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) { reject(new Error('no indexedDB')); return; }
+        const req = indexedDB.open('nabu-offline', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('snapshots');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveOfflineSnapshot(userId, data) {
+    try {
+        const db = await openOfflineDb();
+        const tx = db.transaction('snapshots', 'readwrite');
+        tx.objectStore('snapshots').put({ savedAt: Date.now(), data: JSON.parse(JSON.stringify(data)) }, userId);
+    } catch (_) { /* best effort - never blocks the app */ }
+}
+
+async function readOfflineSnapshot(userId) {
+    try {
+        const db = await openOfflineDb();
+        return await new Promise((resolve) => {
+            const req = db.transaction('snapshots', 'readonly').objectStore('snapshots').get(userId);
+            req.onsuccess = () => resolve(req.result ? req.result.data : null);
+            req.onerror = () => resolve(null);
+        });
+    } catch (_) { return null; }
+}
+
+// Keep the device copy current with edits made during this session
+// (only when data really loaded - never while offline or mid-load).
+function refreshOfflineSnapshotFromMemory() {
+    if (!currentUser || isLoadingCloudData || offlineViewMode || sessionOverridden) return;
+    try { saveOfflineSnapshot(currentUser.id, buildSyncPayload()); } catch (_) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') refreshOfflineSnapshotFromMemory(); });
+window.addEventListener('pagehide', refreshOfflineSnapshotFromMemory);
+
+function enterOfflineViewMode() {
+    offlineViewMode = true;
+    document.body.classList.add('offline-view-mode');
+    if (document.getElementById('offline-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'offline-banner';
+    banner.className = 'offline-banner';
+    banner.innerHTML = '📴 <b>Offline</b> – view only. Changes made now won’t be saved. Nabu will refresh when you’re back online.';
+    document.body.appendChild(banner);
+}
+
+window.addEventListener('online', () => {
+    if (offlineViewMode) location.reload(); // back online: load the real, fresh data
+});
+
+// =========================================================
+// INSTALLABLE APP: background script + install banner
+// =========================================================
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('nabu-sw.js').catch(err => console.warn('Service worker not registered:', err));
+    });
+}
+
+const isStandaloneApp = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Android/Chrome: keep the browser's install prompt for our own button
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallBanner('android');
+});
+
+function showInstallBanner(kind) {
+    if (isStandaloneApp()) return;
+    try { if (localStorage.getItem('installBannerDismissed') === '1') return; } catch (_) {}
+    if (document.getElementById('install-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'install-banner';
+    banner.className = 'install-banner';
+    const text = kind === 'android'
+        ? '📲 <b>Install Nabu</b> on your phone for the full app experience.'
+        : '📲 <b>Install Nabu:</b> tap <b>Share</b> <span class="install-share-icon">⬆︎</span> then <b>Add to Home Screen</b>.';
+    banner.innerHTML = `
+        <div class="install-banner-text">${text}</div>
+        ${kind === 'android' ? '<button type="button" class="install-banner-btn" id="install-banner-btn">Install</button>' : ''}
+        <button type="button" class="install-banner-close" aria-label="Close">✕</button>`;
+    document.body.appendChild(banner);
+    banner.querySelector('.install-banner-close').addEventListener('click', () => {
+        try { localStorage.setItem('installBannerDismissed', '1'); } catch (_) {}
+        banner.remove();
+    });
+    const btn = banner.querySelector('#install-banner-btn');
+    if (btn) btn.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch (_) {}
+        deferredInstallPrompt = null;
+        banner.remove();
+    });
+}
+
+// iPhone/iPad Safari has no install prompt - show the how-to instead
+(function maybeShowIosInstallBanner() {
+    const ua = navigator.userAgent || '';
+    const isIos = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios|opios/i.test(ua);
+    if (isIos && isSafari && !isStandaloneApp()) setTimeout(() => showInstallBanner('ios'), 3000);
+})();
