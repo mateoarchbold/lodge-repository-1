@@ -2905,47 +2905,8 @@ function buildDayColumnEl(dateKey) {
             slot.className = 'matrix-slot';
             slot.dataset.hour = h;
 
-            // Long-press (finger held ~0.5s without moving) shows the
-            // Paste button - only when something has been copied.
-            slot.style.webkitTouchCallout = 'none';
-            slot.addEventListener('touchstart', (e) => {
-                if (!clipboardBlockData || e.touches.length !== 1) return;
-                const startX = e.touches[0].clientX;
-                const startY = e.touches[0].clientY;
-                let fired = false;
-                const timer = setTimeout(() => {
-                    fired = true;
-                    showPasteButton({ clientX: startX, clientY: startY }, dayCol);
-                }, 500);
-                const cleanup = () => {
-                    clearTimeout(timer);
-                    slot.removeEventListener('touchmove', onMove);
-                    slot.removeEventListener('touchend', onEnd);
-                    slot.removeEventListener('touchcancel', cleanup);
-                };
-                const onMove = (mv) => {
-                    const t = mv.touches[0];
-                    if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cleanup(); // finger moved - it's a scroll, not a hold
-                };
-                const onEnd = (endEvt) => {
-                    if (fired) endEvt.preventDefault(); // stop the lift from also counting as a tap
-                    cleanup();
-                };
-                slot.addEventListener('touchmove', onMove, { passive: true });
-                slot.addEventListener('touchend', onEnd);
-                slot.addEventListener('touchcancel', cleanup);
-            }, { passive: true });
-
-            slot.addEventListener('contextmenu', (e) => {
-                if (!clipboardBlockData) return; // nothing copied - normal behavior
-                e.preventDefault();
-                const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-                if (!isTouch) showPasteButton(e, dayCol); // desktop right-click; touch is handled by the long-press above
-            });
-
             slot.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                hidePasteButton();
                 openQuickAddModal(dateKey, h, e);
             });
             addDoubleTapListener(slot, (e) => openQuickAddModal(dateKey, h, e));
@@ -3766,13 +3727,10 @@ function moveContextBlock() {
     toggleArmedMoveBlock(dateKey, index);
 }
 
-// --- COPY / PASTE BUTTON ---
-// "Copy" in the activity menu remembers the activity. Only after that,
-// long-pressing (holding a finger on) an empty spot on the calendar shows
-// a small "Paste" button just above the finger; tapping it pastes the
-// copy at the time that was pressed. On desktop, right-click does the same.
-let pasteTarget = null; // { dateKey, hour, mins }
-
+// --- COPY / PASTE ---
+// "Copy" in the activity menu remembers the activity. After that, the
+// Add Activity window (double-tap an empty spot) shows a "Paste" button
+// that drops the copied activity at that window's Date + Start Time.
 function copyContextBlock() {
     if (!contextBlockInfo) return;
     const { dateKey, index } = contextBlockInfo;
@@ -3782,36 +3740,18 @@ function copyContextBlock() {
     clipboardBlockData = { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
 }
 
-function showPasteButton(e, dayCol) {
+function pasteFromModal() {
     if (!clipboardBlockData) return;
-    const rect = dayCol.getBoundingClientRect();
-    const rawMinutes = ((e.clientY - rect.top) / 40) * 60;
-    if (navigator.vibrate) navigator.vibrate(30);
-    const snapped = Math.max(0, Math.min(23 * 60 + 45, Math.floor(rawMinutes / 15) * 15));
-    pasteTarget = { dateKey: dayCol.dataset.date, hour: Math.floor(snapped / 60), mins: snapped % 60 };
-
-    const btn = document.getElementById('calendar-paste-btn');
-    if (!btn) return;
-    btn.style.display = 'block';
-    // Sit just above the finger so the finger doesn't cover it
-    let left = e.clientX - 50;
-    let top = e.clientY - 70;
-    if (left + 110 > window.innerWidth) left = window.innerWidth - 120;
-    if (top + 50 > window.innerHeight) top = window.innerHeight - 60;
-    btn.style.left = `${Math.max(10, left)}px`;
-    btn.style.top = `${Math.max(10, top)}px`;
-}
-
-function hidePasteButton() {
-    const btn = document.getElementById('calendar-paste-btn');
-    if (btn) btn.style.display = 'none';
-    pasteTarget = null;
-}
-
-function pasteAtTarget() {
-    if (!pasteTarget || !clipboardBlockData) return;
-    const { dateKey, hour, mins } = pasteTarget;
-    hidePasteButton();
+    const dateKey = (document.getElementById('modal-date-input')?.value || '').trim();
+    const startVal = document.getElementById('modal-start-time')?.value || '';
+    closeQuickAddModal();
+    if (!dateKey) { // date left blank - same rule as adding: goes to the Backlog
+        pasteBlockToBacklog();
+        return;
+    }
+    const [hStr, mStr] = startVal.split(':');
+    const hour = Math.max(0, Math.min(23, parseInt(hStr, 10) || 0));
+    const mins = Math.max(0, Math.min(59, parseInt(mStr, 10) || 0));
     pasteBlockToCalendar(dateKey, hour, mins);
 }
 
@@ -3869,7 +3809,6 @@ function saveCustomCategoryColors() {
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.context-menu-content')) closeBlockContextMenu();
-    if (!e.target.closest('#calendar-paste-btn') && !e.target.closest('.matrix-slot')) hidePasteButton();
 });
 
 // --- POPUP MODAL ---
@@ -3949,6 +3888,8 @@ function openQuickAddModal(dateKey, hour, clickEvent) {
     if (submitBtn) { submitBtn.innerText = '+'; submitBtn.title = 'Add Time Block'; }
     if (deleteBtn) deleteBtn.style.display = 'none';
     if (chronoBtn) chronoBtn.style.display = activeLiveTimerRef ? 'none' : 'flex';
+    const pasteBtn = document.getElementById('modal-paste-btn');
+    if (pasteBtn) pasteBtn.style.display = clipboardBlockData ? 'flex' : 'none';
 
     if (modal) {
         modal.style.display = 'block';
@@ -3995,6 +3936,7 @@ function openEditModal(dateKey, index, clickEvent) {
     if (submitBtn) { submitBtn.innerText = '✓'; submitBtn.title = 'Save changes'; }
     if (deleteBtn) deleteBtn.style.display = 'flex';
     if (chronoBtn) chronoBtn.style.display = 'none';
+    { const pb = document.getElementById('modal-paste-btn'); if (pb) pb.style.display = 'none'; }
 
     if (modal) {
         modal.style.display = 'block';
@@ -4055,6 +3997,7 @@ function openBacklogEditModal(backlogId, clickEvent) {
     if (submitBtn) { submitBtn.innerText = '✓'; submitBtn.title = 'Save changes'; }
     if (deleteBtn) deleteBtn.style.display = 'flex';
     if (chronoBtn) chronoBtn.style.display = 'none';
+    { const pb = document.getElementById('modal-paste-btn'); if (pb) pb.style.display = 'none'; }
 
     if (modal) {
         modal.style.display = 'block';
