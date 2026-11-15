@@ -2905,8 +2905,42 @@ function buildDayColumnEl(dateKey) {
             slot.className = 'matrix-slot';
             slot.dataset.hour = h;
 
-            slot.addEventListener('click', (e) => {
-                if (clipboardBlockData) showPasteButton(e, dayCol);
+            // Long-press (finger held ~0.5s without moving) shows the
+            // Paste button - only when something has been copied.
+            slot.style.webkitTouchCallout = 'none';
+            slot.addEventListener('touchstart', (e) => {
+                if (!clipboardBlockData || e.touches.length !== 1) return;
+                const startX = e.touches[0].clientX;
+                const startY = e.touches[0].clientY;
+                let fired = false;
+                const timer = setTimeout(() => {
+                    fired = true;
+                    showPasteButton({ clientX: startX, clientY: startY }, dayCol);
+                }, 500);
+                const cleanup = () => {
+                    clearTimeout(timer);
+                    slot.removeEventListener('touchmove', onMove);
+                    slot.removeEventListener('touchend', onEnd);
+                    slot.removeEventListener('touchcancel', cleanup);
+                };
+                const onMove = (mv) => {
+                    const t = mv.touches[0];
+                    if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cleanup(); // finger moved - it's a scroll, not a hold
+                };
+                const onEnd = (endEvt) => {
+                    if (fired) endEvt.preventDefault(); // stop the lift from also counting as a tap
+                    cleanup();
+                };
+                slot.addEventListener('touchmove', onMove, { passive: true });
+                slot.addEventListener('touchend', onEnd);
+                slot.addEventListener('touchcancel', cleanup);
+            }, { passive: true });
+
+            slot.addEventListener('contextmenu', (e) => {
+                if (!clipboardBlockData) return; // nothing copied - normal behavior
+                e.preventDefault();
+                const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+                if (!isTouch) showPasteButton(e, dayCol); // desktop right-click; touch is handled by the long-press above
             });
 
             slot.addEventListener('dblclick', (e) => {
@@ -3734,8 +3768,9 @@ function moveContextBlock() {
 
 // --- COPY / PASTE BUTTON ---
 // "Copy" in the activity menu remembers the activity. Only after that,
-// tapping anywhere empty on the calendar shows a small "Paste" button
-// right where you tapped; tapping it pastes the copy at that time.
+// long-pressing (holding a finger on) an empty spot on the calendar shows
+// a small "Paste" button just above the finger; tapping it pastes the
+// copy at the time that was pressed. On desktop, right-click does the same.
 let pasteTarget = null; // { dateKey, hour, mins }
 
 function copyContextBlock() {
@@ -3751,14 +3786,16 @@ function showPasteButton(e, dayCol) {
     if (!clipboardBlockData) return;
     const rect = dayCol.getBoundingClientRect();
     const rawMinutes = ((e.clientY - rect.top) / 40) * 60;
+    if (navigator.vibrate) navigator.vibrate(30);
     const snapped = Math.max(0, Math.min(23 * 60 + 45, Math.floor(rawMinutes / 15) * 15));
     pasteTarget = { dateKey: dayCol.dataset.date, hour: Math.floor(snapped / 60), mins: snapped % 60 };
 
     const btn = document.getElementById('calendar-paste-btn');
     if (!btn) return;
     btn.style.display = 'block';
-    let left = e.clientX;
-    let top = e.clientY;
+    // Sit just above the finger so the finger doesn't cover it
+    let left = e.clientX - 50;
+    let top = e.clientY - 70;
     if (left + 110 > window.innerWidth) left = window.innerWidth - 120;
     if (top + 50 > window.innerHeight) top = window.innerHeight - 60;
     btn.style.left = `${Math.max(10, left)}px`;
