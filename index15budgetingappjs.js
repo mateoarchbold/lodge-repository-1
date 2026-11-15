@@ -5866,6 +5866,7 @@ function setMobileNotesView(view) {
     if (!section) return;
     section.classList.toggle('mobile-view-list', view === 'list');
     section.classList.toggle('mobile-view-detail', view === 'detail');
+    if (view === 'detail') requestAnimationFrame(autoGrowNoteTitle);
 }
 
 // Wired to the "←" back button that only shows on phone widths.
@@ -7046,6 +7047,15 @@ function buildTextBlockEl(block, index) {
     requestAnimationFrame(() => autoGrowTextarea(ta));
     wrap.appendChild(ta);
 
+    // Marks the paragraph being edited, so on phone its arrows/trash only
+    // show for that one paragraph (see .block-active in the CSS) - it's
+    // clear what they apply to. Stays until another paragraph is tapped
+    // or you tap outside the note, so tapping the buttons still works.
+    ta.addEventListener('focus', () => {
+        document.querySelectorAll('.note-text-block-wrap.block-active').forEach(w => { if (w !== wrap) w.classList.remove('block-active'); });
+        wrap.classList.add('block-active');
+    });
+
     // Only offer up/down/delete once there's more than one block, so a
     // brand-new one-block note doesn't show useless controls. Also
     // skip it for an EMPTY text block - every photo/voice note drops a
@@ -7063,7 +7073,7 @@ function buildTextBlockEl(block, index) {
         actions.innerHTML = `
             <button type="button" class="note-block-icon-btn" onclick="moveBlock('${block.id}', -1)" title="Move up">↑</button>
             <button type="button" class="note-block-icon-btn" onclick="moveBlock('${block.id}', 1)" title="Move down">↓</button>
-            <button type="button" class="note-block-icon-btn note-block-delete" onclick="deleteNoteBlock('${block.id}')" title="Delete">🗑️</button>
+            <button type="button" class="note-block-icon-btn note-block-delete" onclick="deleteNoteBlock('${block.id}')" title="Delete this paragraph">🗑️</button>
         `;
         wrap.appendChild(actions);
     }
@@ -8425,6 +8435,8 @@ function selectNote(id) {
     updateGlobalUndoBtn(); // now that currentNoteId changed, the floating undo/redo should reflect THIS note's history, not whatever was active before
 
     document.getElementById('note-title-input').value = note.title || '';
+    autoGrowNoteTitle();
+    requestAnimationFrame(autoGrowNoteTitle); // again once the editor is visible
     document.getElementById('note-category-input').value = note.notebook || '';
     renderNoteBlocks(note);
 
@@ -8486,6 +8498,30 @@ function handleNoteEdited() {
 // letter silently added "C", "Co", "Cod"... as separate half-typed
 // notebooks along the way, which is why the notebook list looked like
 // it wasn't working right.
+// The title box wraps onto extra lines instead of cutting long names
+// off, so "Freestyle Day 1" vs "Freestyle Day 2" is always readable.
+function autoGrowNoteTitle() {
+    const t = document.getElementById('note-title-input');
+    if (!t) return;
+    t.style.height = 'auto';
+    if (t.scrollHeight > 0) t.style.height = `${t.scrollHeight}px`; // 0 = not on screen yet; leave it auto
+}
+window.addEventListener('resize', autoGrowNoteTitle);
+
+// Menu option (used on phone, where the notebook box next to the title
+// is hidden): type the notebook name to move the open note there.
+function moveCurrentNoteToNotebook() {
+    if (!currentNoteId) { alert('Open a note first.'); return; }
+    const input = document.getElementById('note-category-input');
+    if (!input) return;
+    const choices = notesNotebooks.length ? `\n\nYour notebooks: ${notesNotebooks.join(', ')}` : '';
+    const answer = prompt(`Move this note to which notebook? (leave empty for none)${choices}`, input.value || '');
+    if (answer === null) return; // cancelled
+    input.value = answer.trim();
+    handleNoteEdited();
+    commitNoteNotebook();
+}
+
 function commitNoteNotebook() {
     if (!currentNoteId) return;
     const input = document.getElementById('note-category-input');
@@ -10546,3 +10582,11 @@ function maybeAutoStartWalkthrough() {
     }
     startWalkthrough();
 }
+
+
+// Tapping outside the note's paragraphs hides the active paragraph's controls
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.note-text-block-wrap')) {
+        document.querySelectorAll('.note-text-block-wrap.block-active').forEach(w => w.classList.remove('block-active'));
+    }
+});
