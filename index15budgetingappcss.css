@@ -489,6 +489,33 @@ h2 {
         max-width: none;
         overflow-y: auto; /* the one place actual scrolling happens */
     }
+    /* Once Split has been pressed, give the Chronometer more room
+       (1:1 instead of 1:2) and let the split list fill the rest of the
+       card and scroll on its own, so every split can be seen. */
+    #timer-page-flex-wrap.has-splits #timer-page-top { flex: 1 1 0; }
+    #timer-page-flex-wrap.has-splits #timer-page-bottom { flex: 1 1 0; }
+    #timer-page-flex-wrap.has-splits #timer-page-top .card.stopwatch {
+        justify-content: flex-start;
+        overflow: hidden;
+    }
+    #timer-page-top .split-container {
+        flex: 1 1 auto;
+        min-height: 90px;
+        max-height: none;
+        margin-top: 8px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #timer-page-top .split-table th,
+    #timer-page-top .split-table td {
+        padding: 5px 6px;
+        font-size: 0.85rem;
+    }
+    #timer-page-top .split-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
 }
 
 .today-strip-day-wrap {

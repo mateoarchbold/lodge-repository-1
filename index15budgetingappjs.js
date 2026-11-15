@@ -1716,6 +1716,12 @@ if (splitBtn) {
             <td>${timeToString(currentTotal)}</td>
         `;
         if (splitLog) splitLog.insertBefore(tr, splitLog.firstChild); 
+        if (splitContainer) splitContainer.scrollTop = 0; // newest split is on top - keep it in view
+        const timerWrap = document.getElementById('timer-page-flex-wrap');
+        if (timerWrap && !timerWrap.classList.contains('has-splits')) {
+            timerWrap.classList.add('has-splits');
+            layoutTimerPageForMobile();
+        }
     });
 }
 
@@ -1727,6 +1733,11 @@ if (resetBtn) {
         elapsedTime = 0; lastSplitTime = 0; splitCount = 0;
         if (splitLog) splitLog.innerHTML = '';
         if (splitContainer) splitContainer.style.display = 'none';
+        const timerWrapReset = document.getElementById('timer-page-flex-wrap');
+        if (timerWrapReset && timerWrapReset.classList.contains('has-splits')) {
+            timerWrapReset.classList.remove('has-splits');
+            layoutTimerPageForMobile();
+        }
         startBtn.disabled = false; stopBtn.disabled = true; splitBtn.disabled = true;
 
         // Linked and there's an active session (running or paused) -
