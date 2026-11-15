@@ -6168,3 +6168,24 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
         opacity: 0.5;
     }
 }
+
+
+/* --- Notes list: number first + "Last opened" --- */
+.note-list-item-num {
+    font-weight: 800;
+    color: var(--accent);
+}
+.note-list-item.last-opened {
+    background: color-mix(in srgb, var(--text-muted) 14%, var(--card-bg)) !important;
+    opacity: 0.85;
+}
+.note-list-item-last-opened {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    margin-bottom: 4px;
+}

@@ -5874,6 +5874,10 @@ function showMobileNotesList() {
     flushNoteSave(); // don't lose a freshly-typed title/notebook name or in-progress edit when backing out on phone
     stopNoteRecordingIfActive();
     setMobileNotesView('list');
+    renderNotesList(); // refresh the "Last opened" mark
+    requestAnimationFrame(() => {
+        document.querySelector('#notes-list .note-list-item.last-opened')?.scrollIntoView({ block: 'center' });
+    });
 }
 
 // --- MOBILE NOTES TOOLBAR: pinned above the on-screen keyboard ---
@@ -8216,10 +8220,12 @@ function renderNotesList() {
         });
     }
     if (notesSortMode === 'alpha') {
+        // numeric: true -> "Day 2" comes before "Day 10" (real number order, not 1, 10, 11, 2...)
         visibleNotes = [...visibleNotes].sort((a, b) =>
-            (a.title || 'Untitled note').localeCompare(b.title || 'Untitled note', undefined, { sensitivity: 'base' })
+            (a.title || 'Untitled note').localeCompare(b.title || 'Untitled note', undefined, { sensitivity: 'base', numeric: true })
         );
     }
+    const lastOpenedId = (() => { try { return localStorage.getItem('lastOpenedNoteId'); } catch (_) { return null; } })();
 
     if (badge) badge.innerText = visibleNotes.length;
 
@@ -8249,6 +8255,7 @@ function renderNotesList() {
         const item = document.createElement('div');
         item.className = 'note-list-item';
         if (note.id === currentNoteId) item.classList.add('active');
+        if (note.id === lastOpenedId) item.classList.add('last-opened');
 
         // The "miniature" (this row) picks up the note's custom page
         // color as a soft tint + matching border, same as the full page.
@@ -8282,7 +8289,8 @@ function renderNotesList() {
         const categoryBadge = `<button type="button" class="note-list-item-category${note.notebook ? '' : ' note-list-item-category-empty'}" style="color:${notebookColor}; border-color:${notebookColor};" onclick="event.stopPropagation(); openNoteNotebookPicker('${note.id}')" title="Set notebook">${notebookLabel}</button>`;
 
         item.innerHTML = `
-            <div class="note-list-item-title">${note.title ? escapeHtml(note.title) : 'Untitled note'}</div>
+            <div class="note-list-item-title">${formatNoteListTitle(note.title)}</div>
+            ${note.id === lastOpenedId ? '<div class="note-list-item-last-opened">Last opened</div>' : ''}
             <div class="note-list-item-preview">${escapeHtml(getNotePreviewText(note))}</div>
             ${voiceBadge}
             ${photoBadge}
@@ -8413,6 +8421,16 @@ function saveNotebookPickerModal() {
 // Loads a note into the right-hand editing pane. Flushes any pending
 // autosave from whichever note was open before, so switching notes right
 // after typing never loses the last few keystrokes.
+// List display only (the real title is unchanged): a title ending in a
+// number, like "2026 Freestyle Day 3", shows the number first -
+// "3 – 2026 Freestyle Day" - so long names never hide which one it is.
+function formatNoteListTitle(title) {
+    if (!title) return 'Untitled note';
+    const m = title.match(/^(.*\S)[\s\-–#]+(\d+)$/);
+    if (!m) return escapeHtml(title);
+    return `<span class="note-list-item-num">${m[2]}</span> – ${escapeHtml(m[1])}`;
+}
+
 function selectNote(id) {
     flushNoteSave();
     // Only actually stop a recording if this is a genuine switch to a
@@ -8431,6 +8449,7 @@ function selectNote(id) {
     const note = notesData.find(n => n.id === id);
     if (!note) return;
     currentNoteId = id;
+    try { localStorage.setItem('lastOpenedNoteId', id); } catch (_) {}
     lastFocusedBlockId = null;
     updateGlobalUndoBtn(); // now that currentNoteId changed, the floating undo/redo should reflect THIS note's history, not whatever was active before
 
