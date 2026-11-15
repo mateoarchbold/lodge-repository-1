@@ -490,10 +490,10 @@ h2 {
         overflow-y: auto; /* the one place actual scrolling happens */
     }
     /* Once Split has been pressed, give the Chronometer more room
-       (1:1 instead of 1:2) and let the split list fill the rest of the
+       (3:2 instead of 1:2) and let the split list fill the rest of the
        card and scroll on its own, so every split can be seen. */
-    #timer-page-flex-wrap.has-splits #timer-page-top { flex: 1 1 0; }
-    #timer-page-flex-wrap.has-splits #timer-page-bottom { flex: 1 1 0; }
+    #timer-page-flex-wrap.has-splits #timer-page-top { flex: 3 1 0; }
+    #timer-page-flex-wrap.has-splits #timer-page-bottom { flex: 2 1 0; }
     #timer-page-flex-wrap.has-splits #timer-page-top .card.stopwatch {
         justify-content: flex-start;
         overflow: hidden;
