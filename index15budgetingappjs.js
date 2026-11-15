@@ -547,13 +547,16 @@ let selectedBlockReference = null; // { dateKey: 'YYYY-MM-DD', index: 0 }
 // context menu (color/delete/edit) exactly as before - only the
 // double-tap and move mechanics changed.
 let armedMoveBlockRef = null; // { dateKey, index } - which block (if any) is currently armed to move
+let armedIsCopy = false; // true when the armed block was armed via "Copy" - dropping it places a duplicate and leaves the original where it is
 
-function toggleArmedMoveBlock(dateKey, index) {
+function toggleArmedMoveBlock(dateKey, index, asCopy = false) {
     if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
         armedMoveBlockRef = null; // tapped the same armed block again - cancel
+        armedIsCopy = false;
         hideDragGhost();
     } else {
         armedMoveBlockRef = { dateKey, index };
+        armedIsCopy = asCopy;
         if (navigator.vibrate) navigator.vibrate(30);
     }
     renderVisualMatrix();
@@ -657,13 +660,26 @@ document.addEventListener('touchend', (e) => {
     const touch = e.changedTouches[0];
     if (touch) updateDragGhost(touch.clientX, touch.clientY);
 
-    if (!dragGhostTarget) { armedMoveBlockRef = null; hideDragGhost(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
+    if (!dragGhostTarget) { armedMoveBlockRef = null; armedIsCopy = false; hideDragGhost(); renderVisualMatrix(); return; } // dragged off to somewhere invalid and released - cancels rather than guessing
     const { dateKey: fromDate, index: fromIndex } = armedMoveBlockRef;
     const { dateKey: toDate, hour, mins } = dragGhostTarget;
+    const wasCopy = armedIsCopy;
     armedMoveBlockRef = null;
+    armedIsCopy = false;
     hideDragGhost();
     if (navigator.vibrate) navigator.vibrate(30);
-    moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
+    if (wasCopy) {
+        // Copy: drop a duplicate at the target, original stays put
+        const src = timeData[fromDate] && timeData[fromDate][fromIndex];
+        if (src) {
+            clipboardBlockData = { category: src.category, name: src.name, hours: src.hours, type: src.type || 'actual' };
+            pasteBlockToCalendar(toDate, hour, mins);
+        } else {
+            renderVisualMatrix();
+        }
+    } else {
+        moveTimeBlockAbsolute(fromDate, fromIndex, toDate, hour, mins);
+    }
 });
 
 // Same "double-tap to arm, tap a destination to complete" pattern as
@@ -2916,47 +2932,8 @@ function buildDayColumnEl(dateKey) {
             slot.className = 'matrix-slot';
             slot.dataset.hour = h;
 
-            // Long-press (finger held ~0.5s without moving) shows the
-            // Paste button - only when something has been copied.
-            slot.style.webkitTouchCallout = 'none';
-            slot.addEventListener('touchstart', (e) => {
-                if (!clipboardBlockData || e.touches.length !== 1) return;
-                const startX = e.touches[0].clientX;
-                const startY = e.touches[0].clientY;
-                let fired = false;
-                const timer = setTimeout(() => {
-                    fired = true;
-                    showPasteButton({ clientX: startX, clientY: startY }, dayCol);
-                }, 500);
-                const cleanup = () => {
-                    clearTimeout(timer);
-                    slot.removeEventListener('touchmove', onMove);
-                    slot.removeEventListener('touchend', onEnd);
-                    slot.removeEventListener('touchcancel', cleanup);
-                };
-                const onMove = (mv) => {
-                    const t = mv.touches[0];
-                    if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cleanup(); // finger moved - it's a scroll, not a hold
-                };
-                const onEnd = (endEvt) => {
-                    if (fired) endEvt.preventDefault(); // stop the lift from also counting as a tap
-                    cleanup();
-                };
-                slot.addEventListener('touchmove', onMove, { passive: true });
-                slot.addEventListener('touchend', onEnd);
-                slot.addEventListener('touchcancel', cleanup);
-            }, { passive: true });
-
-            slot.addEventListener('contextmenu', (e) => {
-                if (!clipboardBlockData) return; // nothing copied - normal behavior
-                e.preventDefault();
-                const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-                if (!isTouch) showPasteButton(e, dayCol); // desktop right-click; touch is handled by the long-press above
-            });
-
             slot.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                hidePasteButton();
                 openQuickAddModal(dateKey, h, e);
             });
             addDoubleTapListener(slot, (e) => openQuickAddModal(dateKey, h, e));
@@ -3777,13 +3754,10 @@ function moveContextBlock() {
     toggleArmedMoveBlock(dateKey, index);
 }
 
-// --- COPY / PASTE BUTTON ---
-// "Copy" in the activity menu remembers the activity. Only after that,
-// long-pressing (holding a finger on) an empty spot on the calendar shows
-// a small "Paste" button just above the finger; tapping it pastes the
-// copy at the time that was pressed. On desktop, right-click does the same.
-let pasteTarget = null; // { dateKey, hour, mins }
-
+// Copy: puts the activity on the clipboard (so Ctrl+V pastes it on
+// desktop) and, on touch screens, arms it exactly like Move - drag a
+// finger to where the copy should go and release. Unlike Move, the
+// original activity stays where it is.
 function copyContextBlock() {
     if (!contextBlockInfo) return;
     const { dateKey, index } = contextBlockInfo;
@@ -3791,39 +3765,14 @@ function copyContextBlock() {
     closeBlockContextMenu();
     if (!item) return;
     clipboardBlockData = { category: item.category, name: item.name, hours: item.hours, type: item.type || 'actual' };
-}
-
-function showPasteButton(e, dayCol) {
-    if (!clipboardBlockData) return;
-    const rect = dayCol.getBoundingClientRect();
-    const rawMinutes = ((e.clientY - rect.top) / 40) * 60;
-    if (navigator.vibrate) navigator.vibrate(30);
-    const snapped = Math.max(0, Math.min(23 * 60 + 45, Math.floor(rawMinutes / 15) * 15));
-    pasteTarget = { dateKey: dayCol.dataset.date, hour: Math.floor(snapped / 60), mins: snapped % 60 };
-
-    const btn = document.getElementById('calendar-paste-btn');
-    if (!btn) return;
-    btn.style.display = 'block';
-    // Sit just above the finger so the finger doesn't cover it
-    let left = e.clientX - 50;
-    let top = e.clientY - 70;
-    if (left + 110 > window.innerWidth) left = window.innerWidth - 120;
-    if (top + 50 > window.innerHeight) top = window.innerHeight - 60;
-    btn.style.left = `${Math.max(10, left)}px`;
-    btn.style.top = `${Math.max(10, top)}px`;
-}
-
-function hidePasteButton() {
-    const btn = document.getElementById('calendar-paste-btn');
-    if (btn) btn.style.display = 'none';
-    pasteTarget = null;
-}
-
-function pasteAtTarget() {
-    if (!pasteTarget || !clipboardBlockData) return;
-    const { dateKey, hour, mins } = pasteTarget;
-    hidePasteButton();
-    pasteBlockToCalendar(dateKey, hour, mins);
+    const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch) {
+        if (armedMoveBlockRef && armedMoveBlockRef.dateKey === dateKey && armedMoveBlockRef.index === index) {
+            armedIsCopy = true; // already armed (e.g. via Move) - just switch it to copy mode
+        } else {
+            toggleArmedMoveBlock(dateKey, index, true);
+        }
+    }
 }
 
 // Opens the same reliable edit modal used everywhere else, focused on
@@ -3880,7 +3829,6 @@ function saveCustomCategoryColors() {
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.context-menu-content')) closeBlockContextMenu();
-    if (!e.target.closest('#calendar-paste-btn') && !e.target.closest('.matrix-slot')) hidePasteButton();
 });
 
 // --- POPUP MODAL ---
