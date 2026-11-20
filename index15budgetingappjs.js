@@ -10749,3 +10749,108 @@ function showInstallBanner(kind) {
     const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios|opios/i.test(ua);
     if (isIos && isSafari && !isStandaloneApp()) setTimeout(() => showInstallBanner('ios'), 3000);
 })();
+
+
+// =========================================================
+// PAYMENTS (Paddle) - Upgrade to Pro
+// Public values only: the client-side token and price IDs are meant to
+// be visible in website code. Secret keys never go here.
+// Switch PADDLE_ENV to 'production' (with the live token and live price
+// IDs) once Paddle approves the account.
+// =========================================================
+const PADDLE_ENV = 'sandbox';
+const PADDLE_CLIENT_TOKEN = 'test_5200e1025850bdfe448391ebcbb';
+const PADDLE_PRICES = {
+    monthly: 'pri_01m7vmy1z2ncjpz65391yjnnxq', // US$4.99 / month
+    yearly: 'pri_01m7vmyngd8m3bzmbktdbjagzm'   // US$39.99 / year
+};
+let paddleReady = false;
+
+function initPaddle() {
+    if (paddleReady || !window.Paddle) return;
+    try {
+        if (PADDLE_ENV === 'sandbox') window.Paddle.Environment.set('sandbox');
+        window.Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN, eventCallback: handlePaddleEvent });
+        paddleReady = true;
+    } catch (err) {
+        console.warn('Paddle could not start:', err);
+    }
+}
+// In case the Paddle script finished loading before this file ran
+if (window.Paddle) initPaddle();
+
+function handlePaddleEvent(event) {
+    if (!event || !event.name) return;
+    if (event.name === 'checkout.completed') {
+        closeUpgradeModal();
+        showUpgradeNotice('🎉 Thank you! Your payment went through. Nabu Pro will be activated on your account shortly.');
+    }
+}
+
+function openUpgradeModal() {
+    if (document.getElementById('upgrade-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'upgrade-modal';
+    modal.className = 'upgrade-modal-overlay';
+    modal.innerHTML = `
+        <div class="upgrade-modal" role="dialog" aria-label="Upgrade to Nabu Pro">
+            <button type="button" class="upgrade-close" aria-label="Close" onclick="closeUpgradeModal()">✕</button>
+            <div class="upgrade-title">⭐ Nabu Pro</div>
+            <div class="upgrade-sub">Unlimited history and notes, voice notes and photos, and sync across all your devices.</div>
+            <button type="button" class="upgrade-plan" onclick="startProCheckout('yearly')">
+                <span class="upgrade-plan-name">Yearly <span class="upgrade-save">−33%</span></span>
+                <span class="upgrade-plan-price">US$39.99 <small>/ year</small></span>
+            </button>
+            <button type="button" class="upgrade-plan" onclick="startProCheckout('monthly')">
+                <span class="upgrade-plan-name">Monthly</span>
+                <span class="upgrade-plan-price">US$4.99 <small>/ month</small></span>
+            </button>
+            <div class="upgrade-fine">Cancel anytime. Payments are handled securely by Paddle. <a href="pricing.html" target="_blank">Compare plans</a> · <a href="terms.html" target="_blank">Terms</a></div>
+        </div>`;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeUpgradeModal(); });
+    document.body.appendChild(modal);
+}
+
+function closeUpgradeModal() {
+    document.getElementById('upgrade-modal')?.remove();
+}
+
+function startProCheckout(plan) {
+    // Pro is tied to the account, so you need to be logged in first
+    if (!currentUser) {
+        closeUpgradeModal();
+        showUpgradeNotice('Log in or create an account first, then tap Upgrade to Pro again.');
+        if (typeof openAuthModal === 'function') openAuthModal();
+        return;
+    }
+    if (offlineViewMode || !navigator.onLine) {
+        showUpgradeNotice('You need an internet connection to upgrade.');
+        return;
+    }
+    initPaddle();
+    if (!paddleReady) {
+        showUpgradeNotice('The payment window is still loading - try again in a few seconds.');
+        return;
+    }
+    closeUpgradeModal();
+    window.Paddle.Checkout.open({
+        items: [{ priceId: PADDLE_PRICES[plan], quantity: 1 }],
+        customer: { email: currentUser.email },
+        // lets Paddle's notifications say exactly which Nabu account paid
+        customData: { user_id: currentUser.id },
+        settings: {
+            displayMode: 'overlay',
+            theme: document.body.classList.contains('light-theme') ? 'dark' : 'light'
+        }
+    });
+}
+
+function showUpgradeNotice(message) {
+    document.getElementById('upgrade-notice')?.remove();
+    const n = document.createElement('div');
+    n.id = 'upgrade-notice';
+    n.className = 'upgrade-notice';
+    n.innerHTML = `<span>${escapeHtml(message)}</span><button type="button" aria-label="Close" onclick="this.parentElement.remove()">✕</button>`;
+    document.body.appendChild(n);
+    setTimeout(() => n.remove(), 8000);
+}

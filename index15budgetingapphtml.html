@@ -19,8 +19,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="index15budgetingappcss.css?v=20261120a">
+    <link rel="stylesheet" href="index15budgetingappcss.css?v=20261120b">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Paddle (payments) - loads in the background, never blocks the app -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js" async onload="window.initPaddle && initPaddle()"></script>
 </head>
 <body>
 
@@ -60,6 +62,9 @@
             </button>
             <button class="theme-toggle-btn" id="auth-open-btn" onclick="openAuthModal()" title="Account" data-i18n-title="header.account">
                 <span class="icon-badge icon-badge-account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></span> <span id="auth-btn-label" data-i18n="header.account">Account</span>
+            </button>
+            <button class="theme-toggle-btn" id="upgrade-pro-btn" onclick="openUpgradeModal()" title="Upgrade to Nabu Pro">
+                <span class="icon-badge">⭐</span> <span>Upgrade to Pro</span>
             </button>
             <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" data-i18n-title="header.themeTitle">
                 <span class="icon-badge icon-badge-theme" id="theme-icon">
@@ -1359,6 +1364,6 @@
         <div>Loading your data…</div>
     </div>
 
-    <script src="index15budgetingappjs.js?v=20261120a"></script>
+    <script src="index15budgetingappjs.js?v=20261120b"></script>
 </body>
 </html>

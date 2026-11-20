@@ -6247,3 +6247,92 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
 @media (min-width: 769px) {
     .install-banner { left: auto; right: 20px; bottom: 20px; max-width: 380px; }
 }
+
+
+/* --- Upgrade to Pro (Paddle) --- */
+.upgrade-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10003;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.upgrade-modal {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 24px 20px 18px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.upgrade-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+.upgrade-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 6px; }
+.upgrade-sub { color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 16px; }
+.upgrade-plan {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    text-align: left;
+}
+.upgrade-plan:first-of-type { border: 2px solid var(--accent); }
+.upgrade-plan-name { font-weight: 700; }
+.upgrade-plan-price { font-weight: 800; white-space: nowrap; }
+.upgrade-plan-price small { font-weight: 500; color: var(--text-muted); }
+.upgrade-save {
+    font-size: 0.72rem;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 999px;
+    padding: 2px 7px;
+    margin-left: 4px;
+}
+.upgrade-fine { color: var(--text-muted); font-size: 0.75rem; line-height: 1.5; margin-top: 6px; text-align: center; }
+.upgrade-fine a { color: var(--accent); }
+.upgrade-notice {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    z-index: 10004;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.88rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.upgrade-notice span { flex: 1; }
+.upgrade-notice button { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; }
+@media (min-width: 769px) {
+    .upgrade-notice { left: auto; right: 20px; max-width: 420px; }
+}
