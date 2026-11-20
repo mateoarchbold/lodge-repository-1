@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — Nabu</title>
+<meta name="description" content="Nabu pricing: a free plan, and Nabu Pro for US$4.99/month or US$39.99/year with a 14-day free trial.">
+<link rel="icon" type="image/svg+xml" href="nabu-favicon.svg">
+<link rel="apple-touch-icon" href="nabu-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg-color: #ffffff;
+        --card-bg: #ffffff;
+        --text: #1F2937;
+        --text-muted: #6b7280;
+        --accent: #3E5C54;
+        --accent-2: #A87C4F;
+        --border-color: #e5e7eb;
+        --input-bg: #fafafa;
+    }
+    /* Same theme switch the app and the Privacy/Terms pages use */
+    html.light-theme {
+        --bg-color: #000000;
+        --card-bg: #141414;
+        --text: #F2EFE6;
+        --text-muted: #9CA8A3;
+        --accent: #C49566;
+        --accent-2: #C49566;
+        --border-color: #2A2A2A;
+        --input-bg: #141414;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg-color);
+        color: var(--text);
+        margin: 0;
+        padding: 0 16px 60px;
+    }
+    .page-wrap { max-width: 980px; margin: 0 auto; }
+    .top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        font-size: 1.15rem;
+        color: var(--accent);
+        letter-spacing: 0.04em;
+        text-decoration: none;
+    }
+    .brand img { width: 26px; height: 26px; }
+    .top-link {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.92rem;
+    }
+    .hero { text-align: center; padding: 48px 0 28px; }
+    .hero h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); margin: 0 0 12px; line-height: 1.15; }
+    .hero p { color: var(--text-muted); font-size: 1.05rem; max-width: 620px; margin: 0 auto; line-height: 1.6; }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin: 8px 0 40px;
+    }
+    .feature {
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+    }
+    .feature-icon { font-size: 1.4rem; }
+    .feature h3 { margin: 6px 0 4px; font-size: 1rem; }
+    .feature p { margin: 0; color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+
+    .billing-toggle {
+        display: flex;
+        justify-content: center;
+        margin: 0 0 22px;
+    }
+    .billing-toggle-inner {
+        display: inline-flex;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        padding: 4px;
+    }
+    .billing-toggle button {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 8px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+    }
+    .billing-toggle button.active { background: var(--accent); color: #fff; }
+    .save-tag { font-size: 0.72rem; font-weight: 700; margin-left: 4px; opacity: 0.9; }
+
+    .plans {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        align-items: stretch;
+    }
+    .plan {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+    }
+    .plan.pro { border: 2px solid var(--accent); position: relative; }
+    .plan-badge {
+        position: absolute;
+        top: -12px;
+        left: 24px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 999px;
+    }
+    .plan h2 { margin: 0 0 4px; font-size: 1.3rem; }
+    .plan-desc { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 16px; }
+    .price { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+    .price small { font-size: 1rem; font-weight: 600; color: var(--text-muted); }
+    .price-note { color: var(--text-muted); font-size: 0.85rem; margin: 6px 0 18px; min-height: 1.2em; }
+    .plan ul { list-style: none; padding: 0; margin: 0 0 22px; flex: 1; }
+    .plan li { padding: 7px 0; font-size: 0.93rem; display: flex; gap: 8px; line-height: 1.4; }
+    .plan li .x { color: var(--text-muted); }
+    .plan li.off { color: var(--text-muted); }
+    .cta {
+        display: block;
+        text-align: center;
+        text-decoration: none;
+        font-weight: 700;
+        padding: 13px 16px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+    }
+    .cta-primary { background: var(--accent); color: #fff; }
+    .cta-secondary { background: var(--input-bg); color: var(--text); border: 1px solid var(--border-color); }
+    .cta-sub { text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-top: 8px; }
+
+    h2.section { font-size: 1.4rem; margin: 52px 0 16px; text-align: center; }
+    .faq { max-width: 720px; margin: 0 auto; }
+    .faq details {
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+        background: var(--input-bg);
+    }
+    .faq summary { font-weight: 600; cursor: pointer; }
+    .faq p { color: var(--text-muted); line-height: 1.6; margin: 10px 0 0; font-size: 0.93rem; }
+    a { color: var(--accent); }
+
+    footer {
+        margin-top: 56px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-color);
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        line-height: 1.7;
+        text-align: center;
+    }
+    footer .links a { margin: 0 8px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+    <div class="top-bar">
+        <a class="brand" href="index15budgetingapphtml.html"><img src="nabu-favicon.svg" alt="">NABU</a>
+        <a class="top-link" href="index15budgetingapphtml.html">Open Nabu →</a>
+    </div>
+
+    <section class="hero">
+        <h1>Plan your time. Track it. Keep your ideas.</h1>
+        <p>Nabu is a web app that brings a time tracker, a visual day planner, a Kanban board and notes with voice recordings and photos together in one place — on your phone and your computer.</p>
+    </section>
+
+    <section class="features" aria-label="What Nabu does">
+        <div class="feature"><div class="feature-icon">⏱️</div><h3>Timer &amp; chronometer</h3><p>Track what you work on, with splits, and log it straight to your calendar.</p></div>
+        <div class="feature"><div class="feature-icon">📅</div><h3>Visual planner</h3><p>Plan your day and week on a calendar. Move, copy and resize activities with a tap.</p></div>
+        <div class="feature"><div class="feature-icon">📊</div><h3>Stats &amp; goals</h3><p>See where your time goes and how close you are to your goals.</p></div>
+        <div class="feature"><div class="feature-icon">📝</div><h3>Notes</h3><p>Notebooks, voice notes and photos, organized and always with you.</p></div>
+    </section>
+
+    <div class="billing-toggle">
+        <div class="billing-toggle-inner" role="group" aria-label="Billing period">
+            <button type="button" id="btn-monthly" class="active" onclick="setBilling('monthly')">Monthly</button>
+            <button type="button" id="btn-yearly" onclick="setBilling('yearly')">Yearly <span class="save-tag">−33%</span></button>
+        </div>
+    </div>
+
+    <section class="plans" aria-label="Plans">
+        <div class="plan">
+            <h2>Free</h2>
+            <p class="plan-desc">Everything you need to start planning and tracking.</p>
+            <div class="price">US$0</div>
+            <div class="price-note">Free forever</div>
+            <ul>
+                <li><span>✓</span> Timer and chronometer</li>
+                <li><span>✓</span> Calendar &amp; planner — last 30 days of history</li>
+                <li><span>✓</span> Up to 20 notes</li>
+                <li><span>✓</span> Stats for the last 7 days</li>
+                <li><span>✓</span> 1 Kanban board</li>
+                <li><span>✓</span> 1 device</li>
+                <li class="off"><span class="x">—</span> Voice notes and photos</li>
+                <li class="off"><span class="x">—</span> Backups and export</li>
+            </ul>
+            <a class="cta cta-secondary" href="index15budgetingapphtml.html">Start for free</a>
+            <div class="cta-sub">No card needed</div>
+        </div>
+
+        <div class="plan pro">
+            <span class="plan-badge">Most popular</span>
+            <h2>Pro</h2>
+            <p class="plan-desc">Unlimited everything, on all your devices.</p>
+            <div class="price" id="pro-price">US$4.99 <small>/ month</small></div>
+            <div class="price-note" id="pro-note">Billed monthly. Cancel anytime.</div>
+            <ul>
+                <li><span>✓</span> Everything in Free</li>
+                <li><span>✓</span> Unlimited calendar history</li>
+                <li><span>✓</span> Unlimited notes and notebooks</li>
+                <li><span>✓</span> Voice notes and photos</li>
+                <li><span>✓</span> Sync across phone and computer</li>
+                <li><span>✓</span> Full stats history and goals</li>
+                <li><span>✓</span> Unlimited Kanban boards</li>
+                <li><span>✓</span> Backups and export (Dropbox, files)</li>
+            </ul>
+            <a class="cta cta-primary" href="index15budgetingapphtml.html">Start 14-day free trial</a>
+            <div class="cta-sub">14 days free, no card needed for the trial</div>
+        </div>
+    </section>
+
+    <h2 class="section">Questions</h2>
+    <div class="faq">
+        <details>
+            <summary>How does the free trial work?</summary>
+            <p>New users get 14 days of Pro for free, with no card required. When the trial ends you go back to the Free plan unless you decide to subscribe. You're never charged automatically for the trial.</p>
+        </details>
+        <details>
+            <summary>Can I cancel anytime?</summary>
+            <p>Yes. Cancel from <em>Manage subscription</em> in the app menu. You keep Pro until the end of the period you already paid for, then your account moves to the Free plan. Your data is not deleted.</p>
+        </details>
+        <details>
+            <summary>Do you offer refunds?</summary>
+            <p>Yearly plans can be refunded in full within 14 days of purchase. Monthly payments are not refundable, but you can cancel anytime to stop future charges. Your legal consumer rights always apply. See our <a href="terms.html#refunds">Terms and Conditions</a> for details.</p>
+        </details>
+        <details>
+            <summary>How are payments handled?</summary>
+            <p>Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for all our orders and handles payments, taxes and invoices, and provides all customer service inquiries related to billing. We never see or store your card details.</p>
+        </details>
+        <details>
+            <summary>Which currencies and taxes?</summary>
+            <p>Prices are in US dollars. At checkout you may see the price in your local currency, and taxes such as VAT may be added depending on your country. The final price is always shown before you pay.</p>
+        </details>
+        <details>
+            <summary>What happens to my data if I go back to Free?</summary>
+            <p>Nothing is deleted. Anything above the Free plan's limits stays in your account and becomes read-only until you upgrade again.</p>
+        </details>
+    </div>
+
+    <footer>
+        <div class="links">
+            <a href="terms.html">Terms and Conditions</a>
+            <a href="terms.html#refunds">Refund policy</a>
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="mailto:defytheoddsfractal@gmail.com">Contact</a>
+        </div>
+        <div>Nabu is made by Lodge Fractals · Bogotá, Colombia · <a href="mailto:defytheoddsfractal@gmail.com">defytheoddsfractal@gmail.com</a></div>
+    </footer>
+</div>
+
+<script>
+    // Monthly / Yearly switch for the Pro price
+    function setBilling(period) {
+        const yearly = period === 'yearly';
+        document.getElementById('btn-monthly').classList.toggle('active', !yearly);
+        document.getElementById('btn-yearly').classList.toggle('active', yearly);
+        document.getElementById('pro-price').innerHTML = yearly
+            ? 'US$39.99 <small>/ year</small>'
+            : 'US$4.99 <small>/ month</small>';
+        document.getElementById('pro-note').textContent = yearly
+            ? 'Billed yearly — about US$3.33/month. Cancel anytime.'
+            : 'Billed monthly. Cancel anytime.';
+    }
+    // Match the theme chosen inside the Nabu app (same key the app writes)
+    try {
+        if (localStorage.getItem('themePreference') === 'light') document.documentElement.classList.add('light-theme');
+    } catch (_) {}
+</script>
+</body>
+</html>
