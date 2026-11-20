@@ -10790,16 +10790,18 @@ function handlePaddleEvent(event) {
     }
 }
 
-function openUpgradeModal() {
+function openUpgradeModal(reason) {
     if (document.getElementById('upgrade-modal')) return;
+    if (typeof reason !== 'string') reason = ''; // called from a click: no reason
     const modal = document.createElement('div');
     modal.id = 'upgrade-modal';
     modal.className = 'upgrade-modal-overlay';
     modal.innerHTML = `
         <div class="upgrade-modal" role="dialog" aria-label="Upgrade to Nabu Pro">
             <button type="button" class="upgrade-close" aria-label="Close" onclick="closeUpgradeModal()">✕</button>
+            ${reason ? `<div class="upgrade-reason">🔒 ${escapeHtml(reason)}</div>` : ''}
             <div class="upgrade-title">⭐ Nabu Pro</div>
-            <div class="upgrade-sub">Unlimited history and notes, voice notes and photos, and sync across all your devices.</div>
+            <div class="upgrade-sub">Unlimited notes, voice notes and photos, unlimited Kanban projects, and backups &amp; exports.</div>
             <button type="button" class="upgrade-plan" onclick="startProCheckout('yearly')">
                 <span class="upgrade-plan-name">Yearly <span class="upgrade-save">−33%</span></span>
                 <span class="upgrade-plan-price">US$39.99 <small>/ year</small></span>
@@ -10868,7 +10870,7 @@ function showUpgradeNotice(message) {
 // from Paddle -> Settings -> Customer portal. Empty until it's set.
 const PADDLE_CUSTOMER_PORTAL_URL = 'https://sandbox-customer-portal.paddle.com/cpl_01m7vmqkzr6marpxd3c5h5qfqb'; // sandbox - replace with the live portal link when going live
 const PRO_STATUSES = ['active', 'trialing', 'past_due']; // past_due: keep access while Paddle retries the card
-let proSubscription = null;
+let proSubscription; // undefined = not checked yet, null = no subscription
 
 function isProUser() {
     return !!(proSubscription && PRO_STATUSES.includes(proSubscription.status));
@@ -10897,12 +10899,14 @@ function setProStatus(sub) {
     const btn = document.getElementById('upgrade-pro-btn');
     if (btn) {
         const label = btn.querySelector('span:last-child');
-        if (label) label.textContent = pro ? 'Pro · Manage subscription' : 'Upgrade to Pro';
+        const trialDays = !pro ? trialDaysLeft() : 0;
+        if (label) label.textContent = pro ? 'Pro · Manage subscription' : (trialDays > 0 ? `Upgrade to Pro · Trial: ${trialDays} day${trialDays === 1 ? '' : 's'} left` : 'Upgrade to Pro');
         btn.title = pro ? 'Your Nabu Pro subscription' : 'Upgrade to Nabu Pro';
         btn.onclick = pro ? openManageSubscription : openUpgradeModal;
     }
     const avatar = document.getElementById('user-avatar-circle');
     if (avatar) avatar.classList.toggle('avatar-pro', pro);
+    if (sub !== null || currentUser) maybeShowTrialNotice();
 }
 
 // Right after paying, Paddle's notification takes a few seconds to
@@ -10948,3 +10952,89 @@ function openManageSubscription() {
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && currentUser) refreshProStatus();
 });
+
+
+// =========================================================
+// FREE PLAN LIMITS + 14-DAY TRIAL
+// Nothing is ever deleted: over the limit you keep everything, you just
+// can't add more until you upgrade. Pro (or the trial) removes the limits.
+// =========================================================
+const FREE_NOTES_LIMIT = 20;
+const FREE_BOARD_PROJECTS_LIMIT = 1;
+const TRIAL_DAYS = 14;
+const TRIAL_LAUNCH_DATE = Date.parse('2026-11-20T00:00:00Z'); // accounts older than this get their 14 days from launch
+
+function trialEndsAt() {
+    if (!currentUser) return 0;
+    const created = Date.parse(currentUser.created_at || '') || Date.now();
+    return Math.max(created, TRIAL_LAUNCH_DATE) + TRIAL_DAYS * 24 * 60 * 60 * 1000;
+}
+function trialDaysLeft() {
+    const ms = trialEndsAt() - Date.now();
+    return ms > 0 ? Math.ceil(ms / (24 * 60 * 60 * 1000)) : 0;
+}
+function hasProAccess() {
+    return isProUser() || trialDaysLeft() > 0;
+}
+
+// Once a day, remind trial users how many days are left
+function maybeShowTrialNotice() {
+    if (!currentUser || isProUser()) return;
+    const days = trialDaysLeft();
+    const key = 'trialNoticeShown:' + new Date().toDateString();
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (_) { return; }
+    if (days > 0) {
+        showUpgradeNotice(`⭐ You're on the free Nabu Pro trial: ${days} day${days === 1 ? '' : 's'} left.`);
+    }
+}
+
+// Wraps an existing feature so free users get the Upgrade window instead.
+// `blocked` decides, per call, whether this particular use needs Pro.
+function requirePro(fnName, reason, blocked) {
+    const original = window[fnName];
+    if (typeof original !== 'function') return;
+    window[fnName] = function (...args) {
+        const isBlocked = blocked ? blocked.apply(this, args) : true;
+        if (!isBlocked) return original.apply(this, args);
+        const decide = () => {
+            if (hasProAccess()) return original.apply(this, args);
+            const why = typeof reason === 'function' ? reason() : reason;
+            if (!currentUser) {
+                showUpgradeNotice(why + ' Log in to start your free 14-day Pro trial.');
+                if (typeof openAuthModal === 'function') openAuthModal();
+            } else {
+                openUpgradeModal(why);
+            }
+        };
+        // Pro status still loading (first seconds after opening): check first
+        if (currentUser && proSubscription === undefined && !offlineViewMode) return refreshProStatus().then(decide);
+        return decide();
+    };
+}
+
+requirePro('createNote', `The free plan includes up to ${FREE_NOTES_LIMIT} notes.`, () => notesData.length >= FREE_NOTES_LIMIT);
+requirePro('duplicateCurrentNote', `The free plan includes up to ${FREE_NOTES_LIMIT} notes.`, () => notesData.length >= FREE_NOTES_LIMIT);
+requirePro('toggleNoteRecording', 'Voice notes are a Pro feature.', () => !noteRecordingIsActive); // stopping an active recording is always allowed
+requirePro('triggerPhotoUpload', 'Photos are a Pro feature.');
+requirePro('addPhotoFilesToCurrentNote', 'Photos are a Pro feature.');
+requirePro('submitNewBoardProject', `The free plan includes ${FREE_BOARD_PROJECTS_LIMIT} Kanban project.`, () => {
+    const input = document.getElementById('board-project-new-input');
+    const name = input ? input.value.trim() : '';
+    return !!name && !boardProjects.includes(name) && boardProjects.length >= FREE_BOARD_PROJECTS_LIMIT;
+});
+requirePro('exportData', 'Exports and backups are a Pro feature.');
+requirePro('exportAllNotes', 'Exports and backups are a Pro feature.');
+requirePro('exportCurrentNote', 'Exports and backups are a Pro feature.');
+requirePro('linkDropboxAccount', 'Dropbox backups are a Pro feature.');
+// Automatic (silent) Dropbox backups just skip quietly on the free plan
+(function () {
+    const original = window.backupNowToDropbox;
+    if (typeof original !== 'function') return;
+    window.backupNowToDropbox = function (silent, ...rest) {
+        if (!hasProAccess()) {
+            if (!silent) openUpgradeModal('Dropbox backups are a Pro feature.');
+            return;
+        }
+        return original.call(this, silent, ...rest);
+    };
+})();
