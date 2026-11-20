@@ -10866,7 +10866,7 @@ function showUpgradeNotice(message) {
 // =========================================================
 // Paddle's customer portal (cancel, change card, invoices). Public link
 // from Paddle -> Settings -> Customer portal. Empty until it's set.
-const PADDLE_CUSTOMER_PORTAL_URL = '';
+const PADDLE_CUSTOMER_PORTAL_URL = 'https://sandbox-customer-portal.paddle.com/cpl_01m7vmqkzr6marpxd3c5h5qfqb'; // sandbox - replace with the live portal link when going live
 const PRO_STATUSES = ['active', 'trialing', 'past_due']; // past_due: keep access while Paddle retries the card
 let proSubscription = null;
 
