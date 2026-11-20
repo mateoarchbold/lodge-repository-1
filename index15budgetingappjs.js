@@ -8827,8 +8827,10 @@ async function handleAuthSession(session) {
     updateAuthUI(currentUser);
     if (!currentUser) {
         unsubscribeFromRealtimeSync();
+        setProStatus(null);
         return;
     }
+    refreshProStatus(); // in the background - never delays loading your data
 
     isLoadingCloudData = true;
     let cloudData;
@@ -10783,7 +10785,8 @@ function handlePaddleEvent(event) {
     if (!event || !event.name) return;
     if (event.name === 'checkout.completed') {
         closeUpgradeModal();
-        showUpgradeNotice('🎉 Thank you! Your payment went through. Nabu Pro will be activated on your account shortly.');
+        showUpgradeNotice('🎉 Thank you! Your payment went through. Activating Nabu Pro…');
+        waitForProActivation();
     }
 }
 
@@ -10854,3 +10857,94 @@ function showUpgradeNotice(message) {
     document.body.appendChild(n);
     setTimeout(() => n.remove(), 8000);
 }
+
+
+// =========================================================
+// PRO STATUS - read from the "subscriptions" table, which only the
+// paddle-webhook function (server side) can write. Users can only read
+// their own row, so nobody can make themselves Pro from the browser.
+// =========================================================
+// Paddle's customer portal (cancel, change card, invoices). Public link
+// from Paddle -> Settings -> Customer portal. Empty until it's set.
+const PADDLE_CUSTOMER_PORTAL_URL = '';
+const PRO_STATUSES = ['active', 'trialing', 'past_due']; // past_due: keep access while Paddle retries the card
+let proSubscription = null;
+
+function isProUser() {
+    return !!(proSubscription && PRO_STATUSES.includes(proSubscription.status));
+}
+
+async function refreshProStatus() {
+    if (!currentUser || offlineViewMode) return isProUser();
+    try {
+        const { data, error } = await supabaseClient
+            .from('subscriptions')
+            .select('status, plan, current_period_end')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        if (error) throw error;
+        setProStatus(data || null);
+    } catch (err) {
+        console.warn('Could not check Pro status:', err && err.message ? err.message : err);
+    }
+    return isProUser();
+}
+
+function setProStatus(sub) {
+    proSubscription = sub;
+    const pro = isProUser();
+    document.body.classList.toggle('is-pro', pro);
+    const btn = document.getElementById('upgrade-pro-btn');
+    if (btn) {
+        const label = btn.querySelector('span:last-child');
+        if (label) label.textContent = pro ? 'Pro · Manage subscription' : 'Upgrade to Pro';
+        btn.title = pro ? 'Your Nabu Pro subscription' : 'Upgrade to Nabu Pro';
+        btn.onclick = pro ? openManageSubscription : openUpgradeModal;
+    }
+    const avatar = document.getElementById('user-avatar-circle');
+    if (avatar) avatar.classList.toggle('avatar-pro', pro);
+}
+
+// Right after paying, Paddle's notification takes a few seconds to
+// reach the server - check every 3 seconds for up to a minute.
+async function waitForProActivation() {
+    for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        if (await refreshProStatus()) {
+            showUpgradeNotice('⭐ You’re now Nabu Pro. Thank you for supporting Nabu!');
+            return;
+        }
+    }
+    showUpgradeNotice('Your payment went through. Pro is taking longer than usual to activate - it will show up shortly, or reopen Nabu in a minute.');
+}
+
+function openManageSubscription() {
+    const sub = proSubscription || {};
+    const renew = sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+    const planLabel = sub.plan === 'yearly' ? 'Yearly · US$39.99' : sub.plan === 'monthly' ? 'Monthly · US$4.99' : 'Pro';
+    const statusNote = sub.status === 'past_due'
+        ? '<div class="manage-warn">⚠️ Your last payment didn’t go through. Please update your card to keep Pro.</div>'
+        : '';
+    const portalBtn = PADDLE_CUSTOMER_PORTAL_URL
+        ? `<a class="upgrade-plan manage-portal-btn" href="${PADDLE_CUSTOMER_PORTAL_URL}" target="_blank" rel="noopener">Cancel, change card or see invoices →</a>`
+        : `<div class="upgrade-fine">To cancel or change your card, use the link in the receipt email from Paddle, or write to <a href="mailto:defytheoddsfractal@gmail.com">defytheoddsfractal@gmail.com</a>.</div>`;
+    document.getElementById('upgrade-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'upgrade-modal';
+    modal.className = 'upgrade-modal-overlay';
+    modal.innerHTML = `
+        <div class="upgrade-modal" role="dialog" aria-label="Your Nabu Pro subscription">
+            <button type="button" class="upgrade-close" aria-label="Close" onclick="closeUpgradeModal()">✕</button>
+            <div class="upgrade-title">⭐ You’re Nabu Pro</div>
+            <div class="upgrade-sub">Plan: <b>${planLabel}</b>${renew ? `<br>Renews on <b>${renew}</b>` : ''}</div>
+            ${statusNote}
+            ${portalBtn}
+        </div>`;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeUpgradeModal(); });
+    document.body.appendChild(modal);
+}
+
+// Check again when coming back to the app (e.g. after cancelling in the portal)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && currentUser) refreshProStatus();
+});
