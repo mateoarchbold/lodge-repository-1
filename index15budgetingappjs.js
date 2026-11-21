@@ -6445,7 +6445,7 @@ function updateNoteRecordingTimerLabel() {
 // noteRecordingAudioContext above for why WAV specifically (universal
 // playback everywhere, at the cost of a bigger file than a compressed
 // format would produce).
-function encodeWAV(pcmChunks, sampleRate) {
+function voiceNotePCM16(pcmChunks) {
     let totalLength = 0;
     pcmChunks.forEach(c => { totalLength += c.length; });
 
@@ -6474,7 +6474,11 @@ function encodeWAV(pcmChunks, sampleRate) {
         const s = Math.max(-1, Math.min(1, merged[i] * gain));
         pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
+    return pcm16;
+}
 
+function encodeWAV(pcmChunks, sampleRate) {
+    const pcm16 = voiceNotePCM16(pcmChunks);
     const buffer = new ArrayBuffer(44 + pcm16.length * 2);
     const view = new DataView(buffer);
     const writeString = (offset, str) => {
@@ -6503,12 +6507,47 @@ function encodeWAV(pcmChunks, sampleRate) {
     return new Blob([view], { type: 'audio/wav' });
 }
 
+// MP3 version of the same recording (same loudness adjustment, same
+// sample rate, mono). About 8x smaller than WAV and still plays on
+// every browser and phone. 96 kbps is effectively identical to WAV for
+// a spoken voice note. Encodes in small slices with short pauses so the
+// app doesn't freeze while a long note is saved. Returns null if MP3
+// isn't possible (encoder didn't load, unusual sample rate) - the caller
+// then saves WAV exactly like before.
+const MP3_SAMPLE_RATES = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+async function encodeMP3(pcmChunks, sampleRate) {
+    if (!window.lamejs || !MP3_SAMPLE_RATES.includes(sampleRate)) return null;
+    try {
+        const pcm16 = voiceNotePCM16(pcmChunks);
+        const encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 96);
+        const parts = [];
+        const FRAME = 1152;
+        for (let i = 0; i < pcm16.length; i += FRAME) {
+            const buf = encoder.encodeBuffer(pcm16.subarray(i, i + FRAME));
+            if (buf.length) parts.push(new Uint8Array(buf));
+            if ((i / FRAME) % 400 === 399) await new Promise(r => setTimeout(r, 0)); // let the screen breathe
+        }
+        const end = encoder.flush();
+        if (end.length) parts.push(new Uint8Array(end));
+        const blob = new Blob(parts, { type: 'audio/mpeg' });
+        return blob.size > 0 ? blob : null;
+    } catch (err) {
+        console.warn('MP3 encoding failed, saving as WAV instead:', err);
+        return null;
+    }
+}
+
 async function handleNoteRecordingStop() {
     let capturedSamples = 0;
     noteRecordingPCMChunks.forEach(c => { capturedSamples += c.length; });
     const capturedSec = capturedSamples / (noteRecordingSampleRate || 48000);
-    const blob = encodeWAV(noteRecordingPCMChunks, noteRecordingSampleRate);
+    const recordedChunks = noteRecordingPCMChunks;
+    const recordedRate = noteRecordingSampleRate;
     noteRecordingPCMChunks = [];
+    if (capturedSamples > 0) setVoiceStatus('Saving voice note…');
+    const mp3Blob = capturedSamples > 0 ? await encodeMP3(recordedChunks, recordedRate) : null;
+    let blob = mp3Blob || encodeWAV(recordedChunks, recordedRate);
+    let ext = mp3Blob ? 'mp3' : 'wav';
     const wallClockSec = pendingRecordingDurationSec;
     // The length shown on the voice note is the audio actually captured,
     // not just the on-screen timer - if the phone paused the mic part-way
@@ -6532,16 +6571,22 @@ async function handleNoteRecordingStop() {
     noteRecordingIdleReleaseTimer = setTimeout(releaseNoteRecordingStreamForGood, 60000);
 
     const note = notesData.find(n => n.id === currentNoteId);
-    if (!note || blob.size <= 44) { // 44 bytes = just the WAV header, i.e. zero actual samples captured
+    if (!note || capturedSamples === 0 || blob.size <= 44) { // nothing actually captured
         setVoiceStatus(blob ? "Didn't catch any audio there - try recording again." : '');
         return;
     }
 
     setVoiceStatus('Saving voice note…');
-    const ext = 'wav';
 
     try {
-        const uploaded = await uploadNoteMediaBlob(blob, ext);
+        let uploaded = await uploadNoteMediaBlob(blob, ext);
+        if (!uploaded.url && ext === 'mp3' && currentUser) {
+            // The MP3 couldn't be stored (e.g. storage only accepts the
+            // old format) - store it as WAV exactly like before instead.
+            const wavBlob = encodeWAV(recordedChunks, recordedRate);
+            const retry = await uploadNoteMediaBlob(wavBlob, 'wav');
+            if (retry.url) { uploaded = retry; blob = wavBlob; ext = 'wav'; }
+        }
         if (uploaded.url) {
             insertAudioBlockAfterFocus(note, uploaded.url, durationSec, uploaded.path);
             setVoiceStatus(t('sync.voiceSavedCloud'));
@@ -9857,7 +9902,7 @@ async function migrateBase64MediaToStorage() {
             const blob = await (await fetch(dataUrl)).blob();
             const ext = block.type === 'image'
                 ? 'jpg'
-                : (blob.type.indexOf('wav') !== -1 ? 'wav' : blob.type.indexOf('mp4') !== -1 ? 'm4a' : 'webm');
+                : (blob.type.indexOf('wav') !== -1 ? 'wav' : blob.type.indexOf('mpeg') !== -1 ? 'mp3' : blob.type.indexOf('mp4') !== -1 ? 'm4a' : 'webm');
             const uploaded = await uploadNoteMediaBlob(blob, ext);
             if (uploaded.url) {
                 block[field] = uploaded.url;
