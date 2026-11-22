@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="index15budgetingappcss.css?v=20261122i">
+    <link rel="stylesheet" href="index15budgetingappcss.css?v=20261122j">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- MP3 encoder for voice notes (smaller files). If it fails to load, voice notes are saved as WAV like before. -->
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
@@ -773,11 +773,6 @@
                              Notes | Notebooks switch - you always see which
                              notebook you're in. See renderNotebooksSidebar(). -->
                         <div class="notes-sidebar-header">
-                            <!-- Computer only, while a note is open: back to the full-width notes grid, and hide/show this slim list -->
-                            <div class="notes-work-bar">
-                                <button type="button" class="notes-browse-back-btn" onclick="showNotesBrowse()" title="See all notes">← All notes</button>
-                                <button type="button" class="notes-list-toggle-btn" onclick="toggleNotesSlimList()" title="Hide / show the list">⟨</button>
-                            </div>
                             <button type="button" class="notes-new-note-btn" id="notes-add-btn" onclick="createNote()">
                                 <span class="notes-new-note-plus">+</span> <span data-i18n="notes.newTitle">New note</span>
                             </button>
@@ -1371,6 +1366,6 @@
         <div>Loading your data…</div>
     </div>
 
-    <script src="index15budgetingappjs.js?v=20261122i"></script>
+    <script src="index15budgetingappjs.js?v=20261122j"></script>
 </body>
 </html>
