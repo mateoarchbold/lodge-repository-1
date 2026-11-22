@@ -6564,3 +6564,10 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
     .note-audio-marker-label { font-size: 0.92rem; }
     .note-audio-marker-del { padding: 6px 10px; font-size: 1.2rem; }
 }
+
+
+/* --- "All notes" header opens/closes the notes list --- */
+.notes-list-label-toggle { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; }
+.notes-list-label-toggle:hover { color: var(--accent); }
+.notes-list-chevron { font-size: 0.8rem; width: 12px; display: inline-block; }
+.notes-list-count { font-weight: 500; opacity: 0.8; }

@@ -8243,6 +8243,7 @@ async function deleteCurrentNotebook() {
 
 function handleNotesSearch(value) {
     notesSearchQuery = (value || '').trim().toLowerCase();
+    if (notesSearchQuery) notesListVisible = true; // searching = show the results
     renderNotesList();
 }
 
@@ -8250,11 +8251,33 @@ function handleNotesSearch(value) {
 // so opening the Notes tab doesn't necessarily dump the full list on
 // screen every time - press "Show Notes" to reveal it, remembered
 // across sessions via localStorage the same way notesSortMode is.
-let notesListVisible = true; // the separate Show/Hide button was removed - the list is always shown
+let notesListVisible = false; // closed when Nabu opens - tap the "All notes" header (or a notebook / search) to open it
 function toggleNotesListVisible() {
     notesListVisible = !notesListVisible;
-    localStorage.setItem('notesListVisible', notesListVisible ? '1' : '0');
     applyNotesListVisibility();
+    renderNotesListLabel();
+}
+function openNotesList() {
+    if (notesListVisible) return;
+    notesListVisible = true;
+    applyNotesListVisibility();
+    renderNotesListLabel();
+}
+// The "▸ ALL NOTES (55)" header above the list doubles as its open/close button
+function renderNotesListLabel(count) {
+    const listLabel = document.getElementById('notes-list-label');
+    if (!listLabel) return;
+    if (typeof count === 'number') listLabel.dataset.count = count;
+    const name = activeNotebookFilter ? t('notes.notesInLabel', { name: activeNotebookFilter }) : t('notes.allNotesOption');
+    const n = listLabel.dataset.count;
+    listLabel.innerHTML = `<span class="notes-list-chevron">${notesListVisible ? '▾' : '▸'}</span> ${escapeHtml(name)}${n !== undefined ? ` <span class="notes-list-count">(${n})</span>` : ''}`;
+    listLabel.classList.add('notes-list-label-toggle');
+    listLabel.setAttribute('role', 'button');
+    listLabel.title = notesListVisible ? 'Hide the notes' : 'Show the notes';
+    if (!listLabel._toggleBound) {
+        listLabel._toggleBound = true;
+        listLabel.addEventListener('click', toggleNotesListVisible);
+    }
 }
 function applyNotesListVisibility() {
     const list = document.getElementById('notes-list');
@@ -8302,6 +8325,7 @@ function handleNotesAddClick() {
 }
 
 function selectNotebookFilter(nb) {
+    notesListVisible = true; // picking a notebook = you want to see its notes
     activeNotebookFilter = nb || '';
     localStorage.setItem('activeNotebookFilter', activeNotebookFilter);
     renderNotesList();
@@ -8389,12 +8413,7 @@ function renderNotesList() {
     if (badge) badge.innerText = notesData.length;
 
     renderNotebooksSidebar();
-    const listLabel = document.getElementById('notes-list-label');
-    if (listLabel) {
-        listLabel.textContent = activeNotebookFilter
-            ? t('notes.notesInLabel', { name: activeNotebookFilter })
-            : t('notes.allNotesOption');
-    }
+    renderNotesListLabel();
     document.getElementById('notes-sort-btn')?.classList.toggle('sorted-alpha', notesSortMode === 'alpha');
 
     let visibleNotes = notesData;
@@ -8419,6 +8438,7 @@ function renderNotesList() {
     const lastOpenedId = (() => { try { return localStorage.getItem('lastOpenedNoteId'); } catch (_) { return null; } })();
 
     if (badge) badge.innerText = visibleNotes.length;
+    renderNotesListLabel(visibleNotes.length);
 
     list.innerHTML = '';
 
