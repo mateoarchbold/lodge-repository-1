@@ -4319,13 +4319,15 @@ function buildNotePlainText(note) {
     if (note.notebook) lines.push(`Notebook: ${note.notebook}`);
     lines.push('');
 
+    let voiceN = 0;
     note.blocks.forEach(block => {
         if (block.type === 'text') {
             if ((block.content || '').trim()) lines.push(block.content);
         } else if (block.type === 'image') {
             lines.push(`[Photo${block.caption ? ': ' + block.caption : ''}]`);
         } else if (block.type === 'audio') {
-            lines.push(`[Voice note - ${formatAudioDuration(block.duration)}]`);
+            voiceN++;
+            lines.push(`[Voice note ${voiceN} - ${formatAudioDuration(block.duration)}]${block.memo && block.memo.trim() ? ' ' + block.memo.trim() : ''}`);
         } else if (block.type === 'divider') {
             lines.push('----------');
         }
@@ -7182,6 +7184,9 @@ function releaseAudioObjectUrl(blockId) {
 }
 
 function buildAudioBlockEl(block) {
+    // Voice notes are numbered 1, 2, 3... top to bottom within the note
+    const ownerNote = notesData.find(n => n.id === currentNoteId);
+    const voiceNumber = ownerNote ? ownerNote.blocks.filter(b => b.type === 'audio').indexOf(block) + 1 : 0;
     const wrap = document.createElement('div');
     wrap.className = 'note-audio-block';
     wrap.dataset.blockId = block.id;
@@ -7192,11 +7197,15 @@ function buildAudioBlockEl(block) {
             <div class="block-select-handle" title="Select this block">⋮⋮</div>
             <button type="button" class="note-audio-play-btn" onclick="toggleAudioBlockPlay('${block.id}')" id="play-btn-${block.id}">▶</button>
             <div class="note-audio-info">
-                <input type="text" class="note-audio-label" value="${escapeHtml(block.label || 'Voice note')}" oninput="handleAudioLabelEdited('${block.id}', this.value)" onfocus="setLastFocusedBlock('${block.id}')">
+                <div class="note-audio-title-row">
+                    ${voiceNumber ? `<span class="note-audio-num" title="Voice note ${voiceNumber}">${voiceNumber}</span>` : ''}
+                    <input type="text" class="note-audio-label" value="${escapeHtml(block.label || 'Voice note')}" oninput="handleAudioLabelEdited('${block.id}', this.value)" onfocus="setLastFocusedBlock('${block.id}')">
+                </div>
                 <div class="note-audio-seek-row">
                     <input type="range" class="note-audio-seek" id="seek-${block.id}" min="0" max="100" value="0" step="0.1">
                     <span class="note-audio-duration" id="dur-${block.id}">${formatAudioDuration(block.duration)}</span>
                 </div>
+                <textarea class="note-audio-memo" rows="1" placeholder="Add a note… (e.g. chorus)" oninput="handleAudioMemoEdited('${block.id}', this)" onfocus="setLastFocusedBlock('${block.id}')">${escapeHtml(block.memo || '')}</textarea>
             </div>
             <div class="note-audio-actions">
                 <button type="button" class="note-audio-icon-btn" onclick="moveBlock('${block.id}', -1)" title="Move up">↑</button>
@@ -7219,7 +7228,9 @@ function buildAudioBlockEl(block) {
     // Move it: drag the ⋮⋮ grip (mouse or finger), click-and-drag the card
     // with a mouse, or press and hold the card with a finger. Play, the
     // scrubber, the buttons and (with a mouse) the name field keep working.
-    enableHoldToMoveBlock(wrap, wrap, block, (t, e) => !!t.closest('.note-audio-play-btn, .note-audio-seek, .note-audio-actions') || (e.pointerType === 'mouse' && !!t.closest('input')));
+    enableHoldToMoveBlock(wrap, wrap, block, (t, e) => !!t.closest('.note-audio-play-btn, .note-audio-seek, .note-audio-actions, .note-audio-memo') || (e.pointerType === 'mouse' && !!t.closest('input')));
+    const memoEl = wrap.querySelector('.note-audio-memo');
+    if (memoEl) requestAnimationFrame(() => autoGrowAudioMemo(memoEl));
 
     const audioEl = wrap.querySelector('audio');
     const seekEl = wrap.querySelector(`#seek-${block.id}`);
@@ -7948,6 +7959,21 @@ function handleAudioLabelEdited(blockId, value) {
     scheduleNoteSave(note);
 }
 
+// The short note written under a voice note ("good for the chorus")
+function handleAudioMemoEdited(blockId, el) {
+    autoGrowAudioMemo(el);
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    const block = note.blocks.find(b => b.id === blockId);
+    if (!block) return;
+    block.memo = el.value;
+    scheduleNoteSave(note);
+}
+function autoGrowAudioMemo(el) {
+    el.style.height = 'auto';
+    if (el.scrollHeight > 0) el.style.height = el.scrollHeight + 'px';
+}
+
 // Swaps a block with its neighbor in the array - the "move it around"
 // control for repositioning a recording (or a paragraph) relative to
 // what's next to it. Works the same for text and audio blocks.
@@ -8291,7 +8317,9 @@ function renderNotesList() {
         visibleNotes = visibleNotes.filter(n => {
             const title = (n.title || '').toLowerCase();
             if (title.includes(notesSearchQuery)) return true;
-            return getNotePreviewText(n).toLowerCase().includes(notesSearchQuery);
+            if (getNotePreviewText(n).toLowerCase().includes(notesSearchQuery)) return true;
+            // also the notes written on voice notes ("chorus", "verse"...)
+            return (n.blocks || []).some(b => b.type === 'audio' && ((b.memo || '') + ' ' + (b.label || '')).toLowerCase().includes(notesSearchQuery));
         });
     }
     if (notesSortMode === 'alpha') {

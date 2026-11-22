@@ -6421,3 +6421,44 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     .note-image-grip { opacity: 0.85; } /* phones: always visible */
 }
 body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+
+
+/* --- Voice note number + short note --- */
+.note-audio-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.note-audio-num {
+    flex-shrink: 0;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+}
+.note-audio-memo {
+    width: 100%;
+    resize: none;
+    overflow: hidden;
+    border: none;
+    border-top: 1px dashed var(--border-color);
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    padding: 6px 0 2px;
+    margin-top: 4px;
+    cursor: text;
+    -webkit-user-select: text;
+    user-select: text;
+}
+.note-audio-memo::placeholder { color: var(--text-muted); opacity: 0.8; }
+.note-audio-memo:focus { outline: none; border-top-color: var(--accent); }
