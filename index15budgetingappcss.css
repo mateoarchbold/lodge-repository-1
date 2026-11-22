@@ -6390,3 +6390,34 @@ body.mobile-nav-mode [data-mobile-section] > summary.details-summary small {
     z-index: 61;
     pointer-events: none;
 }
+
+
+/* --- Drag grips for voice notes and photos --- */
+.note-drag-grip { touch-action: none; cursor: grab; }
+.note-audio-block { cursor: grab; }
+.note-audio-block button, .note-audio-block input { cursor: auto; }
+.note-audio-block .note-audio-play-btn, .note-audio-block .note-audio-icon-btn { cursor: pointer; }
+.note-audio-row .note-drag-grip { opacity: 0.55 !important; }
+.note-image-thumb-wrap { position: relative; }
+.note-image-grip {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 1rem;
+    line-height: 30px;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.note-image-thumb-wrap:hover .note-image-grip,
+.note-image-block.block-selected .note-image-grip { opacity: 1; }
+@media (hover: none) {
+    .note-image-grip { opacity: 0.85; } /* phones: always visible */
+}
+body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }

@@ -7201,10 +7201,14 @@ function buildAudioBlockEl(block) {
         e.stopPropagation();
         selectBlock(block.id, { extend: e.shiftKey });
     });
-    setupBlockDragHandlers(wrap, handle, block);
-    // Hold anywhere on the voice note (except play, the scrubber and the
-    // action buttons) and drag to move it - see enableHoldToMoveBlock.
-    enableHoldToMoveBlock(wrap, wrap, block, (t) => !!t.closest('.note-audio-play-btn, .note-audio-seek, .note-audio-actions'));
+    setupBlockDragHandlers(wrap, handle, block); // still a drop target for text blocks dragged on a computer
+    handle.draggable = false;                     // ...but the grip itself uses the drag below
+    handle.classList.add('note-drag-grip');
+    handle.title = 'Drag to move';
+    // Move it: drag the ⋮⋮ grip (mouse or finger), click-and-drag the card
+    // with a mouse, or press and hold the card with a finger. Play, the
+    // scrubber, the buttons and (with a mouse) the name field keep working.
+    enableHoldToMoveBlock(wrap, wrap, block, (t, e) => !!t.closest('.note-audio-play-btn, .note-audio-seek, .note-audio-actions') || (e.pointerType === 'mouse' && !!t.closest('input')));
 
     const audioEl = wrap.querySelector('audio');
     const seekEl = wrap.querySelector(`#seek-${block.id}`);
@@ -7626,6 +7630,7 @@ function buildImageBlockEl(block) {
     wrap.innerHTML = `
         <div class="note-image-thumb-wrap"${widthStyle}>
             <img class="note-image-thumb" src="${block.imageData}" alt="Note photo" onerror="handleNoteImageError(this)">
+            <button type="button" class="note-drag-grip note-image-grip" title="Drag to move" aria-label="Drag to move">⠿</button>
         </div>
         <div class="note-image-block-menu-wrap">
             <button type="button" class="note-image-menu-btn" title="Photo options">⋮</button>
@@ -7648,8 +7653,10 @@ function buildImageBlockEl(block) {
     // the photo's web address into the text) - moving is done by holding.
     img.draggable = false;
     img.addEventListener('dragstart', (e) => e.preventDefault());
-    // Hold the photo and drag to move it (the resize edge keeps resizing)
-    enableHoldToMoveBlock(wrap, img, block, (t, e) => {
+    // Move it: drag the ⠿ grip, click-and-drag the photo with a mouse, or
+    // press and hold it with a finger (the resize edge keeps resizing)
+    enableHoldToMoveBlock(wrap, thumbWrap, block, (t, e) => {
+        if (t.closest('.note-drag-grip')) return false;
         const r = img.getBoundingClientRect();
         return (r.right - e.clientX) <= NOTE_IMAGE_RESIZE_EDGE_PX || (r.bottom - e.clientY) <= NOTE_IMAGE_RESIZE_EDGE_PX;
     });
@@ -11116,44 +11123,55 @@ function findScrollParent(el) {
         const oy = getComputedStyle(n).overflowY;
         if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 4) return n;
     }
-    return document.scrollingElement || document.documentElement;
+    return null; // the page itself scrolls
+}
+function scrollPosOf(scroller) { return scroller ? scroller.scrollTop : window.scrollY; }
+// Scrolls the inner box if it can still move that way, otherwise the page
+function scrollNotesBy(scroller, dy) {
+    if (scroller) {
+        const before = scroller.scrollTop;
+        scroller.scrollTop += dy;
+        if (scroller.scrollTop !== before) return;
+    }
+    window.scrollBy(0, dy);
 }
 
+// How a voice note / photo gets picked up:
+//  - the grip (⋮⋮ / ⠿): drag right away, with a finger or a mouse
+//  - mouse anywhere else on it: click-and-drag (a plain click still works)
+//  - finger anywhere else on it: press and hold ~0.4s, then drag
+//    (moving before that = normal scrolling)
 function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
-    const HOLD_MS = 400, MOVE_CANCEL_PX = 8;
+    const HOLD_MS = 400, MOVE_CANCEL_PX = 8, MOUSE_START_PX = 6;
     target.style.webkitTouchCallout = 'none';
     target.addEventListener('contextmenu', (e) => { if (wrap.classList.contains('block-lifted') || wrap._holdTimer) e.preventDefault(); });
 
     target.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (shouldIgnore && shouldIgnore(e.target, e)) return;
+        const onGrip = !!e.target.closest('.note-drag-grip');
+        const isMouse = e.pointerType === 'mouse';
         const startX = e.clientX, startY = e.clientY;
-        let lifted = false, lastY = startY;
-        let container, scroller, startScroll = 0, indicator = null, insertIdx = -1, rafId = 0;
         const pointerId = e.pointerId;
+        let lifted = false, lastY = startY;
+        let container = null, scroller = null, startScroll = 0, indicator = null, insertIdx = -1, rafId = 0;
+        let splitTarget = null;
 
         const others = () => [...container.children].filter(el => el.dataset && el.dataset.blockId && el !== wrap);
-        const scrollTopOf = () => scroller === document.scrollingElement || scroller === document.documentElement ? window.scrollY : scroller.scrollTop;
-
-        let splitTarget = null; // { blockId, line } when dropping between two lines of a text block
         const placeIndicator = () => {
             const list = others();
             const cRect = container.getBoundingClientRect();
             splitTarget = null;
             let y = null;
-            // Over a text block with several lines? Drop between the nearest two lines.
-            for (const el of list) {
+            for (const el of list) { // over a multi-line text block: between its lines
                 const ta = el.querySelector && el.querySelector('textarea.note-text-block');
                 if (!ta) continue;
                 const r = el.getBoundingClientRect();
                 if (lastY < r.top || lastY > r.bottom) continue;
-                const bounds = textLineBoundaries(ta); // viewport y of the top of each line, plus the bottom
+                const bounds = textLineBoundaries(ta);
                 let best = 0;
                 for (let k = 1; k < bounds.length; k++) if (Math.abs(bounds[k] - lastY) < Math.abs(bounds[best] - lastY)) best = k;
-                if (best > 0 && best < bounds.length - 1) {
-                    splitTarget = { blockId: el.dataset.blockId, line: best };
-                    y = bounds[best];
-                }
+                if (best > 0 && best < bounds.length - 1) { splitTarget = { blockId: el.dataset.blockId, line: best }; y = bounds[best]; }
                 break;
             }
             if (!splitTarget) {
@@ -11171,21 +11189,20 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
             indicator.style.width = `${cRect.width}px`;
         };
         const follow = () => {
-            const dy = lastY - startY + (scrollTopOf() - startScroll);
+            const dy = lastY - startY + (scrollPosOf(scroller) - startScroll);
             wrap.style.transform = `translateY(${dy}px)`;
             placeIndicator();
         };
         const autoScroll = () => {
             if (!lifted) return;
-            const edgeTop = 90, edgeBottom = window.innerHeight - 170; // keep clear of the bottom toolbar + nav
+            const box = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+            const narrow = window.innerWidth <= 768;
+            const top = Math.max(box.top, 0) + 70;
+            const bottom = Math.min(box.bottom, window.innerHeight) - (narrow ? 170 : 70); // phone: clear of the toolbar + nav
             let step = 0;
-            if (lastY < edgeTop) step = -Math.ceil((edgeTop - lastY) / 6);
-            else if (lastY > edgeBottom) step = Math.ceil((lastY - edgeBottom) / 6);
-            if (step) {
-                if (scroller === document.scrollingElement || scroller === document.documentElement) window.scrollBy(0, step);
-                else scroller.scrollTop += step;
-                follow();
-            }
+            if (lastY < top) step = -Math.min(30, Math.ceil((top - lastY) / 4) + 2);
+            else if (lastY > bottom) step = Math.min(30, Math.ceil((lastY - bottom) / 4) + 2);
+            if (step) { scrollNotesBy(scroller, step); follow(); }
             rafId = requestAnimationFrame(autoScroll);
         };
 
@@ -11196,13 +11213,14 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
             lifted = true;
             noteBlockHoldDragActive = true;
             scroller = findScrollParent(container);
-            startScroll = scrollTopOf();
-            document.activeElement && document.activeElement.blur && document.activeElement.blur();
+            startScroll = scrollPosOf(scroller);
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
             wrap.classList.add('block-lifted');
+            document.body.classList.add('note-block-dragging');
             indicator = document.createElement('div');
             indicator.className = 'note-block-drop-line';
             document.body.appendChild(indicator);
-            if (navigator.vibrate) navigator.vibrate(30);
+            if (navigator.vibrate && !isMouse) navigator.vibrate(30);
             follow();
             rafId = requestAnimationFrame(autoScroll);
         };
@@ -11211,7 +11229,9 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
             if (ev.pointerId !== pointerId) return;
             lastY = ev.clientY;
             if (!lifted) {
-                if (Math.abs(ev.clientX - startX) > MOVE_CANCEL_PX || Math.abs(ev.clientY - startY) > MOVE_CANCEL_PX) cleanup(); // it's a scroll
+                const moved = Math.max(Math.abs(ev.clientX - startX), Math.abs(ev.clientY - startY));
+                if (isMouse) { if (moved > MOUSE_START_PX) { ev.preventDefault(); lift(); } return; }
+                if (moved > MOVE_CANCEL_PX) cleanup(); // finger moved before the hold: it's a scroll
                 return;
             }
             ev.preventDefault();
@@ -11219,16 +11239,13 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
         };
         const onUp = (ev) => {
             if (ev.pointerId !== pointerId) return;
-            const dropIdx = lifted ? insertIdx : -1;
-            const dropSplit = lifted ? splitTarget : null;
+            const wasLifted = lifted;
+            const dropIdx = insertIdx, dropSplit = splitTarget, dropY = lastY;
             cleanup();
-            if (dropSplit) {
-                ev.preventDefault();
-                moveNoteBlockIntoText(block.id, dropSplit.blockId, dropSplit.line);
-            } else if (dropIdx >= 0) {
-                ev.preventDefault();
-                moveNoteBlockToIndex(block.id, dropIdx);
-            }
+            if (!wasLifted || ev.type === 'pointercancel') return;
+            ev.preventDefault();
+            if (dropSplit) moveNoteBlockIntoText(block.id, dropSplit.blockId, dropSplit.line, dropY);
+            else if (dropIdx >= 0) moveNoteBlockToIndex(block.id, dropIdx, dropY);
         };
         const cleanup = () => {
             clearTimeout(wrap._holdTimer); wrap._holdTimer = null;
@@ -11238,18 +11255,44 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
             document.removeEventListener('pointercancel', onUp);
             if (indicator) indicator.remove();
             wrap.classList.remove('block-lifted');
+            document.body.classList.remove('note-block-dragging');
             wrap.style.transform = '';
             noteBlockHoldDragActive = false;
-            // swallow the click that follows a drop (so it doesn't open/select the photo)
-            if (lifted) { const stop = (ce) => { ce.stopPropagation(); ce.preventDefault(); }; window.addEventListener('click', stop, { capture: true, once: true }); setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 400); }
+            if (lifted) { // swallow the click that follows a drop
+                const stop = (ce) => { ce.stopPropagation(); ce.preventDefault(); };
+                window.addEventListener('click', stop, { capture: true, once: true });
+                setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 400);
+            }
             lifted = false;
         };
 
         document.addEventListener('pointermove', onMove, { passive: false });
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onUp);
-        wrap._holdTimer = setTimeout(lift, HOLD_MS);
+        if (onGrip) { e.preventDefault(); lift(); }          // grip: drag right away
+        else if (!isMouse) wrap._holdTimer = setTimeout(lift, HOLD_MS); // finger: hold first
+        // mouse: starts as soon as it moves a few pixels (see onMove)
     });
+}
+
+// After a block moves, the note is redrawn - keep the page from jumping:
+// put the moved block back exactly where it was dropped on screen.
+function keepBlockAtScreenY(blockId, screenY) {
+    if (typeof screenY !== 'number') return;
+    const container = document.getElementById('note-blocks-container');
+    const scroller = container ? findScrollParent(container) : null;
+    const before = scrollPosOf(scroller);
+    const settle = () => {
+        const el = document.querySelector(`#note-blocks-container [data-block-id="${blockId}"]`);
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const delta = (r.top + Math.min(r.height, 40) / 2) - screenY;
+        if (Math.abs(delta) > 2) scrollNotesBy(scroller, delta);
+    };
+    // restore right away, then again once text boxes have resized
+    if (scroller) scroller.scrollTop = before; else window.scrollTo(0, before);
+    settle();
+    requestAnimationFrame(() => requestAnimationFrame(settle));
 }
 
 // Where each line of a text block starts on screen (lines = the text's
@@ -11276,7 +11319,7 @@ function textLineBoundaries(ta) {
 
 // Drops a block between two lines of a text block: the text is split at
 // that line break and the block goes in between. Nothing is lost.
-function moveNoteBlockIntoText(blockId, textBlockId, line) {
+function moveNoteBlockIntoText(blockId, textBlockId, line, dropY) {
     const note = notesData.find(n => n.id === currentNoteId);
     if (!note || !note.blocks || blockId === textBlockId) return;
     const from = note.blocks.findIndex(b => b.id === blockId);
@@ -11293,10 +11336,11 @@ function moveNoteBlockIntoText(blockId, textBlockId, line) {
     note.blocks.splice(ti + 1, 0, moved, afterBlock);
     scheduleNoteSave(note);
     renderNoteBlocks(note);
+    keepBlockAtScreenY(blockId, dropY);
 }
 
 // Moves a block so it sits at position `index` among the OTHER blocks
-function moveNoteBlockToIndex(blockId, index) {
+function moveNoteBlockToIndex(blockId, index, dropY) {
     const note = notesData.find(n => n.id === currentNoteId);
     if (!note || !note.blocks) return;
     const from = note.blocks.findIndex(b => b.id === blockId);
@@ -11304,7 +11348,8 @@ function moveNoteBlockToIndex(blockId, index) {
     const [moved] = note.blocks.splice(from, 1);
     const to = Math.max(0, Math.min(index, note.blocks.length));
     note.blocks.splice(to, 0, moved);
-    if (to === from) { renderNoteBlocks(note); return; } // dropped where it was
+    if (to === from) return; // dropped where it was - nothing to redraw
     scheduleNoteSave(note);
     renderNoteBlocks(note);
+    keepBlockAtScreenY(blockId, dropY);
 }
