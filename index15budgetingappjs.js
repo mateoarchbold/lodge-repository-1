@@ -8324,7 +8324,7 @@ function renderNotebooksSidebar() {
         localStorage.setItem('activeNotebookFilter', '');
     }
     const rows = [{ value: '', label: t('notes.allNotesOption'), count: notesData.length, color: null }]
-        .concat(notesNotebooks.map(nb => ({
+        .concat([...notesNotebooks].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true })).map(nb => ({ // A-Z
             value: nb,
             label: nb,
             count: notesData.filter(n => n.notebook === nb).length,

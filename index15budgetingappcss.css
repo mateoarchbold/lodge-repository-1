@@ -6560,31 +6560,22 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
         grid-template-columns: 200px 1fr;
         align-content: start;
     }
-    #notes-section.notes-mode-browse .notes-sidebar-header { grid-column: 1; }
-    #notes-section.notes-mode-browse .notes-search-add-row { grid-column: 2; align-self: center; padding-right: 12px; }
-    #notes-section.notes-mode-browse .notes-notebooks-block,
-    #notes-section.notes-mode-browse .notes-list-label,
-    #notes-section.notes-mode-browse .notes-list { grid-column: 1 / -1; }
-    /* notebooks: all visible, as buttons in a row */
-    #notes-section.notes-mode-browse .notes-notebooks-list {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 6px;
-        max-height: none;
-        overflow: visible;
-        padding: 0 12px;
+    #notes-section.notes-mode-browse .notes-sidebar-header { grid-column: 1; grid-row: 1; }
+    #notes-section.notes-mode-browse .notes-search-add-row { grid-column: 2; grid-row: 1; align-self: center; padding-right: 12px; }
+    /* notebooks: a full list (A-Z) down the left side, notes grid on the right */
+    #notes-section.notes-mode-browse .notes-notebooks-block {
+        grid-column: 1;
+        grid-row: 2 / span 2;
+        align-self: start;
+        position: sticky;
+        top: 12px;
+        border-bottom: none;
+        border-right: 1px solid var(--border-color);
+        margin-bottom: 0;
     }
-    #notes-section.notes-mode-browse .notes-notebook-row {
-        width: auto;
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        padding: 6px 12px;
-    }
-    #notes-section.notes-mode-browse .notes-notebook-row.active {
-        border-color: var(--accent);
-        background: color-mix(in srgb, var(--accent) 12%, var(--card-bg));
-    }
-    #notes-section.notes-mode-browse .notes-notebook-count { margin-left: 4px; }
+    #notes-section.notes-mode-browse .notes-list-label { grid-column: 2; grid-row: 2; }
+    #notes-section.notes-mode-browse .notes-list { grid-column: 2; grid-row: 3; }
+    #notes-section.notes-mode-browse .notes-notebooks-list { max-height: none; overflow: visible; }
     /* notes: cards in columns */
     #notes-section.notes-mode-browse .notes-list {
         display: grid;
@@ -6669,35 +6660,37 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 }
 
 @media (max-width: 768px) {
-    /* phone list: one line per note (title + date) */
-    #notes-section .note-list-item {
-        display: flex;
+    /* phone: all notebooks visible in the list (no small scroll box) */
+    #notes-section .notes-notebooks-list { max-height: none; overflow: visible; }
+
+    /* phone voice notes: name + buttons on top, then the note line, then a
+       full-width player (bigger bar, ticks and pins for fingers), then markers */
+    .note-audio-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "grip title actions"
+            "memo memo memo"
+            "play seek seek"
+            "markers markers markers";
+        column-gap: 10px;
+        row-gap: 8px;
         align-items: center;
-        gap: 10px;
-        padding: 11px 14px;
     }
-    #notes-section .note-list-item-title { flex: 1; min-width: 0; margin: 0; }
-    #notes-section .note-list-item-preview,
-    #notes-section .note-list-item-voice-badge,
-    #notes-section .note-list-item-photo-badge,
-    #notes-section .note-list-item-category { display: none; }
-    #notes-section .note-list-item-footer { flex-shrink: 0; margin: 0; }
-    #notes-section .note-list-item-last-opened { flex-shrink: 0; margin: 0; }
-    /* notebooks: all visible as chips */
-    #notes-section .notes-notebooks-list {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 6px;
-        max-height: none;
-        overflow: visible;
-        padding: 0 12px;
-    }
-    #notes-section .notes-notebook-row {
-        width: auto;
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        padding: 6px 12px;
-    }
-    #notes-section .notes-notebook-row.active { border-color: var(--accent); }
-    #notes-section .notes-notebook-count { margin-left: 4px; }
+    .note-audio-info { display: contents; }
+    .note-audio-row .note-drag-grip { grid-area: grip; padding: 6px 2px; }
+    .note-audio-title-row { grid-area: title; }
+    .note-audio-actions { grid-area: actions; opacity: 0.7; }
+    .note-audio-memo { grid-area: memo; margin: 0; }
+    .note-audio-play-btn { grid-area: play; width: 44px; height: 44px; font-size: 1rem; }
+    .note-audio-seek-row { grid-area: seek; gap: 8px; }
+    .note-audio-markers { grid-area: markers; margin-top: 0; gap: 6px; }
+    .note-audio-seek { height: 8px; }
+    .note-audio-seek::-webkit-slider-thumb { width: 22px; height: 22px; }
+    .note-audio-seek::-moz-range-thumb { width: 22px; height: 22px; }
+    .note-audio-tick { top: -13px; height: 26px; width: 4px; margin-left: -2px; }
+    .note-audio-marker-btn { padding: 7px 10px; font-size: 1.05rem; }
+    .note-audio-marker-time { padding: 7px 12px; font-size: 0.9rem; }
+    .note-audio-marker-label { font-size: 0.92rem; }
+    .note-audio-marker-del { padding: 6px 10px; font-size: 1.2rem; }
 }
