@@ -7026,10 +7026,10 @@ function renderNoteBlocks(note) {
         if (window.scrollY !== keepPage) window.scrollTo(0, keepPage);
     };
     restoreScroll();
-    requestAnimationFrame(() => {        // text boxes size themselves on the next frame
-        container.style.minHeight = '';
-        restoreScroll();
-    });
+    // keep the old height one more frame while text boxes size themselves,
+    // then let the note take its natural height (no second scroll restore,
+    // so a deliberate scroll right after a redraw isn't undone)
+    requestAnimationFrame(() => { container.style.minHeight = ''; });
 
     if (resumePlayback) {
         const el = document.getElementById('audio-' + resumePlayback.id);
@@ -7685,8 +7685,14 @@ function buildImageBlockEl(block) {
     wrap.className = 'note-image-block';
     wrap.dataset.blockId = block.id;
     if (isBlockSelected(block.id)) wrap.classList.add('block-selected');
+    // "Text next to photo": the photo sits on the left and the text after it
+    // flows beside it. Its size is then a % of the note's width.
+    if (block.wrap) {
+        wrap.classList.add('wrap-text');
+        wrap.style.width = `${block.widthPercent || 40}%`;
+    }
 
-    const widthStyle = block.widthPercent ? ` style="width:${block.widthPercent}%;"` : '';
+    const widthStyle = (block.widthPercent && !block.wrap) ? ` style="width:${block.widthPercent}%;"` : '';
 
     // Just the photo - no bordered "card" around it, no caption field,
     // no separate row of buttons underneath. A click selects it (a thin
@@ -7714,14 +7720,13 @@ function buildImageBlockEl(block) {
                 <button type="button" class="note-image-menu-item" data-action="whatsapp">💬 ${t('notes.imageMenuWhatsApp')}</button>
                 <button type="button" class="note-image-menu-item" data-action="up">↑ ${t('notes.imageMenuMoveUp')}</button>
                 <button type="button" class="note-image-menu-item" data-action="down">↓ ${t('notes.imageMenuMoveDown')}</button>
+                <button type="button" class="note-image-menu-item" data-action="wrap">${block.wrap ? '⬇ Text below photo' : '↔ Text next to photo'}</button>
                 <div class="note-image-menu-divider"></div>
                 <button type="button" class="note-image-menu-item note-image-menu-danger" data-action="delete">🗑️ ${t('notes.imageMenuDelete')}</button>
             </div>
         </div>
         </div>
-        <textarea class="note-image-side-text" rows="1" placeholder="Write next to the photo…" oninput="handleImageSideText('${block.id}', this)" onfocus="setLastFocusedBlock('${block.id}')">${escapeHtml(block.sideText || '')}</textarea>
     `;
-    requestAnimationFrame(() => { const st = wrap.querySelector('.note-image-side-text'); if (st) autoGrowAudioMemo(st); });
 
     const thumbWrap = wrap.querySelector('.note-image-thumb-wrap');
     const img = wrap.querySelector('.note-image-thumb');
@@ -7777,12 +7782,23 @@ document.addEventListener('click', (e) => {
     if (!e.target.closest('.note-image-block-menu-wrap')) closeAllImageBlockMenus();
 });
 
+// Photo on the left with the following text beside it, or back to normal
+function toggleImageTextWrap(block) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    block.wrap = !block.wrap;
+    if (block.wrap && (!block.widthPercent || block.widthPercent > 60)) block.widthPercent = 40; // leave room for the text
+    scheduleNoteSave(note);
+    renderNoteBlocks(note);
+}
+
 function handleImageBlockMenuAction(action, block) {
     if (action === 'copy') copyImageBlockToClipboard(block);
     else if (action === 'cut') cutImageBlock(block);
     else if (action === 'whatsapp') shareImageBlockToWhatsApp(block);
     else if (action === 'up') moveBlock(block.id, -1);
     else if (action === 'down') moveBlock(block.id, 1);
+    else if (action === 'wrap') toggleImageTextWrap(block);
     else if (action === 'delete') deleteNoteBlock(block.id);
 }
 
@@ -7856,11 +7872,15 @@ function attachImageResizeHandlers(img, thumbWrap, block) {
         return nearRight || nearBottom;
     }
 
+    const blockEl = () => thumbWrap.closest('.note-image-block');
+    const isWrapMode = () => !!(blockEl() && blockEl().classList.contains('wrap-text'));
+    const sizeTarget = () => (isWrapMode() ? blockEl() : thumbWrap);
+
     function onPointerMove(e) {
         if (!dragging) return;
         const dx = e.clientX - startX;
         const newWidthPx = Math.max(NOTE_IMAGE_MIN_WIDTH_PX, Math.min(startWidthPx + dx, containerWidthPx));
-        thumbWrap.style.width = newWidthPx + 'px';
+        sizeTarget().style.width = newWidthPx + 'px';
     }
 
     function onPointerUp() {
@@ -7870,10 +7890,11 @@ function attachImageResizeHandlers(img, thumbWrap, block) {
         document.removeEventListener('pointermove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
 
-        const finalWidthPx = thumbWrap.getBoundingClientRect().width;
-        const percent = Math.round(Math.max(20, Math.min(100, (finalWidthPx / containerWidthPx) * 100)));
+        const finalWidthPx = sizeTarget().getBoundingClientRect().width;
+        const maxPct = isWrapMode() ? 75 : 100; // next to text: keep room for the text
+        const percent = Math.round(Math.max(15, Math.min(maxPct, (finalWidthPx / containerWidthPx) * 100)));
         block.widthPercent = percent;
-        thumbWrap.style.width = percent + '%';
+        sizeTarget().style.width = percent + '%';
 
         const note = notesData.find(n => n.id === currentNoteId);
         if (note) scheduleNoteSave(note);
@@ -7895,9 +7916,9 @@ function attachImageResizeHandlers(img, thumbWrap, block) {
         e.stopPropagation();
         dragging = true;
         startX = e.clientX;
-        startWidthPx = thumbWrap.getBoundingClientRect().width;
+        startWidthPx = sizeTarget().getBoundingClientRect().width;
         thumbWrap.classList.add('sized'); // the picture itself follows the new size
-        containerWidthPx = thumbWrap.parentElement.getBoundingClientRect().width;
+        containerWidthPx = isWrapMode() ? blockEl().parentElement.getBoundingClientRect().width : thumbWrap.parentElement.getBoundingClientRect().width;
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
     });

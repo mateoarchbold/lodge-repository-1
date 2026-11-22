@@ -6601,12 +6601,7 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 
 /* --- Photos: just the picture (no box around it), menu on the picture,
        and a place to write next to it --- */
-.note-image-block {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 12px;
-}
+.note-image-block { display: block; clear: both; }
 .note-image-thumb-wrap {
     width: auto;
     max-width: 100%;
@@ -6646,3 +6641,22 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 .note-image-side-text:focus { outline: none; }
 /* room for the Soft / Strong buttons under the colors */
 .notes-color-picker-panel.open { max-height: 150px; }
+
+
+/* --- Photo with text next to it (⋮ → "Text next to photo") --- */
+.note-image-block.wrap-text {
+    float: left;
+    clear: both;
+    max-width: 75%;
+    margin: 4px 18px 10px 0;
+}
+.note-image-block.wrap-text .note-image-thumb-wrap,
+.note-image-block.wrap-text .note-image-thumb-wrap .note-image-thumb { width: 100%; max-height: none; }
+/* text goes beside a floated photo; everything else starts below it */
+.note-audio-block, .note-divider-block, .note-blocks-spacer { clear: both; }
+/* the note body is a normal flow (not flex) so a photo can sit on the
+   left with text beside it; same 4px spacing between blocks as before */
+.note-blocks-container { display: block; }
+.note-blocks-container > * + * { margin-top: 4px; }
+.note-blocks-container > .note-image-block.wrap-text { margin-top: 4px; }
+.note-blocks-spacer { min-height: 120px; }
