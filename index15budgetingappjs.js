@@ -5485,7 +5485,7 @@ let notesNotebooks = [];
 // duplicated or separately kept in sync between the two views.
 let boardProjects = [];
 let activeBoardProject = localStorage.getItem('activeBoardProject') || '';
-let activeNotebookFilter = '';
+let activeNotebookFilter = (() => { try { return localStorage.getItem('activeNotebookFilter') || ''; } catch (_) { return ''; } })(); // opens the notebook you used last
 let notesSearchQuery = '';
 // 'custom' keeps whatever order notes sit in notesData (drag to
 // reorder them there); 'alpha' sorts the visible list by title without
@@ -8124,6 +8124,7 @@ function createNote() {
     notesData.unshift(note);
     saveNotesData();
     selectNote(note.id);
+    setNotesMode('work');
 
     const titleInput = document.getElementById('note-title-input');
     if (titleInput) {
@@ -8242,6 +8243,7 @@ async function deleteCurrentNotebook() {
 }
 
 function handleNotesSearch(value) {
+    notesShowLimit = NOTES_PAGE_SIZE;
     notesSearchQuery = (value || '').trim().toLowerCase();
     renderNotesList();
 }
@@ -8302,6 +8304,7 @@ function handleNotesAddClick() {
 }
 
 function selectNotebookFilter(nb) {
+    notesShowLimit = NOTES_PAGE_SIZE;
     activeNotebookFilter = nb || '';
     localStorage.setItem('activeNotebookFilter', activeNotebookFilter);
     renderNotesList();
@@ -8316,7 +8319,7 @@ function renderNotebooksSidebar() {
     if (!wrap) return;
     // If the remembered notebook was deleted (or came from another
     // device), fall back to "All notes" instead of an empty list.
-    if (activeNotebookFilter && !notesNotebooks.includes(activeNotebookFilter)) {
+    if (activeNotebookFilter && notesNotebooks.length && !notesNotebooks.includes(activeNotebookFilter)) {
         activeNotebookFilter = '';
         localStorage.setItem('activeNotebookFilter', '');
     }
@@ -8421,6 +8424,12 @@ function renderNotesList() {
     if (badge) badge.innerText = visibleNotes.length;
 
     list.innerHTML = '';
+    list.classList.toggle('notes-list-filtered', !!activeNotebookFilter);
+    // Long lists: show the first page, plus a "Show more" button (not in the
+    // slim list next to an open note on a computer, which scrolls instead)
+    const slimList = isNotesWorkModeDesktop();
+    const hiddenCount = slimList ? 0 : Math.max(0, visibleNotes.length - notesShowLimit);
+    if (hiddenCount) visibleNotes = visibleNotes.slice(0, notesShowLimit);
 
     if (visibleNotes.length === 0) {
         const empty = document.createElement('div');
@@ -8491,7 +8500,7 @@ function renderNotesList() {
             </div>
         `;
 
-        item.addEventListener('click', () => selectNote(note.id));
+        item.addEventListener('click', () => { selectNote(note.id); setNotesMode('work'); });
 
         // Always draggable, so a note can be dropped onto a notebook in
         // the list above (see renderNotebooksSidebar). Reordering by
@@ -8530,6 +8539,15 @@ function renderNotesList() {
 
         list.appendChild(item);
     });
+
+    if (hiddenCount) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'notes-show-more-btn';
+        more.textContent = `Show ${Math.min(hiddenCount, NOTES_PAGE_SIZE)} more (${hiddenCount} left)`;
+        more.addEventListener('click', () => { notesShowLimit += NOTES_PAGE_SIZE; renderNotesList(); });
+        list.appendChild(more);
+    }
 }
 
 function handleNotesSortChange(value) {
@@ -11480,3 +11498,68 @@ function moveNoteBlockToIndex(blockId, index, dropY) {
     renderNoteBlocks(note);
     keepBlockAtScreenY(blockId, dropY);
 }
+
+
+// =========================================================
+// NOTES: browse mode / work mode (computer)
+// Browse: no note open -> notes fill the whole width in a grid, with the
+// notebooks as buttons on top. Work: a note is open -> the grid folds into
+// a slim one-line list on the left (can be hidden) and the note takes the
+// space; "← All notes" goes back. Phones keep their own list/note screens.
+// =========================================================
+var NOTES_PAGE_SIZE = 24;
+var notesShowLimit = NOTES_PAGE_SIZE;
+var notesMode = 'browse';
+
+function isNotesWorkModeDesktop() {
+    return notesMode === 'work' && window.innerWidth > 768;
+}
+
+function setNotesMode(mode) {
+    notesMode = mode === 'work' ? 'work' : 'browse';
+    const section = document.getElementById('notes-section');
+    if (!section) return;
+    section.classList.toggle('notes-mode-work', notesMode === 'work');
+    section.classList.toggle('notes-mode-browse', notesMode === 'browse');
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('notesSlimListHidden') === '1'; } catch (_) {}
+    section.classList.toggle('notes-slim-hidden', notesMode === 'work' && collapsed);
+    const btn = document.querySelector('.notes-list-toggle-btn');
+    if (btn) btn.textContent = collapsed ? '⟩' : '⟨';
+    renderNotesList();
+    if (notesMode === 'work') requestAnimationFrame(() => {
+        if (typeof autoGrowNoteTitle === 'function') autoGrowNoteTitle();
+        // opened from far down the grid: bring the top of the note into view
+        if (window.innerWidth > 768 && section.getBoundingClientRect().top < 0) section.scrollIntoView({ block: 'start' });
+        // show the open note in the slim list without scrolling the page
+        const list = document.getElementById('notes-list');
+        const act = list && list.querySelector('.note-list-item.active');
+        if (act) list.scrollTop = Math.max(0, act.offsetTop - list.offsetTop - list.clientHeight / 2);
+    });
+}
+
+function showNotesBrowse() {
+    if (typeof flushNoteSave === 'function') flushNoteSave();
+    if (typeof stopNoteRecordingIfActive === 'function') stopNoteRecordingIfActive();
+    setNotesMode('browse');
+    requestAnimationFrame(() => {
+        const last = document.querySelector('#notes-list .note-list-item.last-opened');
+        if (last) last.scrollIntoView({ block: 'center' });
+    });
+}
+
+function toggleNotesSlimList() {
+    const section = document.getElementById('notes-section');
+    if (!section) return;
+    const hide = !section.classList.contains('notes-slim-hidden');
+    section.classList.toggle('notes-slim-hidden', hide);
+    try { localStorage.setItem('notesSlimListHidden', hide ? '1' : '0'); } catch (_) {}
+    const btn = document.querySelector('.notes-list-toggle-btn');
+    if (btn) btn.textContent = hide ? '⟩' : '⟨';
+}
+
+// Start in browse mode
+(function initNotesMode() {
+    const go = () => setNotesMode('browse');
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
