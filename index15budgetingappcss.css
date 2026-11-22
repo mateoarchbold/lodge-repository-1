@@ -6660,3 +6660,39 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 .note-blocks-container > * + * { margin-top: 4px; }
 .note-blocks-container > .note-image-block.wrap-text { margin-top: 4px; }
 .note-blocks-spacer { min-height: 120px; }
+
+
+/* --- Photos: only the picture's own size + optional text that belongs to it --- */
+.note-image-block { display: flex; align-items: flex-start; gap: 12px; clear: both; float: none; width: auto; max-width: none; margin: 4px 0; }
+.note-image-block.wrap-text { float: none; width: auto; max-width: none; margin: 4px 0; }
+.note-image-figure { display: inline-flex; flex-direction: column; max-width: 100%; flex: 0 0 auto; }
+.note-image-figure .note-image-thumb-wrap { display: inline-block; width: auto; max-width: 100%; }
+.note-image-figure.sized .note-image-thumb-wrap { width: 100%; }
+.note-image-figure.sized .note-image-thumb-wrap .note-image-thumb { width: 100%; max-height: none; }
+.note-image-caption {
+    width: 100%;
+    min-width: 180px;
+    resize: none;
+    overflow: hidden;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border: none;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--note-text, var(--text));
+    font-family: inherit;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+}
+.note-image-caption:focus { outline: none; background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.note-image-caption::placeholder { color: var(--text-muted); }
+/* text next to the photo */
+.note-image-block.cap-side .note-image-caption { flex: 1 1 200px; width: auto; margin-top: 0; align-self: stretch; }
+@media (max-width: 768px) {
+    .note-image-block.cap-side { flex-wrap: wrap; }
+    .note-image-block.cap-side .note-image-caption { flex-basis: 100%; }
+}
