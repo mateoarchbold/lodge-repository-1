@@ -7726,8 +7726,11 @@ function buildImageBlockEl(block) {
                 <button type="button" class="note-image-menu-item" data-action="whatsapp">💬 ${t('notes.imageMenuWhatsApp')}</button>
                 <button type="button" class="note-image-menu-item" data-action="up">↑ ${t('notes.imageMenuMoveUp')}</button>
                 <button type="button" class="note-image-menu-item" data-action="down">↓ ${t('notes.imageMenuMoveDown')}</button>
-                <button type="button" class="note-image-menu-item" data-action="caption">✏️ ${showCaption ? 'Edit text' : 'Add text'}</button>
-                ${showCaption ? `<button type="button" class="note-image-menu-item" data-action="captionpos">${captionSide ? '⬇ Text below photo' : '↔ Text next to photo'}</button>` : ''}
+                ${showCaption
+                    ? `<button type="button" class="note-image-menu-item" data-action="caption">✏️ Edit text</button>
+                       <button type="button" class="note-image-menu-item" data-action="captionpos">${captionSide ? '⬇ Text below photo' : '↔ Text next to photo'}</button>`
+                    : `<button type="button" class="note-image-menu-item" data-action="caption-below">✏️ Add text below</button>
+                       <button type="button" class="note-image-menu-item" data-action="caption-side">✏️ Add text next to it</button>`}
                 <div class="note-image-menu-divider"></div>
                 <button type="button" class="note-image-menu-item note-image-menu-danger" data-action="delete">🗑️ ${t('notes.imageMenuDelete')}</button>
             </div>
@@ -7846,6 +7849,8 @@ function handleImageBlockMenuAction(action, block) {
     else if (action === 'up') moveBlock(block.id, -1);
     else if (action === 'down') moveBlock(block.id, 1);
     else if (action === 'caption') editImageCaption(block);
+    else if (action === 'caption-below') { block.captionPos = 'below'; editImageCaption(block); }
+    else if (action === 'caption-side') { block.captionPos = 'side'; editImageCaption(block); }
     else if (action === 'captionpos') toggleImageCaptionPos(block);
     else if (action === 'delete') deleteNoteBlock(block.id);
 }
