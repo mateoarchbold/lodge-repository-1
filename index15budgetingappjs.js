@@ -4319,15 +4319,14 @@ function buildNotePlainText(note) {
     if (note.notebook) lines.push(`Notebook: ${note.notebook}`);
     lines.push('');
 
-    let voiceN = 0;
+    assignVoiceNumbers(note);
     note.blocks.forEach(block => {
         if (block.type === 'text') {
             if ((block.content || '').trim()) lines.push(block.content);
         } else if (block.type === 'image') {
             lines.push(`[Photo${block.caption ? ': ' + block.caption : ''}]`);
         } else if (block.type === 'audio') {
-            voiceN++;
-            lines.push(`[Voice note ${voiceN} - ${formatAudioDuration(block.duration)}]${block.memo && block.memo.trim() ? ' ' + block.memo.trim() : ''}`);
+            lines.push(`[Voice note ${block.voiceNo} - ${formatAudioDuration(block.duration)}]${block.memo && block.memo.trim() ? ' ' + block.memo.trim() : ''}`);
         } else if (block.type === 'divider') {
             lines.push('----------');
         }
@@ -6634,7 +6633,8 @@ async function handleNoteRecordingStop() {
 function insertAudioBlockAfterFocus(note, dataUrl, durationSec, storagePath) {
     ensureNoteBlocks(note);
 
-    const audioBlock = { id: genBlockId(), type: 'audio', audioData: dataUrl, storagePath: storagePath || null, duration: durationSec, label: 'Voice note', createdAt: Date.now() };
+    assignVoiceNumbers(note);
+    const audioBlock = { id: genBlockId(), type: 'audio', audioData: dataUrl, storagePath: storagePath || null, duration: durationSec, label: 'Voice note', createdAt: Date.now(), voiceNo: nextVoiceNumber(note) };
     const newTextBlock = { id: genBlockId(), type: 'text', content: '' };
 
     let insertAt = note.blocks.length;
@@ -7184,9 +7184,10 @@ function releaseAudioObjectUrl(blockId) {
 }
 
 function buildAudioBlockEl(block) {
-    // Voice notes are numbered 1, 2, 3... top to bottom within the note
+    // Each voice note keeps the number it got when it was recorded
     const ownerNote = notesData.find(n => n.id === currentNoteId);
-    const voiceNumber = ownerNote ? ownerNote.blocks.filter(b => b.type === 'audio').indexOf(block) + 1 : 0;
+    if (ownerNote) assignVoiceNumbers(ownerNote);
+    const voiceNumber = block.voiceNo || 0;
     const wrap = document.createElement('div');
     wrap.className = 'note-audio-block';
     wrap.dataset.blockId = block.id;
@@ -7957,6 +7958,17 @@ function handleAudioLabelEdited(blockId, value) {
     if (!block) return;
     block.label = value;
     scheduleNoteSave(note);
+}
+
+// Voice note numbers are permanent: given once (new recordings get the
+// next number in that note) and never changed by moving or deleting.
+// Older voice notes without a number get one, in their current order.
+function nextVoiceNumber(note) {
+    return (note.blocks || []).reduce((m, b) => (b.type === 'audio' && b.voiceNo > m ? b.voiceNo : m), 0) + 1;
+}
+function assignVoiceNumbers(note) {
+    let next = nextVoiceNumber(note);
+    (note.blocks || []).forEach(b => { if (b.type === 'audio' && !b.voiceNo) b.voiceNo = next++; });
 }
 
 // The short note written under a voice note ("good for the chorus")
