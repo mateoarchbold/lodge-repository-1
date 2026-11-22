@@ -6990,6 +6990,13 @@ function renderNoteBlocks(note) {
     container.querySelectorAll('.note-audio-el').forEach(el => {
         if (!el.paused && !el.ended) resumePlayback = { id: el.id.replace('audio-', ''), time: el.currentTime };
     });
+    // Never move the page when the note redraws (tapping a photo, moving a
+    // block, etc.): remember where you are, keep the note's height while it
+    // rebuilds, and put the page back exactly there afterwards.
+    const keepScroller = (typeof findScrollParent === 'function') ? findScrollParent(container) : null;
+    const keepInner = keepScroller ? keepScroller.scrollTop : 0;
+    const keepPage = window.scrollY;
+    container.style.minHeight = container.offsetHeight + 'px';
     container.innerHTML = '';
 
     note.blocks.forEach((block, index) => {
@@ -7013,6 +7020,16 @@ function renderNoteBlocks(note) {
     spacer.className = 'note-blocks-spacer';
     spacer.addEventListener('click', () => continueWritingBelow(note));
     container.appendChild(spacer);
+
+    const restoreScroll = () => {
+        if (keepScroller && keepScroller.scrollTop !== keepInner) keepScroller.scrollTop = keepInner;
+        if (window.scrollY !== keepPage) window.scrollTo(0, keepPage);
+    };
+    restoreScroll();
+    requestAnimationFrame(() => {        // text boxes size themselves on the next frame
+        container.style.minHeight = '';
+        restoreScroll();
+    });
 
     if (resumePlayback) {
         const el = document.getElementById('audio-' + resumePlayback.id);
