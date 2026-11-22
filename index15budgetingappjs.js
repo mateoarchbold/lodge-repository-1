@@ -4324,7 +4324,7 @@ function buildNotePlainText(note) {
         if (block.type === 'text') {
             if ((block.content || '').trim()) lines.push(block.content);
         } else if (block.type === 'image') {
-            lines.push(`[Photo${block.caption ? ': ' + block.caption : ''}]`);
+            lines.push(`[Photo${block.caption ? ': ' + block.caption : ''}]${block.sideText && block.sideText.trim() ? ' ' + block.sideText.trim() : ''}`);
         } else if (block.type === 'audio') {
             const markerText = (block.markers || []).map(m => `\n  📍 ${formatAudioDuration(m.t)}${m.label && m.label.trim() ? ' ' + m.label.trim() : ''}`).join('');
             lines.push(`[Voice note ${block.voiceNo} - ${formatAudioDuration(block.duration)}]${block.memo && block.memo.trim() ? ' ' + block.memo.trim() : ''}${markerText}`);
@@ -5709,9 +5709,15 @@ function applyNotePageColor(note) {
     const pane = document.getElementById('notes-editor-pane') || document.querySelector('.notes-editor-pane');
     if (!pane) return;
     if (note && note.color) {
-        // a soft tint of the chosen color (not the full strong color), normal text
-        pane.style.setProperty('--note-bg', `color-mix(in srgb, ${note.color} 22%, var(--card-bg))`);
-        pane.style.removeProperty('--note-text');
+        if (note.colorStrength === 'full') {
+            // Strong: the full color, with text that stays readable on it
+            pane.style.setProperty('--note-bg', note.color);
+            pane.style.setProperty('--note-text', getReadableTextColor(note.color));
+        } else {
+            // Soft (default): a pale tint of the color, normal text
+            pane.style.setProperty('--note-bg', `color-mix(in srgb, ${note.color} 22%, var(--card-bg))`);
+            pane.style.removeProperty('--note-text');
+        }
     } else {
         pane.style.removeProperty('--note-bg');
         pane.style.removeProperty('--note-text');
@@ -5748,6 +5754,26 @@ function renderNoteColorSwatches() {
     // .notes-color-trigger-dot) when it's using the theme color.
     const dot = document.getElementById('notes-color-trigger-dot');
     if (dot) dot.style.background = (note && note.color) ? note.color : '';
+
+    // Soft / Strong choice for this note's color
+    const strength = document.createElement('div');
+    strength.className = 'notes-color-strength';
+    const full = note && note.colorStrength === 'full';
+    strength.innerHTML = `
+        <button type="button" class="notes-color-strength-btn${!full ? ' active' : ''}" data-v="soft">Soft</button>
+        <button type="button" class="notes-color-strength-btn${full ? ' active' : ''}" data-v="full">Strong</button>`;
+    strength.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); setNoteColorStrength(b.dataset.v); }));
+    wrap.appendChild(strength);
+}
+
+function setNoteColorStrength(value) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    note.colorStrength = value === 'full' ? 'full' : 'soft';
+    note.updatedAt = Date.now();
+    saveNotesData();
+    applyNotePageColor(note);
+    renderNoteColorSwatches();
 }
 
 function toggleNoteColorPicker() {
@@ -7660,10 +7686,9 @@ function buildImageBlockEl(block) {
     // there was no touch-friendly way to delete, copy, or reorder a
     // photo at all.
     wrap.innerHTML = `
-        <div class="note-image-thumb-wrap"${widthStyle}>
+        <div class="note-image-thumb-wrap${block.widthPercent ? ' sized' : ''}"${widthStyle}>
             <img class="note-image-thumb" src="${block.imageData}" alt="Note photo" onerror="handleNoteImageError(this)">
             <button type="button" class="note-drag-grip note-image-grip" title="Drag to move" aria-label="Drag to move">⠿</button>
-        </div>
         <div class="note-image-block-menu-wrap">
             <button type="button" class="note-image-menu-btn" title="Photo options">⋮</button>
             <div class="note-image-menu-panel">
@@ -7676,7 +7701,10 @@ function buildImageBlockEl(block) {
                 <button type="button" class="note-image-menu-item note-image-menu-danger" data-action="delete">🗑️ ${t('notes.imageMenuDelete')}</button>
             </div>
         </div>
+        </div>
+        <textarea class="note-image-side-text" rows="1" placeholder="Write next to the photo…" oninput="handleImageSideText('${block.id}', this)" onfocus="setLastFocusedBlock('${block.id}')">${escapeHtml(block.sideText || '')}</textarea>
     `;
+    requestAnimationFrame(() => { const st = wrap.querySelector('.note-image-side-text'); if (st) autoGrowAudioMemo(st); });
 
     const thumbWrap = wrap.querySelector('.note-image-thumb-wrap');
     const img = wrap.querySelector('.note-image-thumb');
@@ -7689,6 +7717,7 @@ function buildImageBlockEl(block) {
     // press and hold it with a finger (the resize edge keeps resizing)
     enableHoldToMoveBlock(wrap, thumbWrap, block, (t, e) => {
         if (t.closest('.note-drag-grip')) return false;
+        if (t.closest('.note-image-block-menu-wrap')) return true;
         const r = img.getBoundingClientRect();
         return (r.right - e.clientX) <= NOTE_IMAGE_RESIZE_EDGE_PX || (r.bottom - e.clientY) <= NOTE_IMAGE_RESIZE_EDGE_PX;
     });
@@ -7850,6 +7879,7 @@ function attachImageResizeHandlers(img, thumbWrap, block) {
         dragging = true;
         startX = e.clientX;
         startWidthPx = thumbWrap.getBoundingClientRect().width;
+        thumbWrap.classList.add('sized'); // the picture itself follows the new size
         containerWidthPx = thumbWrap.parentElement.getBoundingClientRect().width;
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
@@ -8046,6 +8076,17 @@ function renderAudioMarkers(wrap, block, focusT) {
         const input = idx >= 0 ? list.querySelectorAll('.note-audio-marker-label')[idx] : null;
         if (input && window.matchMedia('(hover: hover)').matches) input.focus(); // computer: ready to type; phone: don't pop the keyboard
     }
+}
+
+// Text written next to a photo
+function handleImageSideText(blockId, el) {
+    autoGrowAudioMemo(el);
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note) return;
+    const block = note.blocks.find(b => b.id === blockId);
+    if (!block) return;
+    block.sideText = el.value;
+    scheduleNoteSave(note);
 }
 
 // The short note written under a voice note ("good for the chorus")

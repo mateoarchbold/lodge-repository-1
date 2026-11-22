@@ -6575,3 +6575,74 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 
 /* the notes order is automatic now (recent first / by number in a notebook) */
 #notes-sort-btn, #notes-sort-menu { display: none !important; }
+
+
+/* --- Page color: Soft / Strong choice --- */
+.notes-color-strength {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+.notes-color-strength-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.notes-color-strength-btn.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 600; }
+
+/* --- Photos: just the picture (no box around it), menu on the picture,
+       and a place to write next to it --- */
+.note-image-block {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.note-image-thumb-wrap {
+    width: auto;
+    max-width: 100%;
+    flex: 0 0 auto;
+    background: transparent;
+    overflow: visible;
+    line-height: 0;
+}
+.note-image-thumb-wrap .note-image-thumb {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 340px;
+    border-radius: 7px;
+}
+/* resized by dragging its edge: the picture itself grows/shrinks */
+.note-image-thumb-wrap.sized .note-image-thumb { width: 100%; max-height: none; }
+.note-image-thumb-wrap .note-image-block-menu-wrap { top: 6px; right: 6px; line-height: normal; }
+.note-image-side-text {
+    flex: 1 1 180px;
+    min-width: 160px;
+    align-self: stretch;
+    resize: none;
+    overflow: hidden;
+    border: none;
+    background: transparent;
+    color: var(--note-text, var(--text));
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    padding: 6px 2px;
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+}
+.note-image-side-text::placeholder { color: var(--text-muted); opacity: 0.55; }
+.note-image-side-text:focus { outline: none; }
+/* room for the Soft / Strong buttons under the colors */
+.notes-color-picker-panel.open { max-height: 150px; }
