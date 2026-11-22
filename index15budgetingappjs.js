@@ -6678,7 +6678,7 @@ function insertAudioBlockAfterFocus(note, dataUrl, durationSec, storagePath) {
     scheduleNoteSave(note);
 
     const newTa = document.querySelector(`textarea[data-block-id="${newTextBlock.id}"]`);
-    if (newTa) newTa.focus();
+    if (newTa) newTa.focus({ preventScroll: true });
 }
 
 // Rebuilds the block stack in the editor pane from note.blocks. Order in
@@ -7053,7 +7053,7 @@ function continueWritingBelow(note) {
     if (last && last.type === 'text') {
         const ta = document.querySelector(`textarea[data-block-id="${last.id}"]`);
         if (ta) {
-            ta.focus();
+            ta.focus({ preventScroll: true });
             const end = ta.value.length;
             ta.setSelectionRange(end, end);
         }
@@ -7067,7 +7067,7 @@ function continueWritingBelow(note) {
     renderNoteBlocks(note);
     scheduleNoteSave(note);
     const ta = document.querySelector(`textarea[data-block-id="${newBlock.id}"]`);
-    if (ta) ta.focus();
+    if (ta) ta.focus({ preventScroll: true });
 }
 
 function autoGrowTextarea(el) {
@@ -7568,7 +7568,7 @@ function insertDividerBlock() {
 
     const newTa = document.querySelector(`textarea[data-block-id="${focusBlockId}"]`);
     if (newTa) {
-        newTa.focus();
+        newTa.focus({ preventScroll: true });
         if (splitFocusId) newTa.setSelectionRange(0, 0); // land at the start of the text that used to continue right here
     }
 }
@@ -7648,7 +7648,7 @@ function insertImageBlockAfterFocus(note, dataUrl, storagePath) {
     renderNotesList();
 
     const newTa = document.querySelector(`textarea[data-block-id="${newTextBlock.id}"]`);
-    if (newTa) newTa.focus();
+    if (newTa) newTa.focus({ preventScroll: true });
 }
 
 // Lets a block be re-selected as the insertion point without typing in
@@ -7743,7 +7743,7 @@ function buildImageBlockEl(block) {
     const capEl = wrap.querySelector('.note-image-caption');
     if (capEl) requestAnimationFrame(() => {
         autoGrowAudioMemo(capEl);
-        if (block._editingCaption) { capEl.focus(); block._editingCaption = false; }
+        if (block._editingCaption) { capEl.focus({ preventScroll: true }); block._editingCaption = false; }
     });
 
     const thumbWrap = wrap.querySelector('.note-image-thumb-wrap');
@@ -8076,7 +8076,7 @@ function mergeTextBlockIntoPrevious(blockId) {
     requestAnimationFrame(() => {
         const ta = document.querySelector(`textarea.note-text-block[data-block-id="${prevBlock.id}"]`);
         if (ta) {
-            ta.focus();
+            ta.focus({ preventScroll: true });
             ta.selectionStart = ta.selectionEnd = mergePoint;
             autoGrowTextarea(ta);
         }
@@ -8167,7 +8167,7 @@ function renderAudioMarkers(wrap, block, focusT) {
     if (typeof focusT === 'number') {
         const idx = markers.findIndex(m => m.t === focusT);
         const input = idx >= 0 ? list.querySelectorAll('.note-audio-marker-label')[idx] : null;
-        if (input && window.matchMedia('(hover: hover)').matches) input.focus(); // computer: ready to type; phone: don't pop the keyboard
+        if (input && window.matchMedia('(hover: hover)').matches) input.focus({ preventScroll: true }); // computer: ready to type; phone: don't pop the keyboard
     }
 }
 
@@ -8581,6 +8581,21 @@ function renderNotesList() {
     if (badge) badge.innerText = visibleNotes.length;
     renderNotesListLabel(visibleNotes.length);
 
+    // Refreshing the list must never move the page (it's rebuilt after
+    // pasting a photo, saving, etc.): keep its height while rebuilding
+    // and restore the exact scroll position.
+    const listKeepPage = window.scrollY;
+    const listScroller = (typeof findScrollParent === 'function') ? findScrollParent(list) : null;
+    const listKeepInner = listScroller ? listScroller.scrollTop : 0;
+    const listKeepOwn = list.scrollTop;
+    list.style.minHeight = list.offsetHeight + 'px';
+    const restoreListScroll = () => {
+        if (window.scrollY !== listKeepPage) window.scrollTo(0, listKeepPage);
+        if (listScroller && listScroller.scrollTop !== listKeepInner) listScroller.scrollTop = listKeepInner;
+        if (list.scrollTop !== listKeepOwn) list.scrollTop = listKeepOwn;
+    };
+    setTimeout(() => { list.style.minHeight = ''; }, 0);
+
     list.innerHTML = '';
 
     if (visibleNotes.length === 0) {
@@ -8691,6 +8706,7 @@ function renderNotesList() {
 
         list.appendChild(item);
     });
+    restoreListScroll();
 }
 
 function handleNotesSortChange(value) {
@@ -8819,6 +8835,11 @@ function selectNote(id) {
     autoGrowNoteTitle();
     requestAnimationFrame(autoGrowNoteTitle); // again once the editor is visible
     document.getElementById('note-category-input').value = note.notebook || '';
+    const createdLabel = document.getElementById('note-created-label');
+    if (createdLabel) {
+        const created = note.createdAt ? new Date(note.createdAt) : null;
+        createdLabel.textContent = created && !isNaN(created) ? 'Created ' + created.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    }
     renderNoteBlocks(note);
 
     const indicator = document.getElementById('note-saved-indicator');
@@ -11651,3 +11672,134 @@ function moveNoteBlockToIndex(blockId, index, dropY) {
     renderNoteBlocks(note);
     keepBlockAtScreenY(blockId, dropY);
 }
+
+
+// =========================================================
+// KEYBOARD SHORTCUTS - jump between sections (computer)
+// Defaults: Alt+1 Chronometer, Alt+2 Calendar, Alt+3 Log, Alt+4 Stats,
+// Alt+5 Kanban, Alt+6 Notes. Changeable in ☰ → Shortcuts (saved on this
+// device).
+// =========================================================
+var SHORTCUT_SECTIONS = [
+    { id: 'timer', label: '⏱️ Chronometer / Today', el: 'timer-page-flex-wrap' },
+    { id: 'plan', label: '📅 Calendar (Plan)', el: 'planner-section' },
+    { id: 'log', label: '📋 Log', el: 'summary-section' },
+    { id: 'stats', label: '📊 Stats', el: 'analytics-details-section' },
+    { id: 'board', label: '🗂️ Kanban', el: 'kanban-section' },
+    { id: 'notes', label: '📝 Notes', el: 'notes-section' }
+];
+var DEFAULT_SHORTCUTS = { timer: 'Alt+1', plan: 'Alt+2', log: 'Alt+3', stats: 'Alt+4', board: 'Alt+5', notes: 'Alt+6' };
+var shortcutCaptureFor = null; // section id currently waiting for a new key combo
+
+function getShortcuts() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('nabuShortcuts') || 'null');
+        if (saved && typeof saved === 'object') return Object.assign({}, DEFAULT_SHORTCUTS, saved);
+    } catch (_) {}
+    return Object.assign({}, DEFAULT_SHORTCUTS);
+}
+function saveShortcuts(map) {
+    try { localStorage.setItem('nabuShortcuts', JSON.stringify(map)); } catch (_) {}
+}
+
+// "Alt+1", "Ctrl+Shift+K"... from a key press (uses the physical key, so
+// Alt+number works on every keyboard layout, including Mac)
+function comboFromEvent(e) {
+    let key = '';
+    if (/^Digit\d$/.test(e.code)) key = e.code.slice(5);
+    else if (/^Numpad\d$/.test(e.code)) key = e.code.slice(6);
+    else if (/^Key[A-Z]$/.test(e.code)) key = e.code.slice(3);
+    else if (/^F\d{1,2}$/.test(e.key)) key = e.key;
+    else return null;
+    const parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Cmd');
+    if (!parts.length && !/^F\d/.test(key)) return null; // plain letters/numbers are for typing
+    parts.push(key);
+    return parts.join('+');
+}
+
+function goToSection(id) {
+    const sec = SHORTCUT_SECTIONS.find(s => s.id === id);
+    if (!sec) return;
+    if (typeof isMobileNavViewport === 'function' && isMobileNavViewport() && typeof setMobileSection === 'function') {
+        setMobileSection(id);
+        return;
+    }
+    const el = document.getElementById(sec.el);
+    if (!el) return;
+    if (el.tagName === 'DETAILS' && !el.open) el.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.addEventListener('keydown', (e) => {
+    if (shortcutCaptureFor) return; // the Shortcuts window is listening for a new combo
+    const combo = comboFromEvent(e);
+    if (!combo) return;
+    const map = getShortcuts();
+    const id = Object.keys(map).find(k => map[k] === combo);
+    if (!id) return;
+    e.preventDefault();
+    goToSection(id);
+});
+
+function openShortcutsModal() {
+    document.getElementById('shortcuts-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'shortcuts-modal';
+    modal.className = 'upgrade-modal-overlay';
+    modal.innerHTML = `
+        <div class="upgrade-modal shortcuts-modal" role="dialog" aria-label="Keyboard shortcuts">
+            <button type="button" class="upgrade-close" aria-label="Close" onclick="closeShortcutsModal()">✕</button>
+            <div class="upgrade-title">⌨️ Shortcuts</div>
+            <div class="upgrade-sub">Jump to a section with your keyboard. Click a shortcut, then press the new keys (for example Alt + a number).</div>
+            <div class="shortcuts-list" id="shortcuts-list"></div>
+            <button type="button" class="shortcuts-reset" onclick="resetShortcuts()">Reset to defaults</button>
+        </div>`;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeShortcutsModal(); });
+    document.body.appendChild(modal);
+    renderShortcutsList();
+}
+function closeShortcutsModal() {
+    shortcutCaptureFor = null;
+    document.getElementById('shortcuts-modal')?.remove();
+}
+function renderShortcutsList() {
+    const list = document.getElementById('shortcuts-list');
+    if (!list) return;
+    const map = getShortcuts();
+    list.innerHTML = SHORTCUT_SECTIONS.map(s => `
+        <div class="shortcuts-row">
+            <span>${s.label}</span>
+            <button type="button" class="shortcuts-key${shortcutCaptureFor === s.id ? ' listening' : ''}" onclick="startShortcutCapture('${s.id}')">
+                ${shortcutCaptureFor === s.id ? 'Press keys…' : (map[s.id] ? escapeHtml(map[s.id]) : '—')}
+            </button>
+        </div>`).join('');
+}
+function startShortcutCapture(id) {
+    shortcutCaptureFor = id;
+    renderShortcutsList();
+}
+function resetShortcuts() {
+    shortcutCaptureFor = null;
+    try { localStorage.removeItem('nabuShortcuts'); } catch (_) {}
+    renderShortcutsList();
+}
+// While the Shortcuts window waits for keys: save the new combo
+document.addEventListener('keydown', (e) => {
+    if (!shortcutCaptureFor) return;
+    if (e.key === 'Escape') { shortcutCaptureFor = null; renderShortcutsList(); e.preventDefault(); return; }
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return; // wait for the main key
+    e.preventDefault();
+    e.stopPropagation();
+    const combo = comboFromEvent(e);
+    if (!combo) return; // needs Ctrl/Alt/Cmd (or an F-key)
+    const map = getShortcuts();
+    Object.keys(map).forEach(k => { if (map[k] === combo) map[k] = ''; }); // a combo can only do one thing
+    map[shortcutCaptureFor] = combo;
+    saveShortcuts(map);
+    shortcutCaptureFor = null;
+    renderShortcutsList();
+}, true);
