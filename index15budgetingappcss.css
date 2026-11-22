@@ -6571,3 +6571,7 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 .notes-list-label-toggle:hover { color: var(--accent); }
 .notes-list-chevron { font-size: 0.8rem; width: 12px; display: inline-block; }
 .notes-list-count { font-weight: 500; opacity: 0.8; }
+
+
+/* the notes order is automatic now (recent first / by number in a notebook) */
+#notes-sort-btn, #notes-sort-menu { display: none !important; }

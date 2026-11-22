@@ -5709,8 +5709,9 @@ function applyNotePageColor(note) {
     const pane = document.getElementById('notes-editor-pane') || document.querySelector('.notes-editor-pane');
     if (!pane) return;
     if (note && note.color) {
-        pane.style.setProperty('--note-bg', note.color);
-        pane.style.setProperty('--note-text', getReadableTextColor(note.color));
+        // a soft tint of the chosen color (not the full strong color), normal text
+        pane.style.setProperty('--note-bg', `color-mix(in srgb, ${note.color} 22%, var(--card-bg))`);
+        pane.style.removeProperty('--note-text');
     } else {
         pane.style.removeProperty('--note-bg');
         pane.style.removeProperty('--note-text');
@@ -8345,9 +8346,9 @@ function renderNotebooksSidebar() {
         localStorage.setItem('activeNotebookFilter', '');
     }
     const rows = [{ value: '', label: t('notes.allNotesOption'), count: notesData.length, color: null }]
-        .concat([...notesNotebooks].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true })).map(nb => ({ // A-Z
+        .concat([...notesNotebooks].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true })).map((nb, i) => ({ // A-Z, numbered
             value: nb,
-            label: nb,
+            label: `${i + 1}. ${nb}`,
             count: notesData.filter(n => n.notebook === nb).length,
             color: getNoteColor(nb)
         })));
@@ -8429,11 +8430,17 @@ function renderNotesList() {
             return (n.blocks || []).some(b => b.type === 'audio' && ((b.memo || '') + ' ' + (b.label || '') + ' ' + (b.markers || []).map(m => m.label || '').join(' ')).toLowerCase().includes(notesSearchQuery));
         });
     }
-    if (notesSortMode === 'alpha') {
-        // numeric: true -> "Day 2" comes before "Day 10" (real number order, not 1, 10, 11, 2...)
+    // Automatic order:
+    //  - inside a notebook: by number/title (1, 2, 3 ... 10 - real number order)
+    //  - All notes: most recently used first (opened or edited)
+    if (activeNotebookFilter) {
         visibleNotes = [...visibleNotes].sort((a, b) =>
             (a.title || 'Untitled note').localeCompare(b.title || 'Untitled note', undefined, { sensitivity: 'base', numeric: true })
         );
+    } else {
+        const opened = getNotesLastOpenedMap();
+        const used = (n) => Math.max(n.updatedAt || 0, opened[n.id] || 0);
+        visibleNotes = [...visibleNotes].sort((a, b) => used(b) - used(a));
     }
     const lastOpenedId = (() => { try { return localStorage.getItem('lastOpenedNoteId'); } catch (_) { return null; } })();
 
@@ -8460,7 +8467,7 @@ function renderNotesList() {
     // shown IS notesData's own order, unfiltered and unsorted -
     // otherwise "drop it here" wouldn't map cleanly back onto where it
     // actually belongs in the underlying array.
-    const canDragReorder = notesSortMode === 'custom' && !activeNotebookFilter && !notesSearchQuery;
+    const canDragReorder = false; // the order is automatic now (see above)
 
     visibleNotes.forEach(note => {
         const item = document.createElement('div');
@@ -8635,6 +8642,11 @@ function saveNotebookPickerModal() {
 // List display only (the real title is unchanged): a title ending in a
 // number, like "2026 Freestyle Day 3", shows the number first -
 // "3 – 2026 Freestyle Day" - so long names never hide which one it is.
+// When each note was last opened on this device (for "most recently used first")
+function getNotesLastOpenedMap() {
+    try { return JSON.parse(localStorage.getItem('notesLastOpenedAt') || '{}') || {}; } catch (_) { return {}; }
+}
+
 function formatNoteListTitle(title) {
     if (!title) return 'Untitled note';
     const m = title.match(/^(.*\S)[\s\-–#]+(\d+)$/);
@@ -8660,7 +8672,12 @@ function selectNote(id) {
     const note = notesData.find(n => n.id === id);
     if (!note) return;
     currentNoteId = id;
-    try { localStorage.setItem('lastOpenedNoteId', id); } catch (_) {}
+    try {
+        localStorage.setItem('lastOpenedNoteId', id);
+        const opened = getNotesLastOpenedMap();
+        opened[id] = Date.now();
+        localStorage.setItem('notesLastOpenedAt', JSON.stringify(opened));
+    } catch (_) {}
     lastFocusedBlockId = null;
     updateGlobalUndoBtn(); // now that currentNoteId changed, the floating undo/redo should reflect THIS note's history, not whatever was active before
 
