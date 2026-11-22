@@ -6182,6 +6182,12 @@ function toggleNoteRecording() {
 }
 
 async function startNoteRecording() {
+    // A new recording: cancel the "turn the mic off in a minute" timer left
+    // over from the previous voice note, or it would cut this one short.
+    if (noteRecordingIdleReleaseTimer) {
+        clearTimeout(noteRecordingIdleReleaseTimer);
+        noteRecordingIdleReleaseTimer = null;
+    }
     if (!currentNoteId) return;
     if (noteRecordingIsStarting) return; // already mid-request from a previous tap - don't spawn a second stream
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -6363,8 +6369,10 @@ async function startNoteRecording() {
         acquireNoteRecordingWakeLock(); // keep the screen (and this recording) alive - see the note above noteRecordingWakeLock
         startNoteRecordingKeepAliveAudio(); // and keep the tab itself alive if the screen locks anyway - see the note above
     } catch (err) {
+        console.error('Could not start recording:', err);
         setVoiceStatus("Couldn't start recording - try again.");
-        releaseNoteRecordingStreamForGood();
+        noteRecordingIsActive = false;
+        releaseNoteRecordingStreamForGood(true);
     }
 }
 
@@ -6424,11 +6432,14 @@ function stopNoteRecordingIfActive() {
 // off - stopping the tracks for real and clearing the idle timer that
 // would otherwise do it automatically a little later.
 let noteRecordingIdleReleaseTimer = null;
-function releaseNoteRecordingStreamForGood() {
+function releaseNoteRecordingStreamForGood(force) {
     if (noteRecordingIdleReleaseTimer) {
         clearTimeout(noteRecordingIdleReleaseTimer);
         noteRecordingIdleReleaseTimer = null;
     }
+    // Never cut the microphone in the middle of a recording (this is what
+    // silenced a new voice note ~1 minute after the previous one ended)
+    if (!force && (noteRecordingIsActive || noteRecordingIsStarting)) return;
     if (noteRecordingStream) {
         noteRecordingStream.getTracks().forEach(t => t.stop());
         noteRecordingStream = null;
