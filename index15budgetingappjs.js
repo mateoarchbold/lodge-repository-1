@@ -4326,7 +4326,8 @@ function buildNotePlainText(note) {
         } else if (block.type === 'image') {
             lines.push(`[Photo${block.caption ? ': ' + block.caption : ''}]`);
         } else if (block.type === 'audio') {
-            lines.push(`[Voice note ${block.voiceNo} - ${formatAudioDuration(block.duration)}]${block.memo && block.memo.trim() ? ' ' + block.memo.trim() : ''}`);
+            const markerText = (block.markers || []).map(m => `\n  📍 ${formatAudioDuration(m.t)}${m.label && m.label.trim() ? ' ' + m.label.trim() : ''}`).join('');
+            lines.push(`[Voice note ${block.voiceNo} - ${formatAudioDuration(block.duration)}]${block.memo && block.memo.trim() ? ' ' + block.memo.trim() : ''}${markerText}`);
         } else if (block.type === 'divider') {
             lines.push('----------');
         }
@@ -7202,11 +7203,16 @@ function buildAudioBlockEl(block) {
                     ${voiceNumber ? `<span class="note-audio-num" title="Voice note ${voiceNumber}">${voiceNumber}</span>` : ''}
                     <input type="text" class="note-audio-label" value="${escapeHtml(block.label || 'Voice note')}" oninput="handleAudioLabelEdited('${block.id}', this.value)" onfocus="setLastFocusedBlock('${block.id}')">
                 </div>
+                <textarea class="note-audio-memo" rows="1" placeholder="Add a note…" oninput="handleAudioMemoEdited('${block.id}', this)" onfocus="setLastFocusedBlock('${block.id}')">${escapeHtml(block.memo || '')}</textarea>
                 <div class="note-audio-seek-row">
-                    <input type="range" class="note-audio-seek" id="seek-${block.id}" min="0" max="100" value="0" step="0.1">
+                    <div class="note-audio-seek-wrap">
+                        <input type="range" class="note-audio-seek" id="seek-${block.id}" min="0" max="100" value="0" step="0.1">
+                        <div class="note-audio-marker-ticks" id="ticks-${block.id}"></div>
+                    </div>
                     <span class="note-audio-duration" id="dur-${block.id}">${formatAudioDuration(block.duration)}</span>
+                    <button type="button" class="note-audio-marker-btn" onclick="addAudioMarker('${block.id}')" title="Add a marker at this moment">📍</button>
                 </div>
-                <textarea class="note-audio-memo" rows="1" placeholder="Add a note… (e.g. chorus)" oninput="handleAudioMemoEdited('${block.id}', this)" onfocus="setLastFocusedBlock('${block.id}')">${escapeHtml(block.memo || '')}</textarea>
+                <div class="note-audio-markers" id="markers-${block.id}"></div>
             </div>
             <div class="note-audio-actions">
                 <button type="button" class="note-audio-icon-btn" onclick="moveBlock('${block.id}', -1)" title="Move up">↑</button>
@@ -7229,9 +7235,10 @@ function buildAudioBlockEl(block) {
     // Move it: drag the ⋮⋮ grip (mouse or finger), click-and-drag the card
     // with a mouse, or press and hold the card with a finger. Play, the
     // scrubber, the buttons and (with a mouse) the name field keep working.
-    enableHoldToMoveBlock(wrap, wrap, block, (t, e) => !!t.closest('.note-audio-play-btn, .note-audio-seek, .note-audio-actions, .note-audio-memo') || (e.pointerType === 'mouse' && !!t.closest('input')));
+    enableHoldToMoveBlock(wrap, wrap, block, (t, e) => !!t.closest('.note-audio-play-btn, .note-audio-seek, .note-audio-actions, .note-audio-memo, .note-audio-marker-btn, .note-audio-markers') || (e.pointerType === 'mouse' && !!t.closest('input')));
     const memoEl = wrap.querySelector('.note-audio-memo');
     if (memoEl) requestAnimationFrame(() => autoGrowAudioMemo(memoEl));
+    renderAudioMarkers(wrap, block);
 
     const audioEl = wrap.querySelector('audio');
     const seekEl = wrap.querySelector(`#seek-${block.id}`);
@@ -7244,6 +7251,7 @@ function buildAudioBlockEl(block) {
         if ((!block.duration || !isFinite(block.duration)) && isFinite(audioEl.duration)) {
             block.duration = audioEl.duration;
         }
+        renderAudioMarkers(wrap, block); // tick positions need the real length
         if (seekEl && isFinite(audioEl.duration)) seekEl.max = audioEl.duration;
     });
     // Drives the scrubber forward during normal playback - only when the
@@ -7971,6 +7979,74 @@ function assignVoiceNumbers(note) {
     (note.blocks || []).forEach(b => { if (b.type === 'audio' && !b.voiceNo) b.voiceNo = next++; });
 }
 
+// --- MARKERS on a voice note: pinpoint moments (e.g. "something at 0:26")
+// Stored as block.markers = [{ t: seconds, label }], sorted by time.
+function audioLengthOf(block) {
+    const el = document.getElementById(`audio-${block.id}`);
+    if (el && isFinite(el.duration) && el.duration > 0) return el.duration;
+    return block.duration || 0;
+}
+function findCurrentAudioBlock(blockId) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    return note ? { note, block: note.blocks.find(b => b.id === blockId) } : {};
+}
+function addAudioMarker(blockId) {
+    const { note, block } = findCurrentAudioBlock(blockId);
+    if (!block) return;
+    const el = document.getElementById(`audio-${blockId}`);
+    const t = el ? Math.round((el.currentTime || 0) * 10) / 10 : 0;
+    block.markers = (block.markers || []).filter(m => Math.abs(m.t - t) >= 0.5); // no duplicates at the same spot
+    block.markers.push({ t, label: '' });
+    block.markers.sort((a, b) => a.t - b.t);
+    scheduleNoteSave(note);
+    const wrap = document.querySelector(`.note-audio-block[data-block-id="${blockId}"]`);
+    if (wrap) renderAudioMarkers(wrap, block, t);
+    if (navigator.vibrate) navigator.vibrate(15);
+}
+function removeAudioMarker(blockId, index) {
+    const { note, block } = findCurrentAudioBlock(blockId);
+    if (!block || !block.markers) return;
+    block.markers.splice(index, 1);
+    scheduleNoteSave(note);
+    const wrap = document.querySelector(`.note-audio-block[data-block-id="${blockId}"]`);
+    if (wrap) renderAudioMarkers(wrap, block);
+}
+function jumpToAudioMarker(blockId, t) {
+    const el = document.getElementById(`audio-${blockId}`);
+    if (!el) return;
+    el.currentTime = t;
+    const seek = document.getElementById(`seek-${blockId}`);
+    if (seek) seek.value = t;
+    if (el.paused) toggleAudioBlockPlay(blockId);
+}
+function handleAudioMarkerLabel(blockId, index, value) {
+    const { note, block } = findCurrentAudioBlock(blockId);
+    if (!block || !block.markers || !block.markers[index]) return;
+    block.markers[index].label = value;
+    scheduleNoteSave(note);
+}
+function renderAudioMarkers(wrap, block, focusT) {
+    const list = wrap.querySelector('.note-audio-markers');
+    const ticks = wrap.querySelector('.note-audio-marker-ticks');
+    const markers = block.markers || [];
+    const len = audioLengthOf(block);
+    if (ticks) {
+        ticks.innerHTML = len > 0 ? markers.map(m => `<span class="note-audio-tick" style="left:${Math.min(100, (m.t / len) * 100)}%"></span>`).join('') : '';
+    }
+    if (!list) return;
+    list.innerHTML = markers.map((m, i) => `
+        <div class="note-audio-marker">
+            <button type="button" class="note-audio-marker-time" onclick="jumpToAudioMarker('${block.id}', ${m.t})" title="Play from here">📍 ${formatAudioDuration(m.t)}</button>
+            <input type="text" class="note-audio-marker-label" value="${escapeHtml(m.label || '')}" placeholder="What happens here?" oninput="handleAudioMarkerLabel('${block.id}', ${i}, this.value)">
+            <button type="button" class="note-audio-marker-del" onclick="removeAudioMarker('${block.id}', ${i})" title="Remove marker" aria-label="Remove marker">×</button>
+        </div>`).join('');
+    if (typeof focusT === 'number') {
+        const idx = markers.findIndex(m => m.t === focusT);
+        const input = idx >= 0 ? list.querySelectorAll('.note-audio-marker-label')[idx] : null;
+        if (input && window.matchMedia('(hover: hover)').matches) input.focus(); // computer: ready to type; phone: don't pop the keyboard
+    }
+}
+
 // The short note written under a voice note ("good for the chorus")
 function handleAudioMemoEdited(blockId, el) {
     autoGrowAudioMemo(el);
@@ -8331,7 +8407,7 @@ function renderNotesList() {
             if (title.includes(notesSearchQuery)) return true;
             if (getNotePreviewText(n).toLowerCase().includes(notesSearchQuery)) return true;
             // also the notes written on voice notes ("chorus", "verse"...)
-            return (n.blocks || []).some(b => b.type === 'audio' && ((b.memo || '') + ' ' + (b.label || '')).toLowerCase().includes(notesSearchQuery));
+            return (n.blocks || []).some(b => b.type === 'audio' && ((b.memo || '') + ' ' + (b.label || '') + ' ' + (b.markers || []).map(m => m.label || '').join(' ')).toLowerCase().includes(notesSearchQuery));
         });
     }
     if (notesSortMode === 'alpha') {
