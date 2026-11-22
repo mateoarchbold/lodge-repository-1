@@ -7644,6 +7644,10 @@ function buildImageBlockEl(block) {
     const thumbWrap = wrap.querySelector('.note-image-thumb-wrap');
     const img = wrap.querySelector('.note-image-thumb');
     attachImageResizeHandlers(img, thumbWrap, block);
+    // No browser "drag the picture" (it showed a shaded copy and could drop
+    // the photo's web address into the text) - moving is done by holding.
+    img.draggable = false;
+    img.addEventListener('dragstart', (e) => e.preventDefault());
     // Hold the photo and drag to move it (the resize edge keeps resizing)
     enableHoldToMoveBlock(wrap, img, block, (t, e) => {
         const r = img.getBoundingClientRect();
@@ -10694,7 +10698,7 @@ document.addEventListener('click', (e) => {
 // shows that copy read-only; saving is blocked (isLoadingCloudData stays
 // true) so an offline device can never overwrite the real cloud data.
 // =========================================================
-let offlineViewMode = false;
+var offlineViewMode = false;
 
 function openOfflineDb() {
     return new Promise((resolve, reject) => {
@@ -10758,8 +10762,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     });
 }
 
-const isStandaloneApp = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-let deferredInstallPrompt = null;
+var isStandaloneApp = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+var deferredInstallPrompt = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     // Android/Chrome: keep the browser's install prompt for our own button
@@ -10813,13 +10817,13 @@ function showInstallBanner(kind) {
 // Switch PADDLE_ENV to 'production' (with the live token and live price
 // IDs) once Paddle approves the account.
 // =========================================================
-const PADDLE_ENV = 'sandbox';
-const PADDLE_CLIENT_TOKEN = 'test_5200e1025850bdfe448391ebcbb';
-const PADDLE_PRICES = {
+var PADDLE_ENV = 'sandbox';
+var PADDLE_CLIENT_TOKEN = 'test_5200e1025850bdfe448391ebcbb';
+var PADDLE_PRICES = {
     monthly: 'pri_01m7vmy1z2ncjpz65391yjnnxq', // US$4.99 / month
     yearly: 'pri_01m7vmyngd8m3bzmbktdbjagzm'   // US$39.99 / year
 };
-let paddleReady = false;
+var paddleReady = false;
 
 function initPaddle() {
     if (paddleReady || !window.Paddle) return;
@@ -10921,9 +10925,9 @@ function showUpgradeNotice(message) {
 // =========================================================
 // Paddle's customer portal (cancel, change card, invoices). Public link
 // from Paddle -> Settings -> Customer portal. Empty until it's set.
-const PADDLE_CUSTOMER_PORTAL_URL = 'https://sandbox-customer-portal.paddle.com/cpl_01m7vmqkzr6marpxd3c5h5qfqb'; // sandbox - replace with the live portal link when going live
-const PRO_STATUSES = ['active', 'trialing', 'past_due']; // past_due: keep access while Paddle retries the card
-let proSubscription; // undefined = not checked yet, null = no subscription
+var PADDLE_CUSTOMER_PORTAL_URL = 'https://sandbox-customer-portal.paddle.com/cpl_01m7vmqkzr6marpxd3c5h5qfqb'; // sandbox - replace with the live portal link when going live
+var PRO_STATUSES = ['active', 'trialing', 'past_due']; // past_due: keep access while Paddle retries the card
+var proSubscription; // undefined = not checked yet, null = no subscription
 
 function isProUser() {
     return !!(proSubscription && PRO_STATUSES.includes(proSubscription.status));
@@ -11012,10 +11016,10 @@ document.addEventListener('visibilitychange', () => {
 // Nothing is ever deleted: over the limit you keep everything, you just
 // can't add more until you upgrade. Pro (or the trial) removes the limits.
 // =========================================================
-const FREE_NOTES_LIMIT = 20;
-const FREE_BOARD_PROJECTS_LIMIT = 1;
-const TRIAL_DAYS = 14;
-const TRIAL_LAUNCH_DATE = Date.parse('2026-11-20T00:00:00Z'); // accounts older than this get their 14 days from launch
+var FREE_NOTES_LIMIT = 20;
+var FREE_BOARD_PROJECTS_LIMIT = 1;
+var TRIAL_DAYS = 14;
+var TRIAL_LAUNCH_DATE = Date.parse('2026-11-20T00:00:00Z'); // accounts older than this get their 14 days from launch
 
 function trialEndsAt() {
     if (!currentUser) return 0;
@@ -11100,7 +11104,7 @@ requirePro('linkDropboxAccount', 'Dropbox backups are a Pro feature.');
 // edges -> let go to drop it there. Moving the finger before the hold
 // completes is treated as a normal scroll, so scrolling isn't affected.
 // =========================================================
-let noteBlockHoldDragActive = false;
+var noteBlockHoldDragActive = false;
 
 // While a block is being dragged, stop the page from scrolling under the finger
 document.addEventListener('touchmove', (e) => {
@@ -11131,18 +11135,37 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
         const others = () => [...container.children].filter(el => el.dataset && el.dataset.blockId && el !== wrap);
         const scrollTopOf = () => scroller === document.scrollingElement || scroller === document.documentElement ? window.scrollY : scroller.scrollTop;
 
+        let splitTarget = null; // { blockId, line } when dropping between two lines of a text block
         const placeIndicator = () => {
             const list = others();
-            insertIdx = list.length;
-            for (let i = 0; i < list.length; i++) {
-                const r = list[i].getBoundingClientRect();
-                if (lastY < r.top + r.height / 2) { insertIdx = i; break; }
-            }
             const cRect = container.getBoundingClientRect();
-            let y;
-            if (list.length === 0) y = cRect.top;
-            else if (insertIdx < list.length) y = list[insertIdx].getBoundingClientRect().top - 3;
-            else y = list[list.length - 1].getBoundingClientRect().bottom + 3;
+            splitTarget = null;
+            let y = null;
+            // Over a text block with several lines? Drop between the nearest two lines.
+            for (const el of list) {
+                const ta = el.querySelector && el.querySelector('textarea.note-text-block');
+                if (!ta) continue;
+                const r = el.getBoundingClientRect();
+                if (lastY < r.top || lastY > r.bottom) continue;
+                const bounds = textLineBoundaries(ta); // viewport y of the top of each line, plus the bottom
+                let best = 0;
+                for (let k = 1; k < bounds.length; k++) if (Math.abs(bounds[k] - lastY) < Math.abs(bounds[best] - lastY)) best = k;
+                if (best > 0 && best < bounds.length - 1) {
+                    splitTarget = { blockId: el.dataset.blockId, line: best };
+                    y = bounds[best];
+                }
+                break;
+            }
+            if (!splitTarget) {
+                insertIdx = list.length;
+                for (let i = 0; i < list.length; i++) {
+                    const r = list[i].getBoundingClientRect();
+                    if (lastY < r.top + r.height / 2) { insertIdx = i; break; }
+                }
+                if (list.length === 0) y = cRect.top;
+                else if (insertIdx < list.length) y = list[insertIdx].getBoundingClientRect().top - 3;
+                else y = list[list.length - 1].getBoundingClientRect().bottom + 3;
+            }
             indicator.style.top = `${y}px`;
             indicator.style.left = `${cRect.left}px`;
             indicator.style.width = `${cRect.width}px`;
@@ -11197,8 +11220,12 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
         const onUp = (ev) => {
             if (ev.pointerId !== pointerId) return;
             const dropIdx = lifted ? insertIdx : -1;
+            const dropSplit = lifted ? splitTarget : null;
             cleanup();
-            if (dropIdx >= 0) {
+            if (dropSplit) {
+                ev.preventDefault();
+                moveNoteBlockIntoText(block.id, dropSplit.blockId, dropSplit.line);
+            } else if (dropIdx >= 0) {
                 ev.preventDefault();
                 moveNoteBlockToIndex(block.id, dropIdx);
             }
@@ -11223,6 +11250,49 @@ function enableHoldToMoveBlock(wrap, target, block, shouldIgnore) {
         document.addEventListener('pointercancel', onUp);
         wrap._holdTimer = setTimeout(lift, HOLD_MS);
     });
+}
+
+// Where each line of a text block starts on screen (lines = the text's
+// own line breaks, measured with wrapping exactly as displayed), plus
+// where the block ends. Uses an invisible copy styled like the textarea.
+function textLineBoundaries(ta) {
+    const cs = getComputedStyle(ta);
+    const mirror = document.createElement('div');
+    ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'textTransform', 'wordSpacing'].forEach(k => { mirror.style[k] = cs[k]; });
+    Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', left: '-9999px', top: '0', width: ta.clientWidth + 'px', boxSizing: 'border-box', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' });
+    const lines = ta.value.split('\n');
+    lines.forEach(line => {
+        const d = document.createElement('div');
+        d.textContent = line.length ? line : '\u200b';
+        mirror.appendChild(d);
+    });
+    document.body.appendChild(mirror);
+    const top = ta.getBoundingClientRect().top - ta.scrollTop;
+    const bounds = [...mirror.children].map(d => top + d.offsetTop);
+    bounds.push(top + mirror.scrollHeight - parseFloat(cs.paddingBottom || 0));
+    mirror.remove();
+    return bounds;
+}
+
+// Drops a block between two lines of a text block: the text is split at
+// that line break and the block goes in between. Nothing is lost.
+function moveNoteBlockIntoText(blockId, textBlockId, line) {
+    const note = notesData.find(n => n.id === currentNoteId);
+    if (!note || !note.blocks || blockId === textBlockId) return;
+    const from = note.blocks.findIndex(b => b.id === blockId);
+    if (from === -1) return;
+    const [moved] = note.blocks.splice(from, 1);
+    const ti = note.blocks.findIndex(b => b.id === textBlockId);
+    if (ti === -1) { note.blocks.splice(from, 0, moved); renderNoteBlocks(note); return; }
+    const textBlock = note.blocks[ti];
+    const lines = (textBlock.content || '').split('\n');
+    const before = lines.slice(0, line).join('\n');
+    const after = lines.slice(line).join('\n');
+    const afterBlock = { id: genBlockId(), type: 'text', content: after };
+    textBlock.content = before;
+    note.blocks.splice(ti + 1, 0, moved, afterBlock);
+    scheduleNoteSave(note);
+    renderNoteBlocks(note);
 }
 
 // Moves a block so it sits at position `index` among the OTHER blocks
