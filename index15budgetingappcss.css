@@ -6755,3 +6755,29 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
     font-family: inherit;
     cursor: pointer;
 }
+
+
+/* --- Computer: the note toolbar (color, photo, record, divider) stays
+       visible at the top while scrolling a long note --- */
+@media (min-width: 769px) {
+    #notes-section .notes-toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        background: var(--note-bg, var(--card-bg));
+        padding: 8px 0;
+        margin-bottom: 8px;
+        border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    }
+}
+@media (min-width: 769px) {
+    /* "clip" keeps the rounded corners but, unlike "hidden", lets the
+       note toolbar stay stuck to the top while scrolling */
+    #notes-section { overflow: clip; }
+}
+@media (min-width: 769px) {
+    /* "hidden" on html/body silently turned the body into its own scroll
+       box, which stops anything from sticking to the top of the screen;
+       "clip" hides sideways overflow the same way without that */
+    html, body { overflow-x: clip; }
+}

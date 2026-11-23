@@ -5881,6 +5881,8 @@ function duplicateCurrentNote() {
 // cloud storage, or falls back to a base64 data URL right inside the
 // block for a guest with no account to upload to.
 let lastFocusedBlockId = null;
+var lastCaretInfo = null;      // { blockId, pos } - where the cursor was in a text block
+var recordingCaretInfo = null; // the cursor position when the current recording started
 
 // Mobile-only: which "screen" the Notes tab is showing - the full list,
 // or the full open note - never both at once (see the CSS rules under
@@ -6210,7 +6212,41 @@ function toggleNoteRecording() {
     }
 }
 
+// If the cursor was in the middle of a text block, put the new voice note
+// or photo exactly there: the text is split at the cursor and the item
+// goes in between. Returns false when the cursor was at the end (or not in
+// text), so the normal "after this block" placement is used.
+function placeMediaAtCaret(note, mediaBlock, caret) {
+    if (!caret || !note || !note.blocks) return false;
+    const idx = note.blocks.findIndex(b => b.id === caret.blockId);
+    const tb = idx === -1 ? null : note.blocks[idx];
+    if (!tb || tb.type !== 'text') return false;
+    const text = tb.content || '';
+    const pos = Math.max(0, Math.min(caret.pos || 0, text.length));
+    if (pos >= text.length) return false; // at the end: normal placement after the block
+    let focusBlock, focusPos = 0;
+    if (pos === 0) {
+        note.blocks.splice(idx, 0, mediaBlock); // at the very start: right before the text
+        focusBlock = tb;
+    } else {
+        const before = text.slice(0, pos).replace(/\n$/, '');
+        const after = text.slice(pos).replace(/^\n/, '');
+        tb.content = before;
+        focusBlock = { id: genBlockId(), type: 'text', content: after };
+        note.blocks.splice(idx + 1, 0, mediaBlock, focusBlock);
+    }
+    lastFocusedBlockId = focusBlock.id;
+    lastCaretInfo = { blockId: focusBlock.id, pos: focusPos };
+    renderNoteBlocks(note);
+    scheduleNoteSave(note);
+    if (typeof renderNotesList === 'function') renderNotesList();
+    const ta = document.querySelector(`textarea[data-block-id="${focusBlock.id}"]`);
+    if (ta) { ta.focus({ preventScroll: true }); try { ta.setSelectionRange(focusPos, focusPos); } catch (_) {} }
+    return true;
+}
+
 async function startNoteRecording() {
+    recordingCaretInfo = lastCaretInfo ? { ...lastCaretInfo } : null; // insert where the cursor is now
     // A new recording: cancel the "turn the mic off in a minute" timer left
     // over from the previous voice note, or it would cut this one short.
     if (noteRecordingIdleReleaseTimer) {
@@ -6663,6 +6699,10 @@ function insertAudioBlockAfterFocus(note, dataUrl, durationSec, storagePath) {
 
     assignVoiceNumbers(note);
     const audioBlock = { id: genBlockId(), type: 'audio', audioData: dataUrl, storagePath: storagePath || null, duration: durationSec, label: 'Voice note', createdAt: Date.now(), voiceNo: nextVoiceNumber(note) };
+    // Where the cursor was when recording started: insert right there
+    const caret = recordingCaretInfo || lastCaretInfo;
+    recordingCaretInfo = null;
+    if (placeMediaAtCaret(note, audioBlock, caret)) return;
     const newTextBlock = { id: genBlockId(), type: 'text', content: '' };
 
     let insertAt = note.blocks.length;
@@ -7130,6 +7170,10 @@ function buildTextBlockEl(block, index) {
         lastFocusedBlockId = block.id;
         pushNotesUndoSnapshot();
     });
+    // remember exactly where the cursor is, so a recording/photo can be
+    // inserted at that spot (splitting the text there)
+    const rememberCaret = () => { lastCaretInfo = { blockId: block.id, pos: ta.selectionStart }; };
+    ['focus', 'click', 'keyup', 'select', 'input'].forEach(ev => ta.addEventListener(ev, rememberCaret));
     ta.addEventListener('input', () => {
         autoGrowTextarea(ta);
         handleBlockTextEdited(block.id, ta.value);
@@ -7632,6 +7676,7 @@ function insertImageBlockAfterFocus(note, dataUrl, storagePath) {
     ensureNoteBlocks(note);
 
     const imageBlock = { id: genBlockId(), type: 'image', imageData: dataUrl, storagePath: storagePath || null, caption: '', createdAt: Date.now() };
+    if (placeMediaAtCaret(note, imageBlock, lastCaretInfo)) return;
     const newTextBlock = { id: genBlockId(), type: 'text', content: '' };
 
     let insertAt = note.blocks.length;
