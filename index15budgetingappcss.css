@@ -6781,3 +6781,53 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
        "clip" hides sideways overflow the same way without that */
     html, body { overflow-x: clip; }
 }
+
+
+/* --- Reminders window + in-app alarm --- */
+.reminders-modal { max-width: 440px; }
+.reminders-device {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.reminders-main-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.reminders-main-btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--border-color); }
+.reminders-hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+.reminders-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.88rem;
+}
+.reminders-row select, .reminders-row input[type="time"] {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 5px 8px;
+    font-family: inherit;
+}
+.reminders-modal .shortcuts-reset { margin-top: 12px; }
+.alarm-modal { text-align: center; }
+.alarm-bell { font-size: 2.6rem; animation: alarm-shake 0.6s ease-in-out infinite; }
+.alarm-modal .reminders-main-btn { width: 100%; margin-top: 14px; font-size: 1rem; padding: 12px; }
+@keyframes alarm-shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }

@@ -11848,3 +11848,234 @@ document.addEventListener('keydown', (e) => {
     shortcutCaptureFor = null;
     renderShortcutsList();
 }, true);
+
+
+// =========================================================
+// REMINDERS
+// - Push notifications (phone + computer, even with Nabu closed): the
+//   server function "nabu-reminders" checks every minute.
+// - In-app alarm: while Nabu is open, a sound + popup at the reminder
+//   time that keeps ringing until "OK".
+// Settings are per account (saved with each device's subscription) and
+// kept on this device for the in-app alarm.
+// =========================================================
+var REMINDERS_FN_URL = SUPABASE_URL + '/functions/v1/nabu-reminders';
+var DEFAULT_REMINDER_SETTINGS = { enabled: true, before: 10, which: 'all', daily: true, dailyTime: '20:00', inApp: true };
+
+function getReminderSettings() {
+    try { return Object.assign({}, DEFAULT_REMINDER_SETTINGS, JSON.parse(localStorage.getItem('nabuReminderSettings') || '{}')); }
+    catch (_) { return Object.assign({}, DEFAULT_REMINDER_SETTINGS); }
+}
+async function saveReminderSettings(settings) {
+    try { localStorage.setItem('nabuReminderSettings', JSON.stringify(settings)); } catch (_) {}
+    if (!currentUser) return;
+    const { inApp, ...serverSettings } = settings;
+    try {
+        await supabaseClient.from('push_subscriptions')
+            .update({ settings: serverSettings, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, updated_at: new Date().toISOString() })
+            .eq('user_id', currentUser.id);
+    } catch (err) { console.warn('Could not save reminder settings:', err); }
+}
+
+function urlB64ToUint8Array(b64) {
+    const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+// The background script may not be running (private browsing, first load):
+// never wait more than a couple of seconds for it.
+function swReady(ms = 2500) {
+    return Promise.race([navigator.serviceWorker.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('Background script not ready')), ms))]);
+}
+async function getDevicePushSubscription() {
+    if (!pushSupported()) return null;
+    try { const reg = await swReady(); return await reg.pushManager.getSubscription(); } catch (_) { return null; }
+}
+
+async function enablePushOnThisDevice() {
+    if (!currentUser) { showUpgradeNotice('Log in first to turn on reminders.'); return false; }
+    if (!pushSupported()) { showUpgradeNotice(isIosDevice() ? 'On iPhone, install Nabu on your Home Screen first (Share → Add to Home Screen), then open it from there.' : 'This browser can’t show notifications.'); return false; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { showUpgradeNotice('Notifications are blocked. Allow them for this site in your browser/phone settings, then try again.'); return false; }
+    try {
+        const res = await fetch(REMINDERS_FN_URL + '?action=vapid');
+        const { publicKey } = await res.json();
+        const reg = await swReady(8000);
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(publicKey) });
+        const json = sub.toJSON();
+        const { inApp, ...serverSettings } = getReminderSettings();
+        const { error } = await supabaseClient.from('push_subscriptions').upsert({
+            endpoint: json.endpoint, user_id: currentUser.id, subscription: json,
+            tz: Intl.DateTimeFormat().resolvedOptions().timeZone, settings: serverSettings, updated_at: new Date().toISOString()
+        }, { onConflict: 'endpoint' });
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error('Could not turn on notifications:', err);
+        showUpgradeNotice('Couldn’t turn on notifications right now - check your connection and try again.');
+        return false;
+    }
+}
+
+async function disablePushOnThisDevice() {
+    const sub = await getDevicePushSubscription();
+    if (!sub) return;
+    try { await supabaseClient.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); } catch (_) {}
+    try { await sub.unsubscribe(); } catch (_) {}
+}
+
+async function sendTestNotification() {
+    if (!currentUser) return;
+    try {
+        const { data } = await supabaseClient.auth.getSession();
+        const token = data && data.session && data.session.access_token;
+        const res = await fetch(REMINDERS_FN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'test' }) });
+        const out = await res.json();
+        showUpgradeNotice(out.sent ? `Test sent to ${out.sent} device${out.sent === 1 ? '' : 's'} - it should appear in a few seconds.` : 'No device has notifications on yet.');
+    } catch (err) {
+        showUpgradeNotice('Couldn’t send the test - check your connection.');
+    }
+}
+
+function isIosDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+async function openRemindersModal() {
+    document.getElementById('reminders-modal')?.remove();
+    const s = getReminderSettings();
+    const deviceOn = !!(await getDevicePushSubscription()) && typeof Notification !== 'undefined' && Notification.permission === 'granted';
+    const iosNeedsInstall = isIosDevice() && !(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+    const modal = document.createElement('div');
+    modal.id = 'reminders-modal';
+    modal.className = 'upgrade-modal-overlay';
+    modal.innerHTML = `
+        <div class="upgrade-modal reminders-modal" role="dialog" aria-label="Reminders">
+            <button type="button" class="upgrade-close" aria-label="Close" onclick="document.getElementById('reminders-modal').remove()">✕</button>
+            <div class="upgrade-title">🔔 Reminders</div>
+            <div class="reminders-device">
+                <div>${deviceOn ? '✅ Notifications are <b>on</b> for this device' : 'Notifications are <b>off</b> for this device'}</div>
+                <button type="button" class="reminders-main-btn${deviceOn ? ' secondary' : ''}" id="reminders-device-btn">${deviceOn ? 'Turn off on this device' : 'Turn on notifications'}</button>
+                ${iosNeedsInstall ? '<div class="reminders-hint">On iPhone, notifications only work when Nabu is installed: Share → Add to Home Screen, then open it from the icon.</div>' : ''}
+                ${!currentUser ? '<div class="reminders-hint">Log in to use reminders.</div>' : ''}
+            </div>
+            <label class="reminders-row"><span>Remind me before an activity</span>
+                <select id="rem-before">${[0, 5, 10, 15, 30].map(m => `<option value="${m}"${+s.before === m ? ' selected' : ''}>${m ? m + ' min before' : 'When it starts'}</option>`).join('')}</select>
+            </label>
+            <label class="reminders-row"><span>For</span>
+                <select id="rem-which"><option value="all"${s.which === 'all' ? ' selected' : ''}>All activities</option><option value="planned"${s.which === 'planned' ? ' selected' : ''}>Only planned ones</option></select>
+            </label>
+            <label class="reminders-row"><span><input type="checkbox" id="rem-daily"${s.daily ? ' checked' : ''}> Remind me if I haven't logged anything by</span>
+                <input type="time" id="rem-daily-time" value="${s.dailyTime}">
+            </label>
+            <label class="reminders-row"><span><input type="checkbox" id="rem-inapp"${s.inApp ? ' checked' : ''}> Alarm sound while Nabu is open</span></label>
+            <label class="reminders-row"><span><input type="checkbox" id="rem-enabled"${s.enabled ? ' checked' : ''}> Reminders on</span></label>
+            ${deviceOn ? '<button type="button" class="shortcuts-reset" id="rem-test">Send a test notification</button>' : ''}
+        </div>`;
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+
+    const readForm = () => ({
+        enabled: modal.querySelector('#rem-enabled').checked,
+        before: +modal.querySelector('#rem-before').value,
+        which: modal.querySelector('#rem-which').value,
+        daily: modal.querySelector('#rem-daily').checked,
+        dailyTime: modal.querySelector('#rem-daily-time').value || '20:00',
+        inApp: modal.querySelector('#rem-inapp').checked
+    });
+    modal.querySelectorAll('select, input').forEach(el => el.addEventListener('change', () => saveReminderSettings(readForm())));
+    modal.querySelector('#reminders-device-btn').addEventListener('click', async () => {
+        if (deviceOn) await disablePushOnThisDevice(); else await enablePushOnThisDevice();
+        openRemindersModal(); // refresh
+    });
+    modal.querySelector('#rem-test')?.addEventListener('click', sendTestNotification);
+}
+
+// ---- In-app alarm (while Nabu is open) ----
+var alarmAudioCtx = null, alarmTimer = null;
+function minutesOf(timeRange) {
+    const m = typeof timeRange === 'string' && timeRange.match(/^(\d{1,2}):(\d{2})/);
+    return m ? (+m[1]) * 60 + (+m[2]) : null;
+}
+function dueInAppAlarms(now = new Date()) {
+    const s = getReminderSettings();
+    if (!s.enabled || !s.inApp) return [];
+    const date = formatDateKey(now);
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const blocks = (typeof timeData !== 'undefined' && timeData[date]) || [];
+    const out = [];
+    for (const b of blocks) {
+        if (!b || (b.liveTimer && !b.liveTimer.finished)) continue;
+        if (s.which === 'planned' && b.type !== 'projected') continue;
+        const start = minutesOf(b.timeRange);
+        if (start === null) continue;
+        const at = start - (+s.before || 0);
+        if (mins >= at && mins <= at + 5 && mins <= start + 1) {
+            const name = (b.name && String(b.name).trim()) || b.category || 'Activity';
+            out.push({ key: `${date}|${start}|${name}|${s.before}`, text: s.before ? `${name} starts in ${s.before} min (${b.timeRange.slice(0, 5)})` : `${name} starts now (${b.timeRange.slice(0, 5)})`, title: b.category || 'Nabu' });
+        }
+    }
+    return out;
+}
+function startAlarmSound() {
+    try {
+        alarmAudioCtx = alarmAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (alarmAudioCtx.state === 'suspended') alarmAudioCtx.resume();
+        let count = 0;
+        const beep = () => {
+            if (!alarmAudioCtx || count++ > 60) return stopAlarmSound(); // stops by itself after ~1 minute
+            [0, 0.18].forEach(offset => {
+                const o = alarmAudioCtx.createOscillator(), g = alarmAudioCtx.createGain();
+                o.type = 'sine'; o.frequency.value = 880;
+                g.gain.setValueAtTime(0.0001, alarmAudioCtx.currentTime + offset);
+                g.gain.exponentialRampToValueAtTime(0.35, alarmAudioCtx.currentTime + offset + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, alarmAudioCtx.currentTime + offset + 0.15);
+                o.connect(g).connect(alarmAudioCtx.destination);
+                o.start(alarmAudioCtx.currentTime + offset); o.stop(alarmAudioCtx.currentTime + offset + 0.16);
+            });
+        };
+        beep();
+        alarmTimer = setInterval(beep, 1000);
+    } catch (_) {}
+}
+function stopAlarmSound() { clearInterval(alarmTimer); alarmTimer = null; }
+function showInAppAlarm(items) {
+    if (document.getElementById('alarm-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'alarm-modal';
+    modal.className = 'upgrade-modal-overlay';
+    modal.innerHTML = `
+        <div class="upgrade-modal alarm-modal" role="alertdialog" aria-label="Reminder">
+            <div class="alarm-bell">⏰</div>
+            ${items.map(i => `<div class="upgrade-title">${escapeHtml(i.title)}</div><div class="upgrade-sub">${escapeHtml(i.text)}</div>`).join('')}
+            <button type="button" class="reminders-main-btn" id="alarm-ok">OK</button>
+        </div>`;
+    document.body.appendChild(modal);
+    if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    startAlarmSound();
+    modal.querySelector('#alarm-ok').addEventListener('click', () => { stopAlarmSound(); modal.remove(); });
+}
+function checkInAppAlarms() {
+    const due = dueInAppAlarms();
+    if (!due.length) return;
+    let shown = {};
+    try { shown = JSON.parse(localStorage.getItem('nabuAlarmShown') || '{}'); } catch (_) {}
+    const fresh = due.filter(d => !shown[d.key]);
+    if (!fresh.length) return;
+    fresh.forEach(d => { shown[d.key] = Date.now(); });
+    // forget old ones (older than 2 days)
+    Object.keys(shown).forEach(k => { if (Date.now() - shown[k] > 2 * 864e5) delete shown[k]; });
+    try { localStorage.setItem('nabuAlarmShown', JSON.stringify(shown)); } catch (_) {}
+    showInAppAlarm(fresh);
+}
+setInterval(checkInAppAlarms, 15000);
+// browsers only allow sound after the person has touched the page once
+document.addEventListener('pointerdown', () => {
+    try { alarmAudioCtx = alarmAudioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (alarmAudioCtx.state === 'suspended') alarmAudioCtx.resume(); } catch (_) {}
+}, { once: true });

@@ -10,7 +10,7 @@
 //   straight to the network.
 //
 // Bump CACHE_VERSION to force every device to drop its old copy.
-const CACHE_VERSION = 'nabu-v1';
+const CACHE_VERSION = 'nabu-v2';
 
 const APP_SHELL = [
     'index15budgetingapphtml.html',
@@ -78,5 +78,32 @@ self.addEventListener('fetch', (event) => {
             if (saved) return saved;
             throw err;
         }
+    })());
+});
+
+// ---- Reminders (push notifications) ----
+self.addEventListener('push', (event) => {
+    let data = {};
+    try { data = event.data ? event.data.json() : {}; } catch (_) { data = { body: event.data && event.data.text() }; }
+    const title = data.title || 'Nabu';
+    event.waitUntil(self.registration.showNotification(title, {
+        body: data.body || '',
+        icon: 'nabu-icon-192.png',
+        badge: 'nabu-icon-192.png',
+        tag: data.tag || undefined,
+        renotify: !!data.tag,
+        requireInteraction: false,
+        data: { url: data.url || 'index15budgetingapphtml.html' }
+    }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target = (event.notification.data && event.notification.data.url) || 'index15budgetingapphtml.html';
+    event.waitUntil((async () => {
+        const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const open = all.find(c => c.url.includes('index15budgetingapphtml'));
+        if (open) return open.focus();
+        return self.clients.openWindow(target);
     })());
 });
