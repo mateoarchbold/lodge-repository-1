@@ -3215,7 +3215,7 @@ function buildDayColumnEl(dateKey) {
             });
 
             vBlock.innerHTML = `
-                <div class="visual-block-title">${blockType === 'projected' ? '🌫️ ' : ''}${escapeHtml(block.category)}</div>
+                <div class="visual-block-title">${blockType === 'projected' ? '🌫️ ' : ''}${escapeHtml(block.category)}${(block.remind !== undefined && block.remind !== null) ? ` <span class="block-reminder-bell" title="Reminder ${block.remind ? block.remind + ' min before' : 'when it starts'}">🔔</span>` : ''}</div>
                 <div style="font-size:0.65rem; line-height:1.1;">${escapeHtml(block.name || '')}</div>
                 <div class="visual-block-time">${escapeHtml(block.timeRange)}</div>
                 <div class="resize-handle"></div>
@@ -3720,6 +3720,13 @@ function openBlockContextMenu(e, dateKey, index, category, currentType) {
     const content = menu?.querySelector('.context-menu-content');
 
     if (!menu || !content) return;
+
+    const remText = document.getElementById('context-reminder-text');
+    if (remText) {
+        const blk = timeData[dateKey] && timeData[dateKey][index];
+        const r = blk && blk.remind;
+        remText.innerText = (r === undefined || r === null) ? 'Add reminder' : `Reminder: ${r ? r + ' min before' : 'at start'}`;
+    }
 
     const planeText = document.getElementById('context-plane-text');
     const planeIcon = document.getElementById('context-plane-icon');
@@ -12005,20 +12012,24 @@ function minutesOf(timeRange) {
 }
 function dueInAppAlarms(now = new Date()) {
     const s = getReminderSettings();
-    if (!s.enabled || !s.inApp) return [];
+    if (s.inApp === false) return [];
     const date = formatDateKey(now);
     const mins = now.getHours() * 60 + now.getMinutes();
     const blocks = (typeof timeData !== 'undefined' && timeData[date]) || [];
     const out = [];
     for (const b of blocks) {
         if (!b || (b.liveTimer && !b.liveTimer.finished)) continue;
-        if (s.which === 'planned' && b.type !== 'projected') continue;
+        // A reminder set on this activity (right-click → Add reminder) always
+        // counts; otherwise the general setting from ☰ → Reminders applies.
+        const own = b.remind !== undefined && b.remind !== null;
+        if (!own && (!s.enabled || (s.which === 'planned' && b.type !== 'projected'))) continue;
+        const before = own ? (+b.remind || 0) : (+s.before || 0);
         const start = minutesOf(b.timeRange);
         if (start === null) continue;
-        const at = start - (+s.before || 0);
+        const at = start - before;
         if (mins >= at && mins <= at + 5 && mins <= start + 1) {
             const name = (b.name && String(b.name).trim()) || b.category || 'Activity';
-            out.push({ key: `${date}|${start}|${name}|${s.before}`, text: s.before ? `${name} starts in ${s.before} min (${b.timeRange.slice(0, 5)})` : `${name} starts now (${b.timeRange.slice(0, 5)})`, title: b.category || 'Nabu' });
+            out.push({ key: `${date}|${start}|${name}|${before}`, text: before ? `${name} starts in ${before} min (${b.timeRange.slice(0, 5)})` : `${name} starts now (${b.timeRange.slice(0, 5)})`, title: b.category || 'Nabu' });
         }
     }
     return out;
@@ -12079,3 +12090,39 @@ setInterval(checkInAppAlarms, 15000);
 document.addEventListener('pointerdown', () => {
     try { alarmAudioCtx = alarmAudioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (alarmAudioCtx.state === 'suspended') alarmAudioCtx.resume(); } catch (_) {}
 }, { once: true });
+
+
+// ---- Reminder on one activity (right-click / double-tap → 🔔 Add reminder)
+function openBlockReminderPicker() {
+    if (!contextBlockInfo) return;
+    const { dateKey, index } = contextBlockInfo;
+    const content = document.querySelector('#block-context-menu .context-menu-content');
+    const left = content ? content.style.left : '20px', top = content ? content.style.top : '100px';
+    closeBlockContextMenu();
+    const block = timeData[dateKey] && timeData[dateKey][index];
+    if (!block) return;
+    document.getElementById('block-reminder-picker')?.remove();
+    const has = block.remind !== undefined && block.remind !== null;
+    const picker = document.createElement('div');
+    picker.id = 'block-reminder-picker';
+    picker.className = 'context-menu-overlay';
+    picker.style.display = 'block';
+    const opts = [[0, 'When it starts'], [5, '5 min before'], [10, '10 min before'], [15, '15 min before'], [30, '30 min before'], [60, '1 hour before']];
+    picker.innerHTML = `
+        <div class="context-menu-content" style="left:${left}; top:${top};">
+            <div class="context-palette-header"><span>🔔</span><span style="font-size:0.8rem;">Remind me</span></div>
+            ${opts.map(([m, label]) => `<button class="context-menu-item${has && +block.remind === m ? ' reminder-picked' : ''}" data-min="${m}"><span>${has && +block.remind === m ? '✓' : ''}</span><span>${label}</span></button>`).join('')}
+            ${has ? '<hr class="context-divider"><button class="context-menu-item delete-item" data-min="off"><span>🔕</span><span>Remove reminder</span></button>' : ''}
+        </div>`;
+    picker.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-min]');
+        if (btn) {
+            if (btn.dataset.min === 'off') delete block.remind; else block.remind = +btn.dataset.min;
+            saveData();
+            refreshApp();
+            if (btn.dataset.min !== 'off') showUpgradeNotice(`🔔 Reminder set: ${block.name || block.category || 'activity'} – ${+btn.dataset.min ? btn.dataset.min + ' min before' : 'when it starts'}.`);
+        }
+        picker.remove();
+    });
+    document.body.appendChild(picker);
+}

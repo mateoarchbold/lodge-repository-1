@@ -6831,3 +6831,6 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 .alarm-bell { font-size: 2.6rem; animation: alarm-shake 0.6s ease-in-out infinite; }
 .alarm-modal .reminders-main-btn { width: 100%; margin-top: 14px; font-size: 1rem; padding: 12px; }
 @keyframes alarm-shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+
+.block-reminder-bell { font-size: 0.7rem; margin-left: 2px; }
+.context-menu-item.reminder-picked { font-weight: 700; }

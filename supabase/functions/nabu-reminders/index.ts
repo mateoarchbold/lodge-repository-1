@@ -51,27 +51,29 @@ type Due = { key: string; title: string; body: string };
 // push_sent table makes sure each one is only sent once.
 function dueReminders(appData: any, settings: any, tz: string, now = new Date()): Due[] {
   const s = { enabled: true, before: 10, which: "all", daily: true, dailyTime: "20:00", ...(settings || {}) };
-  if (!s.enabled) return [];
   const { date, minutes } = localNow(tz, now);
   const blocks: any[] = (appData && appData.timeData && appData.timeData[date]) || [];
   const out: Due[] = [];
   const before = Math.max(0, Number(s.before) || 0);
   for (const b of blocks) {
     if (!b || (b.liveTimer && !b.liveTimer.finished)) continue;
-    if (s.which === "planned" && b.type !== "projected") continue;
+    // a reminder set on this activity always counts; otherwise the general setting
+    const own = b.remind !== undefined && b.remind !== null;
+    if (!own && (!s.enabled || (s.which === "planned" && b.type !== "projected"))) continue;
+    const mins = own ? Math.max(0, Number(b.remind) || 0) : before;
     const start = parseStart(b.timeRange);
     if (start === null) continue;
-    const at = start - before;
+    const at = start - mins;
     if (minutes >= at && minutes <= at + 5 && minutes <= start + 1) {
       const name = (b.name && String(b.name).trim()) || b.category || "Activity";
       out.push({
-        key: `${date}|${start}|${name}|${before}`,
+        key: `${date}|${start}|${name}|${mins}`,
         title: `⏰ ${b.category || "Nabu"}`,
-        body: before ? `${name} starts in ${before} min (${hhmm(start)})` : `${name} starts now (${hhmm(start)})`,
+        body: mins ? `${name} starts in ${mins} min (${hhmm(start)})` : `${name} starts now (${hhmm(start)})`,
       });
     }
   }
-  if (s.daily) {
+  if (s.enabled && s.daily) {
     const daily = parseStart(s.dailyTime);
     const loggedSomething = blocks.some((b: any) => b && b.type !== "projected");
     if (daily !== null && minutes >= daily && minutes <= daily + 5 && !loggedSomething) {
