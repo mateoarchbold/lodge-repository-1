@@ -50,7 +50,8 @@ type Due = { key: string; title: string; body: string };
 // moment until 5 minutes later (so a missed minute isn't lost); the
 // push_sent table makes sure each one is only sent once.
 function dueReminders(appData: any, settings: any, tz: string, now = new Date()): Due[] {
-  const s = { enabled: true, before: 10, which: "all", daily: true, dailyTime: "20:00", ...(settings || {}) };
+  // general reminders are opt-in; reminders set on an activity always count
+  const s = { enabled: false, before: 10, which: "all", daily: false, dailyTime: "20:00", ...(settings || {}) };
   const { date, minutes } = localNow(tz, now);
   const blocks: any[] = (appData && appData.timeData && appData.timeData[date]) || [];
   const out: Due[] = [];

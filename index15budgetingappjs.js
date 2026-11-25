@@ -11867,11 +11867,18 @@ document.addEventListener('keydown', (e) => {
 // kept on this device for the in-app alarm.
 // =========================================================
 var REMINDERS_FN_URL = SUPABASE_URL + '/functions/v1/nabu-reminders';
-var DEFAULT_REMINDER_SETTINGS = { enabled: true, before: 10, which: 'all', daily: true, dailyTime: '20:00', inApp: true };
+// General reminders are OFF by default: an activity only reminds you when
+// you add a reminder to it (right-click → 🔔 Add reminder), unless you turn
+// the general ones on in ☰ → Reminders.
+var DEFAULT_REMINDER_SETTINGS = { enabled: false, before: 10, which: 'all', daily: false, dailyTime: '20:00', inApp: true, v: 2 };
 
 function getReminderSettings() {
-    try { return Object.assign({}, DEFAULT_REMINDER_SETTINGS, JSON.parse(localStorage.getItem('nabuReminderSettings') || '{}')); }
-    catch (_) { return Object.assign({}, DEFAULT_REMINDER_SETTINGS); }
+    try {
+        const saved = JSON.parse(localStorage.getItem('nabuReminderSettings') || '{}');
+        // settings saved before general reminders became opt-in: start them off
+        if (saved && saved.v !== 2) { delete saved.enabled; delete saved.daily; }
+        return Object.assign({}, DEFAULT_REMINDER_SETTINGS, saved, { v: 2 });
+    } catch (_) { return Object.assign({}, DEFAULT_REMINDER_SETTINGS); }
 }
 async function saveReminderSettings(settings) {
     try { localStorage.setItem('nabuReminderSettings', JSON.stringify(settings)); } catch (_) {}
@@ -11982,13 +11989,14 @@ async function openRemindersModal() {
                 <input type="time" id="rem-daily-time" value="${s.dailyTime}">
             </label>
             <label class="reminders-row"><span><input type="checkbox" id="rem-inapp"${s.inApp ? ' checked' : ''}> Alarm sound while Nabu is open</span></label>
-            <label class="reminders-row"><span><input type="checkbox" id="rem-enabled"${s.enabled ? ' checked' : ''}> Reminders on</span></label>
+            <label class="reminders-row"><span><input type="checkbox" id="rem-enabled"${s.enabled ? ' checked' : ''}> Remind me before <b>every</b> activity (not just the ones I choose)</span></label>
             ${deviceOn ? '<button type="button" class="shortcuts-reset" id="rem-test">Send a test notification</button>' : ''}
         </div>`;
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
 
     const readForm = () => ({
+        v: 2,
         enabled: modal.querySelector('#rem-enabled').checked,
         before: +modal.querySelector('#rem-before').value,
         which: modal.querySelector('#rem-which').value,
