@@ -6834,3 +6834,21 @@ body.note-block-dragging, body.note-block-dragging * { cursor: grabbing !importa
 
 .block-reminder-bell { font-size: 0.7rem; margin-left: 2px; }
 .context-menu-item.reminder-picked { font-weight: 700; }
+
+
+/* --- Day list: Completed / Planned groups --- */
+.day-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 4px 6px;
+    border-bottom: 1px solid var(--border-color);
+    margin: 4px 0 6px;
+}
+.day-group-header.day-group-planned { margin-top: 14px; }
+.day-group-total { font-weight: 600; text-transform: none; letter-spacing: 0; }

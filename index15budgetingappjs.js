@@ -2031,9 +2031,28 @@ function renderDayScheduleStack() {
             .map((block, index) => ({ block, index }))
             .filter(({ block }) => !filterText || (block.category || 'General').toLowerCase().includes(filterText));
 
-        let filteredTotalHrs = 0;
-        filtered.forEach(({ block, index }) => {
-            filteredTotalHrs += parseFloat(block.hours || 0);
+        // Two groups: what you actually did (Completed) and what is only
+        // planned / reminders / achievements (Planned), each by start time.
+        // "Logged today" counts only Completed.
+        const startOf = (b) => { const m = String(b.timeRange || '').match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 9999; };
+        filtered.sort((a, b) => startOf(a.block) - startOf(b.block));
+        const doneItems = filtered.filter(({ block }) => block.type !== 'projected');
+        const plannedItems = filtered.filter(({ block }) => block.type === 'projected');
+        const sumHrs = (arr) => arr.reduce((t, { block }) => t + (parseFloat(block.hours) || 0), 0);
+        const addGroupHeader = (label, hrs, count, kind) => {
+            const h = document.createElement('div');
+            h.className = 'day-group-header day-group-' + kind;
+            h.innerHTML = `<span>${label}</span><span class="day-group-total">${count} · ${hrs.toFixed(hrs % 1 === 0 ? 0 : 1)}h</span>`;
+            container.appendChild(h);
+        };
+
+        let filteredTotalHrs = sumHrs(doneItems);
+        const ordered = [];
+        if (doneItems.length) ordered.push({ header: ['✅ Completed', sumHrs(doneItems), doneItems.length, 'done'] }, ...doneItems);
+        if (plannedItems.length) ordered.push({ header: ['🌫️ Planned', sumHrs(plannedItems), plannedItems.length, 'planned'] }, ...plannedItems);
+        ordered.forEach((entry) => {
+            if (entry.header) { addGroupHeader(...entry.header); return; }
+            const { block, index } = entry;
             const color = getCategoryColor(block.category);
             const isProjected = block.type === 'projected';
 
